@@ -1,103 +1,73 @@
-import Image from "next/image";
+import Link from "next/link";
+import { db } from "@/lib/db";
+import { dayLabel, isOffOn, todayDay } from "@/lib/days";
+import { PageHeader } from "@/components/PageHeader";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const today = todayDay();
+  const branches = await db.branch.findMany({
+    orderBy: { name: "asc" },
+    include: { workers: { select: { daysOff: true } } },
+  });
+
+  const totalWorkers = branches.reduce((s, b) => s + b.workers.length, 0);
+  const offToday = branches.reduce((s, b) => s + b.workers.filter((w) => isOffOn(w.daysOff, today)).length, 0);
+
+  const stats = [
+    { label: "عدد الفروع", value: branches.length },
+    { label: "إجمالي العمال", value: totalWorkers },
+    { label: `في إجازة النهارده (${dayLabel(today)})`, value: offToday },
+    { label: "شغالين النهارده", value: totalWorkers - offToday },
+  ];
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <>
+      <PageHeader title="الفروع" subtitle="كل فروع الشركة وعدد العمال في كل فرع">
+        <Link href="/branches/new" className="btn-primary">+ إضافة فرع</Link>
+      </PageHeader>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        {stats.map((s) => (
+          <div key={s.label} className="card p-4">
+            <div className="text-xs font-semibold text-slate-500">{s.label}</div>
+            <div className="mt-1 text-2xl font-bold">{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {branches.length === 0 ? (
+        <div className="card p-10 text-center text-slate-500">
+          لسه مفيش فروع. ابدأ بـ <Link href="/branches/new" className="font-semibold text-brand-700 underline">إضافة أول فرع</Link>.
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {branches.map((b) => {
+            const count = b.workers.length;
+            const off = b.workers.filter((w) => isOffOn(w.daysOff, today)).length;
+            return (
+              <Link key={b.id} href={`/branches/${b.id}`} className="card group flex flex-col p-5 transition hover:border-brand-500 hover:shadow-md">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-bold group-hover:text-brand-700">{b.name}</h2>
+                    {b.address && <p className="truncate text-sm text-slate-500">{b.address}</p>}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-center rounded-xl bg-brand-50 px-4 py-2 text-brand-700">
+                    <span className="text-3xl font-bold leading-none">{count}</span>
+                    <span className="mt-1 text-xs font-semibold">عامل</span>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-sm text-slate-600">
+                  <span>المشرف: {b.supervisor ?? "—"}</span>
+                  <span>إجازة النهارده: <b>{off}</b></span>
+                  <span>شغالين: <b>{count - off}</b></span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </>
   );
 }
