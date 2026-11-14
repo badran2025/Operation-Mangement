@@ -1,51 +1,67 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { daysUntil, DOC_LABELS, formatDate } from "@/lib/format";
-import { Empty, ExpiryBadge, PageHeader, Stat } from "@/components/ui";
+import { getT } from "@/lib/i18n/server";
+import { daysUntil, formatDate, nf } from "@/lib/i18n/format";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyNote, Kpi, PageHeader, Panel } from "@/components/app/blocks";
 
 export const dynamic = "force-dynamic";
 
 export default async function DocumentsPage() {
   const { supabase } = await requireAdmin();
+  const { t, locale } = await getT();
+  const n = nf(locale);
+  const D = t.documents;
   const { data } = await supabase
     .from("worker_documents")
-    .select("id, doc_type, number, expiry_date, worker_id, workers(full_name)")
+    .select("id, doc_type, expiry_date, worker_id, workers(full_name)")
     .not("expiry_date", "is", null)
     .order("expiry_date");
   const docs = (data ?? []).map((d) => ({ ...d, days: daysUntil(d.expiry_date)! }));
-  const expired = docs.filter((d) => d.days < 0);
-  const soon = docs.filter((d) => d.days >= 0 && d.days <= 30);
-  const within90 = docs.filter((d) => d.days > 30 && d.days <= 90);
+  const expired = docs.filter((d) => d.days < 0).length;
+  const soon = docs.filter((d) => d.days >= 0 && d.days <= 30).length;
+  const within90 = docs.filter((d) => d.days > 30 && d.days <= 90).length;
   const attention = docs.filter((d) => d.days <= 90);
 
   return (
     <>
-      <PageHeader title="المستندات" subtitle="الإقامات والجوازات والتأمين والعقود اللي قربت تنتهي" />
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="منتهية" value={expired.length} tone={expired.length ? "red" : undefined} />
-        <Stat label="خلال 30 يوم" value={soon.length} tone={soon.length ? "red" : undefined} />
-        <Stat label="خلال 90 يوم" value={within90.length} tone={within90.length ? "amber" : undefined} />
-        <Stat label="إجمالي المسجل" value={docs.length} />
-      </div>
-      {attention.length === 0 ? <Empty>مفيش مستندات هتنتهي خلال 90 يوم 👌</Empty> : (
-        <div className="card overflow-x-auto">
-          <table className="w-full min-w-[600px] text-sm">
-            <thead className="bg-slate-50 text-right text-xs font-bold text-slate-500">
-              <tr><th className="px-4 py-3">العامل</th><th className="px-4 py-3">المستند</th><th className="px-4 py-3">تاريخ الانتهاء</th><th className="px-4 py-3">الحالة</th></tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {attention.map((d) => (
-                <tr key={d.id}>
-                  <td className="px-4 py-3"><Link href={`/workers/${d.worker_id}`} className="font-semibold text-brand-700 hover:underline">{(d.workers as unknown as { full_name: string } | null)?.full_name}</Link></td>
-                  <td className="px-4 py-3">{DOC_LABELS[d.doc_type]}</td>
-                  <td className="px-4 py-3">{formatDate(d.expiry_date)}</td>
-                  <td className="px-4 py-3"><ExpiryBadge date={d.expiry_date} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <PageHeader title={D.title} sub={D.sub} />
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Kpi label={D.expired} value={n(expired)} tone={expired ? "danger" : undefined} />
+        <Kpi label={D.within30} value={n(soon)} tone={soon ? "danger" : undefined} />
+        <Kpi label={D.within90} value={n(within90)} tone={within90 ? "warning" : undefined} />
+        <Kpi label={D.recorded} value={n(docs.length)} highlight />
+      </section>
+      <Panel>
+        {attention.length === 0 ? <EmptyNote>{D.none}</EmptyNote> : (
+          <div className="-mx-4 overflow-x-auto md:-mx-5">
+            <Table className="min-w-[560px]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  {[D.col.worker, D.col.doc, D.col.expiry, D.col.state].map((h, i) => (
+                    <TableHead key={h} className={i === 0 ? "h-10 ps-4 text-[12.5px] font-semibold text-ink-muted md:ps-5" : "h-10 text-[12.5px] font-semibold text-ink-muted"}>{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {attention.map((d) => (
+                  <TableRow key={d.id} className="border-hairline">
+                    <TableCell className="py-3 ps-4 md:ps-5">
+                      <Link href={`/workers/${d.worker_id}`} className="font-semibold text-primary hover:underline" dir="auto">{(d.workers as unknown as { full_name: string } | null)?.full_name}</Link>
+                    </TableCell>
+                    <TableCell>{t.worker.docTypes[d.doc_type]}</TableCell>
+                    <TableCell className="num">{formatDate(locale, d.expiry_date)}</TableCell>
+                    <TableCell>
+                      <Badge variant={d.days < 0 || d.days <= 30 ? "danger" : "warning"}>{d.days < 0 ? t.time.expiredDays(-d.days) : t.time.daysLeft(d.days)}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Panel>
     </>
   );
 }

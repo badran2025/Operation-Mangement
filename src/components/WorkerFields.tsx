@@ -1,5 +1,9 @@
-import { WEEKDAYS, type Shift } from "@/lib/format";
-import { Field } from "./ui";
+import type { Dict } from "@/lib/i18n/dictionaries";
+import type { Shift } from "@/lib/i18n/format";
+import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
 
 type Opt = { id: number; name: string };
 type Info = Partial<{
@@ -9,78 +13,88 @@ type Info = Partial<{
   shoe_size: string | null; uniform_size: string | null; notes: string | null;
 }>;
 
-export function InfoFields({ w = {}, housings }: { w?: Info; housings: Opt[] }) {
+function F({ id, label, children, className }: { id: string; label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <Field className={className}>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      {children}
+    </Field>
+  );
+}
+
+export function InfoFields({ t, w = {}, housings }: { t: Dict; w?: Info; housings: Opt[] }) {
+  const L = t.worker;
   return (
     <>
-      <Field label="الاسم الكامل *"><input name="full_name" required defaultValue={w.full_name} className="input" /></Field>
-      <Field label="اسم مختصر / اسم الجدول"><input name="alt_name" defaultValue={w.alt_name ?? ""} className="input" /></Field>
-      <Field label="الرقم الوظيفي"><input name="emp_no" defaultValue={w.emp_no ?? ""} className="input" dir="ltr" /></Field>
-      <Field label="الجنسية"><input name="nationality" defaultValue={w.nationality ?? ""} className="input" /></Field>
-      <Field label="النوع">
-        <select name="gender" defaultValue={w.gender ?? ""} className="input">
-          <option value="">—</option><option value="male">ذكر</option><option value="female">أنثى</option>
-        </select>
-      </Field>
-      <Field label="الحالة">
-        <select name="status" defaultValue={w.status ?? "active"} className="input">
-          <option value="active">على رأس العمل</option><option value="on_leave">في إجازة</option><option value="terminated">منتهي</option>
-        </select>
-      </Field>
-      <Field label="الجوال"><input name="phone" defaultValue={w.phone ?? ""} className="input text-right" dir="ltr" /></Field>
-      <Field label="الإيميل"><input name="email" type="email" defaultValue={w.email ?? ""} className="input text-right" dir="ltr" /></Field>
-      <Field label="تاريخ الميلاد"><input name="birth_date" type="date" defaultValue={w.birth_date ?? ""} className="input" /></Field>
-      <Field label="تاريخ التعيين"><input name="joined_at" type="date" defaultValue={w.joined_at ?? ""} className="input" /></Field>
-      <Field label="فصيلة الدم"><input name="blood_type" defaultValue={w.blood_type ?? ""} className="input" dir="ltr" placeholder="O+" /></Field>
-      <Field label="رقم طوارئ"><input name="emergency_contact" defaultValue={w.emergency_contact ?? ""} className="input" /></Field>
-      <Field label="السكن">
-        <select name="housing_id" defaultValue={w.housing_id ?? ""} className="input">
-          <option value="">غير محدد</option>
-          {housings.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
-        </select>
-      </Field>
+      <F id="full_name" label={`${L.fullName} *`}><Input id="full_name" name="full_name" required defaultValue={w.full_name} dir="auto" /></F>
+      <F id="alt_name" label={L.altName}><Input id="alt_name" name="alt_name" defaultValue={w.alt_name ?? ""} dir="auto" /></F>
+      <F id="emp_no" label={L.empNo}><Input id="emp_no" name="emp_no" defaultValue={w.emp_no ?? ""} dir="ltr" /></F>
+      <F id="nationality" label={L.nationality}><Input id="nationality" name="nationality" defaultValue={w.nationality ?? ""} dir="auto" /></F>
+      <F id="gender" label={L.gender}>
+        <NativeSelect id="gender" name="gender" defaultValue={w.gender ?? ""} className="w-full">
+          <NativeSelectOption value="">—</NativeSelectOption>
+          <NativeSelectOption value="male">{L.male}</NativeSelectOption>
+          <NativeSelectOption value="female">{L.female}</NativeSelectOption>
+        </NativeSelect>
+      </F>
+      <F id="status" label={L.statusLabel}>
+        <NativeSelect id="status" name="status" defaultValue={w.status ?? "active"} className="w-full">
+          {(["active", "on_leave", "terminated"] as const).map((s) => <NativeSelectOption key={s} value={s}>{L.status[s]}</NativeSelectOption>)}
+        </NativeSelect>
+      </F>
+      <F id="phone" label={t.common.phone}><Input id="phone" name="phone" type="tel" inputMode="tel" autoComplete="off" defaultValue={w.phone ?? ""} dir="ltr" /></F>
+      <F id="email" label={t.common.email}><Input id="email" name="email" type="email" autoComplete="off" spellCheck={false} defaultValue={w.email ?? ""} dir="ltr" /></F>
+      <F id="birth_date" label={L.birthDate}><Input id="birth_date" name="birth_date" type="date" defaultValue={w.birth_date ?? ""} /></F>
+      <F id="joined_at" label={L.joinedAt}><Input id="joined_at" name="joined_at" type="date" defaultValue={w.joined_at ?? ""} /></F>
+      <F id="blood_type" label={L.bloodType}><Input id="blood_type" name="blood_type" defaultValue={w.blood_type ?? ""} dir="ltr" placeholder="O+" /></F>
+      <F id="emergency_contact" label={L.emergency}><Input id="emergency_contact" name="emergency_contact" defaultValue={w.emergency_contact ?? ""} dir="auto" /></F>
+      <F id="housing_id" label={L.housing}>
+        <NativeSelect id="housing_id" name="housing_id" defaultValue={w.housing_id ?? ""} className="w-full">
+          <NativeSelectOption value="">{L.noHousing}</NativeSelectOption>
+          {housings.map((h) => <NativeSelectOption key={h.id} value={h.id}>{h.name}</NativeSelectOption>)}
+        </NativeSelect>
+      </F>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="مقاس الحذاء"><input name="shoe_size" defaultValue={w.shoe_size ?? ""} className="input" /></Field>
-        <Field label="مقاس اليونيفورم"><input name="uniform_size" defaultValue={w.uniform_size ?? ""} className="input" /></Field>
+        <F id="shoe_size" label={L.shoe}><Input id="shoe_size" name="shoe_size" defaultValue={w.shoe_size ?? ""} dir="ltr" /></F>
+        <F id="uniform_size" label={L.uniform}><Input id="uniform_size" name="uniform_size" defaultValue={w.uniform_size ?? ""} dir="ltr" /></F>
       </div>
-      <Field label="ملاحظات" className="sm:col-span-2"><textarea name="notes" rows={2} defaultValue={w.notes ?? ""} className="input" /></Field>
+      <F id="notes" label={t.common.notes} className="sm:col-span-2"><Textarea id="notes" name="notes" rows={2} defaultValue={w.notes ?? ""} dir="auto" /></F>
     </>
   );
 }
 
-const hhmm = (t?: string) => (t ? t.slice(0, 5) : "");
+const hhmm = (v?: string) => (!v ? "" : v.startsWith("24:") ? "00:00" : v.slice(0, 5));
 
 export function ScheduleFields({
-  shifts = [], daysOff = [], noDayOff = false, breakTime = null,
-}: { shifts?: Shift[]; daysOff?: number[]; noDayOff?: boolean; breakTime?: string | null }) {
-  const rows = [0, 1];
+  t, shifts = [], daysOff = [], noDayOff = false, breakTime = null,
+}: { t: Dict; shifts?: Shift[]; daysOff?: number[]; noDayOff?: boolean; breakTime?: string | null }) {
+  const L = t.worker;
+  const chip = "flex h-10 cursor-pointer items-center gap-2 rounded-full border border-input bg-surface px-3.5 text-sm font-medium transition-colors duration-150 has-[:checked]:border-primary has-[:checked]:bg-surface-tint has-[:checked]:text-accent-foreground";
   return (
     <>
-      {rows.map((i) => (
-        <div key={i} className="grid grid-cols-2 gap-3">
-          <Field label={i === 0 ? "بداية الدوام" : "بداية الفترة التانية (لو الدوام متقسم)"}>
-            <input name="shift_start" type="time" defaultValue={hhmm(shifts[i]?.start)} className="input" />
-          </Field>
-          <Field label={i === 0 ? "نهاية الدوام" : "نهاية الفترة التانية"}>
-            <input name="shift_end" type="time" defaultValue={hhmm(shifts[i]?.end === "24:00:00" ? "00:00" : shifts[i]?.end)} className="input" />
-          </Field>
+      {[0, 1].map((i) => (
+        <div key={i} className="grid grid-cols-2 gap-3 sm:col-span-2">
+          <F id={`shift_start_${i}`} label={i === 0 ? L.shiftStart : L.secondStart}><Input id={`shift_start_${i}`} name="shift_start" type="time" defaultValue={hhmm(shifts[i]?.start)} /></F>
+          <F id={`shift_end_${i}`} label={i === 0 ? L.shiftEnd : L.secondEnd}><Input id={`shift_end_${i}`} name="shift_end" type="time" defaultValue={hhmm(shifts[i]?.end)} /></F>
         </div>
       ))}
-      <p className="text-xs text-slate-500 sm:col-span-2">نهاية الدوام 12 بالليل = اكتب 00:00</p>
-      <fieldset className="sm:col-span-2">
-        <legend className="label">الإجازة الأسبوعية</legend>
+      <FieldDescription className="-mt-2 sm:col-span-2">{L.midnightHint}</FieldDescription>
+      <FieldSet className="sm:col-span-2">
+        <FieldLegend variant="label">{L.dayOff}</FieldLegend>
         <div className="flex flex-wrap gap-2">
-          {WEEKDAYS.map((d) => (
-            <label key={d.value} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-700">
-              <input type="checkbox" name="days_off" value={d.value} defaultChecked={daysOff.includes(d.value)} className="accent-brand-600" />
-              {d.label}
+          {t.weekdays.map((label, d) => (
+            <label key={d} className={chip}>
+              <input type="checkbox" name="days_off" value={d} defaultChecked={daysOff.includes(d)} className="accent-primary" />
+              {label}
             </label>
           ))}
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
-            <input type="checkbox" name="no_day_off" defaultChecked={noDayOff} /> بدون إجازة أسبوعية
+          <label className={`${chip} border-dashed has-[:checked]:border-warning has-[:checked]:bg-warning-soft has-[:checked]:text-warning`}>
+            <input type="checkbox" name="no_day_off" defaultChecked={noDayOff} className="accent-warning" />
+            {L.noDayOff}
           </label>
         </div>
-      </fieldset>
-      <Field label="وقت البريك"><input name="break_time" type="time" defaultValue={hhmm(breakTime ?? undefined)} className="input" /></Field>
+      </FieldSet>
+      <F id="break_time" label={L.breakTime}><Input id="break_time" name="break_time" type="time" defaultValue={hhmm(breakTime ?? undefined)} /></F>
     </>
   );
 }

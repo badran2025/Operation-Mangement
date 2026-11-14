@@ -17,6 +17,7 @@ const en = {
   },
   dashboard: {
     greeting: { morning: "Good morning", afternoon: "Good afternoon", evening: "Good evening" },
+    hello: (g: string, name: string) => (name ? `${g}, ${name}` : g),
     sub: (n: number) => `Here is how ${n} branches are running today`,
     workers: "Workers", workingToday: "Working today", offToday: "Off today", onLeave: "On long leave", incomplete: "Incomplete data",
     openTickets: "Open tickets", overdue: "Past due", docsExpiring: "Documents expiring in 90 days",
@@ -60,6 +61,7 @@ const en = {
     docTypes: { iqama: "Iqama", passport: "Passport", insurance: "Medical insurance", contract: "Employment contract", baladiya: "Baladiya card", medical: "Medical check" } as Record<string, string>,
     docNumber: "Number", docIssuer: "Issuer", docInsurer: "Insurance company", docExpiry: "Expiry date", docNotRecorded: "Not recorded", docNoDate: "No date",
     validLeft: (n: number) => `Valid, ${n} days left`,
+    hiredNote: "Hired",
   },
   housing: { title: "Housing", sub: "Workers in each housing and which branches they work in", noHousingWarn: (n: number) => `${n} workers have no housing recorded.`, residents: "residents", capacity: (n: number) => `Capacity ${n}`, empty: "No housing recorded yet." },
   documents: { title: "Documents", sub: "Iqamas, passports, insurance and contracts that expire soon", expired: "Expired", within30: "Within 30 days", within90: "Within 90 days", recorded: "Recorded", none: "No documents expire in the next 90 days.", col: { worker: "Worker", doc: "Document", expiry: "Expiry", state: "Status" } },
@@ -71,6 +73,12 @@ const en = {
     exists: "This email already has an account", shortPw: "Password must be at least 8 characters",
   },
   account: { title: "My account", newPassword: "New password", confirm: "Confirm password", change: "Change password", changed: "Password changed", mismatch: "Passwords do not match" },
+  errors: {
+    notAllowed: "You are not allowed to do this", titleRequired: "Write the problem title", userInactive: "This user does not exist or is not active",
+    selfAdmin: "You cannot remove admin rights from yourself", generic: (m: string) => `Something went wrong: ${m}`,
+    fileTooBig: (n: string, mb: number) => `${n} is larger than ${mb} MB`, uploadFailed: (n: string, m: string) => `Could not upload ${n}: ${m}`,
+    ticketSavedUploadFailed: (id: number, m: string) => `Ticket #${id} was saved, but ${m}`,
+  },
   maintenance: {
     title: "Maintenance", sub: "Maintenance tickets, followed through until they are closed", newTicket: "New ticket",
     tabs: { open: "Open", overdue: "Past due", parts: "Waiting for parts", resolved: "Awaiting confirmation", closed: "Closed", all: "All" } as Record<string, string>,
@@ -118,6 +126,7 @@ const ar: Dict = {
   },
   dashboard: {
     greeting: { morning: "صباح الخير", afternoon: "مساء الخير", evening: "مساء الخير" },
+    hello: (g: string, name: string) => (name ? `${g} يا ${name}` : g),
     sub: (n: number) => `ده وضع التشغيل النهارده في ${n} فرع`,
     workers: "إجمالي العمال", workingToday: "شغالين النهارده", offToday: "إجازة النهارده", onLeave: "في إجازة طويلة", incomplete: "بيانات ناقصة",
     openTickets: "بلاغات مفتوحة", overdue: "متأخرة عن موعدها", docsExpiring: "مستندات تنتهي خلال 90 يوم",
@@ -161,6 +170,7 @@ const ar: Dict = {
     docTypes: { iqama: "الإقامة", passport: "جواز السفر", insurance: "التأمين الطبي", contract: "عقد العمل", baladiya: "كرت البلدية", medical: "الكشف الطبي" },
     docNumber: "الرقم", docIssuer: "جهة الإصدار", docInsurer: "شركة التأمين", docExpiry: "تاريخ الانتهاء", docNotRecorded: "غير مسجل", docNoDate: "بدون تاريخ",
     validLeft: (n: number) => `ساري، باقي ${n} يوم`,
+    hiredNote: "تعيين",
   },
   housing: { title: "السكن", sub: "عدد العمال في كل سكن وتوزيعهم على الفروع", noHousingWarn: (n: number) => `${n} عامل لسه مش متسجل لهم سكن.`, residents: "ساكن", capacity: (n: number) => `السعة ${n}`, empty: "مفيش سكنات متسجلة." },
   documents: { title: "المستندات", sub: "الإقامات والجوازات والتأمين والعقود اللي قربت تنتهي", expired: "منتهية", within30: "خلال 30 يوم", within90: "خلال 90 يوم", recorded: "إجمالي المسجل", none: "مفيش مستندات هتنتهي خلال 90 يوم.", col: { worker: "العامل", doc: "المستند", expiry: "تاريخ الانتهاء", state: "الحالة" } },
@@ -172,6 +182,12 @@ const ar: Dict = {
     exists: "الإيميل ده عنده حساب بالفعل", shortPw: "كلمة المرور لازم 8 حروف على الأقل",
   },
   account: { title: "حسابي", newPassword: "كلمة مرور جديدة", confirm: "تأكيد كلمة المرور", change: "تغيير كلمة المرور", changed: "اتغيرت كلمة المرور", mismatch: "كلمتين المرور مش متطابقين" },
+  errors: {
+    notAllowed: "مش مسموح لك بالعملية دي", titleRequired: "اكتب عنوان المشكلة", userInactive: "المستخدم ده مش موجود أو مش مفعّل",
+    selfAdmin: "مينفعش تشيل صلاحية الأدمن عن نفسك", generic: (m: string) => `حصل خطأ: ${m}`,
+    fileTooBig: (n: string, mb: number) => `الملف ${n} أكبر من ${mb} ميجا`, uploadFailed: (n: string, m: string) => `فشل رفع ${n}: ${m}`,
+    ticketSavedUploadFailed: (id: number, m: string) => `البلاغ اتسجل (#${id}) بس ${m}`,
+  },
   maintenance: {
     title: "الصيانة", sub: "بلاغات الصيانة ومتابعتها لحد ما تتقفل", newTicket: "بلاغ جديد",
     tabs: { open: "مفتوحة", overdue: "متأخرة", parts: "مستني قطع", resolved: "مستني تأكيد", closed: "مقفولة", all: "الكل" },

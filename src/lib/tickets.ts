@@ -1,21 +1,9 @@
-export const TICKET_STATUS: Record<string, { label: string; tone: "gray" | "green" | "amber" | "red" | "blue" }> = {
-  new: { label: "جديد", tone: "red" },
-  assigned: { label: "متحوّل لفني", tone: "blue" },
-  in_progress: { label: "جاري التنفيذ", tone: "amber" },
-  waiting_parts: { label: "مستني قطع غيار", tone: "amber" },
-  resolved: { label: "اتحل · مستني تأكيد", tone: "green" },
-  closed: { label: "مقفول", tone: "gray" },
-  cancelled: { label: "ملغي", tone: "gray" },
+export const STATUS_TONE: Record<string, "info" | "warning" | "success" | "danger" | "neutral"> = {
+  new: "danger", assigned: "info", in_progress: "success", waiting_parts: "warning", resolved: "success", closed: "neutral", cancelled: "neutral",
 };
-
-export const PRIORITY: Record<string, { label: string; hint: string; tone: "gray" | "amber" | "red" | "blue" }> = {
-  urgent: { label: "عاجل", hint: "خلال 4 ساعات", tone: "red" },
-  high: { label: "عالي", hint: "خلال 24 ساعة", tone: "amber" },
-  normal: { label: "عادي", hint: "خلال 3 أيام", tone: "blue" },
-  low: { label: "منخفض", hint: "خلال أسبوع", tone: "gray" },
-};
-
-export const OPEN_STATUSES = ["new", "assigned", "in_progress", "waiting_parts"];
+export const PRIORITY_TONE: Record<string, "danger" | "warning" | "info" | "neutral"> = { urgent: "danger", high: "warning", normal: "info", low: "neutral" };
+export const STATUSES = ["new", "assigned", "in_progress", "waiting_parts", "resolved", "closed", "cancelled"] as const;
+export const PRIORITIES = ["urgent", "high", "normal", "low"] as const;
 
 export type TicketRow = {
   id: number; branch_id: number; branch_ar: string; category_id: number | null; category_ar: string | null;
@@ -24,33 +12,6 @@ export type TicketRow = {
   assignee_contact: string | null; due_at: string | null; resolved_at: string | null; closed_at: string | null;
   last_reminder_at: string | null; legacy_ref: string | null; created_at: string; overdue: boolean;
 };
-
-const TZ = "Asia/Riyadh";
-export function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("ar-EG", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: TZ }).format(new Date(iso));
-}
-
-/** "منذ 3 ساعات" / "منذ يومين" */
-export function timeAgo(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  return mins < 1 ? "الآن" : "منذ " + duration(mins);
-}
-
-export function duration(mins: number): string {
-  const m = Math.abs(mins);
-  if (m < 60) return `${m} دقيقة`;
-  const h = Math.round(m / 60);
-  if (h < 48) return `${h} ساعة`;
-  return `${Math.round(h / 24)} يوم`;
-}
-
-export function dueLabel(t: Pick<TicketRow, "due_at" | "status">): string | null {
-  if (!t.due_at || !OPEN_STATUSES.includes(t.status)) return null;
-  const mins = Math.round((new Date(t.due_at).getTime() - Date.now()) / 60000);
-  return mins < 0 ? `متأخر ${duration(mins)}` : `باقي ${duration(mins)}`;
-}
 
 /** Saudi mobile → wa.me digits */
 export function waNumber(phone: string | null | undefined): string | null {

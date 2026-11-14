@@ -28,8 +28,8 @@ export function ActionForm({
       }}
     >
       <PendingContext.Provider value={pending}>{children}</PendingContext.Provider>
-      {state.error && <p className="mt-3 text-sm font-semibold text-red-600 sm:col-span-full">{state.error}</p>}
-      {state.ok && !pending && <p className="mt-3 text-sm font-semibold text-brand-700 sm:col-span-full">{state.ok}</p>}
+      {state.error && <p role="alert" className="text-sm font-semibold text-danger sm:col-span-full">{state.error}</p>}
+      {state.ok && !pending && <p role="status" className="text-sm font-semibold text-success sm:col-span-full">✓ {state.ok}</p>}
     </form>
   );
 }

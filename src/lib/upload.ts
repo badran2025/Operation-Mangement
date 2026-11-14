@@ -21,23 +21,25 @@ async function compress(file: File): Promise<Blob> {
 export const MAX_FILE_MB = 20;
 
 /** Upload files for a ticket and register them. Returns an error message or null. */
-export async function uploadTicketFiles(ticketId: number, files: File[], eventId?: number | null): Promise<string | null> {
+type UploadMsgs = { fileTooBig: (n: string, mb: number) => string; uploadFailed: (n: string, m: string) => string };
+
+export async function uploadTicketFiles(ticketId: number, files: File[], msgs: UploadMsgs, eventId?: number | null): Promise<string | null> {
   if (files.length === 0) return null;
   const supabase = createClient();
   const { data: auth } = await supabase.auth.getUser();
   for (const file of files) {
     const blob = await compress(file);
-    if (blob.size > MAX_FILE_MB * 1024 * 1024) return `الملف ${file.name} أكبر من ${MAX_FILE_MB} ميجا`;
+    if (blob.size > MAX_FILE_MB * 1024 * 1024) return msgs.fileTooBig(file.name, MAX_FILE_MB);
     const isJpeg = blob !== file;
     const ext = isJpeg ? "jpg" : (file.name.split(".").pop() || "bin").toLowerCase();
     const path = `${ticketId}/${crypto.randomUUID()}.${ext}`;
     const type = isJpeg ? "image/jpeg" : file.type;
     const up = await supabase.storage.from("ticket-files").upload(path, blob, { contentType: type });
-    if (up.error) return `فشل رفع ${file.name}: ${up.error.message}`;
+    if (up.error) return msgs.uploadFailed(file.name, up.error.message);
     const ins = await supabase.from("ticket_attachments").insert({
       ticket_id: ticketId, event_id: eventId ?? null, file_path: path, mime_type: type, uploaded_by: auth.user?.id,
     });
-    if (ins.error) return `فشل تسجيل ${file.name}: ${ins.error.message}`;
+    if (ins.error) return msgs.uploadFailed(file.name, ins.error.message);
   }
   return null;
 }

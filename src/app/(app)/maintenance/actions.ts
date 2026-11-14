@@ -2,8 +2,9 @@
 import { revalidatePath } from "next/cache";
 import { requireActive } from "@/lib/auth";
 import type { ActionState } from "@/components/ActionForm";
+import { friendlyError } from "@/lib/server-errors";
+import { getT } from "@/lib/i18n/server";
 
-const clean = (m: string) => m.replace(/^.*?:\s*/, "").includes("not allowed") ? "مش مسموح لك بالعملية دي" : m;
 
 function refresh(id?: number) {
   revalidatePath("/maintenance");
@@ -15,13 +16,13 @@ export async function createTicketAction(input: {
   branchId: number; categoryId: number | null; priority: string; title: string; description: string; stopsBranch: boolean;
 }): Promise<{ id?: number; error?: string }> {
   const { supabase } = await requireActive();
-  if (!input.branchId) return { error: "اختار الفرع" };
-  if (!input.title.trim()) return { error: "اكتب عنوان المشكلة" };
+  if (!input.branchId) return { error: (await getT()).t.worker.branchRequired };
+  if (!input.title.trim()) return { error: (await getT()).t.errors.titleRequired };
   const { data, error } = await supabase.rpc("create_ticket", {
     p_branch_id: input.branchId, p_category_id: input.categoryId as number, p_priority: input.priority,
     p_title: input.title, p_description: input.description, p_stops_branch: input.stopsBranch,
   });
-  if (error) return { error: clean(error.message) };
+  if (error) return { error: await friendlyError(error.message) };
   refresh();
   return { id: data as number };
 }
@@ -29,7 +30,7 @@ export async function createTicketAction(input: {
 export async function addCommentAction(ticketId: number, body: string, kind: "comment" | "parts" = "comment"): Promise<{ eventId?: number; error?: string }> {
   const { supabase } = await requireActive();
   const { data, error } = await supabase.rpc("add_ticket_comment", { p_ticket_id: ticketId, p_body: body, p_kind: kind });
-  if (error) return { error: clean(error.message) };
+  if (error) return { error: await friendlyError(error.message) };
   return { eventId: data as number };
 }
 
@@ -42,9 +43,9 @@ export async function setStatusAction(ticketId: number, _: ActionState, fd: Form
   const { error } = await supabase.rpc("set_ticket_status", {
     p_ticket_id: ticketId, p_status: String(fd.get("status")), p_note: String(fd.get("note") ?? ""),
   });
-  if (error) return { error: clean(error.message) };
+  if (error) return { error: await friendlyError(error.message) };
   refresh(ticketId);
-  return { ok: "اتحدثت الحالة ✓" };
+  return { ok: (await getT()).t.common.saved };
 }
 
 export async function assignAction(ticketId: number, _: ActionState, fd: FormData): Promise<ActionState> {
@@ -57,23 +58,23 @@ export async function assignAction(ticketId: number, _: ActionState, fd: FormDat
     p_assignee_name: isExternal ? String(fd.get("assignee_name") ?? "") : undefined,
     p_assignee_phone: String(fd.get("assignee_phone") ?? ""),
   });
-  if (error) return { error: clean(error.message) };
+  if (error) return { error: await friendlyError(error.message) };
   refresh(ticketId);
-  return { ok: "اتحفظ ✓" };
+  return { ok: (await getT()).t.common.saved };
 }
 
 export async function priorityAction(ticketId: number, _: ActionState, fd: FormData): Promise<ActionState> {
   const { supabase } = await requireActive();
   const { error } = await supabase.rpc("set_ticket_priority", { p_ticket_id: ticketId, p_priority: String(fd.get("priority")) });
-  if (error) return { error: clean(error.message) };
+  if (error) return { error: await friendlyError(error.message) };
   refresh(ticketId);
-  return { ok: "اتحفظ ✓" };
+  return { ok: (await getT()).t.common.saved };
 }
 
 export async function reminderAction(ticketId: number): Promise<{ error?: string }> {
   const { supabase } = await requireActive();
   const { error } = await supabase.rpc("log_ticket_reminder", { p_ticket_id: ticketId, p_channel: "whatsapp" });
-  if (error) return { error: clean(error.message) };
+  if (error) return { error: await friendlyError(error.message) };
   refresh(ticketId);
   return {};
 }

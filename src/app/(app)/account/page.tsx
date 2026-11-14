@@ -1,19 +1,27 @@
-import { requireActive, ROLE_LABELS } from "@/lib/auth";
+import { requireActive } from "@/lib/auth";
+import { getT } from "@/lib/i18n/server";
 import { ActionForm } from "@/components/ActionForm";
 import { SubmitButton } from "@/components/SubmitButton";
-import { Field, PageHeader } from "@/components/ui";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { PageHeader, Panel } from "@/components/app/blocks";
 import { changePassword } from "../users/actions";
 
 export default async function AccountPage() {
   const { profile } = await requireActive();
+  const { t } = await getT();
   return (
-    <div className="max-w-md">
-      <PageHeader title="حسابي" subtitle={`${profile.email} · ${ROLE_LABELS[profile.role]}`} />
-      <ActionForm action={changePassword} className="card grid gap-4 p-5">
-        <Field label="كلمة مرور جديدة"><input name="password" type="password" minLength={8} required className="input text-left" dir="ltr" autoComplete="new-password" /></Field>
-        <Field label="تأكيد كلمة المرور"><input name="confirm" type="password" minLength={8} required className="input text-left" dir="ltr" autoComplete="new-password" /></Field>
-        <SubmitButton>تغيير كلمة المرور</SubmitButton>
-      </ActionForm>
+    <div className="mx-auto w-full max-w-md">
+      <PageHeader title={t.account.title} sub={<span><span dir="ltr">{profile.email}</span>{t.common.comma}{t.roles[profile.role]}</span>} />
+      <Panel className="mt-6">
+        <ActionForm action={changePassword}>
+          <FieldGroup>
+            <Field><FieldLabel htmlFor="pw">{t.account.newPassword}</FieldLabel><Input id="pw" name="password" type="password" minLength={8} required dir="ltr" autoComplete="new-password" /></Field>
+            <Field><FieldLabel htmlFor="pw2">{t.account.confirm}</FieldLabel><Input id="pw2" name="confirm" type="password" minLength={8} required dir="ltr" autoComplete="new-password" /></Field>
+            <SubmitButton>{t.account.change}</SubmitButton>
+          </FieldGroup>
+        </ActionForm>
+      </Panel>
     </div>
   );
 }

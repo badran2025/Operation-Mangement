@@ -6,12 +6,6 @@ import { createClient } from "./supabase/server";
 export type Role = "admin" | "supervisor" | "maintenance_manager" | "technician";
 export type Profile = { id: string; full_name: string; email: string | null; role: Role; active: boolean };
 
-export const ROLE_LABELS: Record<Role, string> = {
-  admin: "مدير التشغيل (أدمن)",
-  supervisor: "مشرف فرع",
-  maintenance_manager: "مدير الصيانة",
-  technician: "فني صيانة",
-};
 
 /** Current user + profile (cached per request). */
 export const getSession = cache(async () => {

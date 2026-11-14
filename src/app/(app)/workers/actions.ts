@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import type { ActionState } from "@/components/ActionForm";
+import { getT } from "@/lib/i18n/server";
 
 const s = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const opt = (fd: FormData, k: string) => s(fd, k) || null;
@@ -41,46 +42,47 @@ function scheduleFrom(fd: FormData) {
   return { shifts, days, noDayOff: fd.get("no_day_off") === "on", breakTime: opt(fd, "break_time"), bad };
 }
 
-function friendly(msg: string) {
-  if (msg.includes("workers_emp_no_key")) return "الرقم الوظيفي ده مستخدم لعامل تاني";
-  return "حصل خطأ: " + msg;
+async function friendly(msg: string) {
+  const { t } = await getT();
+  if (msg.includes("workers_emp_no_key")) return t.worker.empNoTaken;
+  return msg;
 }
 
 export async function updateWorkerInfo(id: number, _: ActionState, fd: FormData): Promise<ActionState> {
   const { supabase } = await requireAdmin();
   const data = infoFrom(fd);
-  if (!data.full_name) return { error: "الاسم مطلوب" };
+  if (!data.full_name) return { error: (await getT()).t.worker.nameRequired };
   const { error } = await supabase.from("workers").update(data).eq("id", id);
-  if (error) return { error: friendly(error.message) };
+  if (error) return { error: await friendly(error.message) };
   revalidatePath(`/workers/${id}`);
-  return { ok: "اتحفظت البيانات ✓" };
+  return { ok: (await getT()).t.worker.savedDetails };
 }
 
 export async function saveSchedule(id: number, _: ActionState, fd: FormData): Promise<ActionState> {
   const { supabase } = await requireAdmin();
   const sch = scheduleFrom(fd);
-  if (sch.bad) return { error: "مواعيد الدوام لازم تكون مكتملة (البداية والنهاية)" };
+  if (sch.bad) return { error: (await getT()).t.worker.shiftIncomplete };
   const { error } = await supabase.rpc("save_worker_schedule", {
     p_worker_id: id, p_shifts: sch.shifts, p_days_off: sch.days, p_no_day_off: sch.noDayOff,
     p_break_time: sch.breakTime,
   });
-  if (error) return { error: friendly(error.message) };
+  if (error) return { error: await friendly(error.message) };
   revalidatePath(`/workers/${id}`);
-  return { ok: "اتحفظ الدوام ✓" };
+  return { ok: (await getT()).t.worker.savedSchedule };
 }
 
 export async function transferWorker(id: number, _: ActionState, fd: FormData): Promise<ActionState> {
   const { supabase } = await requireAdmin();
   const branchId = num(fd, "branch_id");
-  if (!branchId) return { error: "اختار الفرع" };
+  if (!branchId) return { error: (await getT()).t.worker.branchRequired };
   const { error } = await supabase.rpc("transfer_worker", {
     p_worker_id: id, p_branch_id: branchId, p_job_title_id: num(fd, "job_title_id") as number,
     p_start_date: opt(fd, "start_date") ?? undefined, p_note: opt(fd, "note") ?? undefined,
   });
-  if (error) return { error: friendly(error.message) };
+  if (error) return { error: await friendly(error.message) };
   revalidatePath(`/workers/${id}`);
   revalidatePath("/");
-  return { ok: "اتسجل النقل / تغيير الوظيفة ✓" };
+  return { ok: (await getT()).t.worker.transferred };
 }
 
 export async function saveDocument(workerId: number, docType: string, _: ActionState, fd: FormData): Promise<ActionState> {
@@ -90,32 +92,32 @@ export async function saveDocument(workerId: number, docType: string, _: ActionS
       expiry_date: opt(fd, "expiry_date"), notes: opt(fd, "notes") },
     { onConflict: "worker_id,doc_type" },
   );
-  if (error) return { error: friendly(error.message) };
+  if (error) return { error: await friendly(error.message) };
   revalidatePath(`/workers/${workerId}`);
   revalidatePath("/documents");
-  return { ok: "اتحفظ ✓" };
+  return { ok: (await getT()).t.common.saved };
 }
 
 export async function createWorker(_: ActionState, fd: FormData): Promise<ActionState> {
   const { supabase } = await requireAdmin();
   const data = infoFrom(fd);
   const branchId = num(fd, "branch_id");
-  if (!data.full_name) return { error: "الاسم مطلوب" };
-  if (!branchId) return { error: "اختار الفرع" };
+  if (!data.full_name) return { error: (await getT()).t.worker.nameRequired };
+  if (!branchId) return { error: (await getT()).t.worker.branchRequired };
   const sch = scheduleFrom(fd);
-  if (sch.bad) return { error: "مواعيد الدوام لازم تكون مكتملة (البداية والنهاية)" };
+  if (sch.bad) return { error: (await getT()).t.worker.shiftIncomplete };
 
   const { data: w, error } = await supabase.from("workers").insert(data).select("id").single();
-  if (error) return { error: friendly(error.message) };
+  if (error) return { error: await friendly(error.message) };
   const r1 = await supabase.rpc("transfer_worker", {
     p_worker_id: w.id, p_branch_id: branchId, p_job_title_id: num(fd, "job_title_id") as number,
-    p_start_date: opt(fd, "start_date") ?? undefined, p_note: "تعيين",
+    p_start_date: opt(fd, "start_date") ?? undefined, p_note: (await getT()).t.worker.hiredNote,
   });
   const r2 = await supabase.rpc("save_worker_schedule", {
     p_worker_id: w.id, p_shifts: sch.shifts, p_days_off: sch.days, p_no_day_off: sch.noDayOff,
     p_break_time: sch.breakTime,
   });
-  if (r1.error || r2.error) return { error: friendly((r1.error ?? r2.error)!.message) };
+  if (r1.error || r2.error) return { error: await friendly((r1.error ?? r2.error)!.message) };
   revalidatePath("/");
   redirect(`/workers/${w.id}`);
 }

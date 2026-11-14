@@ -1,4 +1,4 @@
-import type { Shift } from "./format";
+import type { Shift } from "./i18n/format";
 
 export type WorkerRow = {
   id: number;
@@ -12,6 +12,7 @@ export type WorkerRow = {
   branch_id: number | null;
   job_title_id: number | null;
   job_title_ar: string | null;
+  job_title_en: string | null;
   housing_id: number | null;
   housing_name: string | null;
   days_off: number[];

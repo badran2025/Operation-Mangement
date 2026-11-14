@@ -1,77 +1,88 @@
-import { requireAdmin, ROLE_LABELS, type Role } from "@/lib/auth";
+import { ChevronDownIcon } from "lucide-react";
+import { requireAdmin, type Role } from "@/lib/auth";
+import { getT } from "@/lib/i18n/server";
+import { pick } from "@/lib/i18n/config";
 import { ActionForm } from "@/components/ActionForm";
 import { SubmitButton } from "@/components/SubmitButton";
-import { Badge, Field, PageHeader } from "@/components/ui";
+import { Badge } from "@/components/ui/badge";
+import { Field, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { PageHeader, Panel } from "@/components/app/blocks";
 import { createUser, updateUser } from "./actions";
 
 export const dynamic = "force-dynamic";
+const ROLES: Role[] = ["admin", "supervisor", "maintenance_manager", "technician"];
 
 export default async function UsersPage() {
   const { supabase, user } = await requireAdmin();
+  const { t, locale } = await getT();
+  const U = t.users;
   const [{ data: profiles }, { data: links }, { data: branches }] = await Promise.all([
     supabase.from("profiles").select("*").order("created_at"),
     supabase.from("profile_branches").select("*"),
-    supabase.from("branches").select("id, name_ar, city_id").order("city_id").order("sort"),
+    supabase.from("branches").select("id, name_ar, name_en, city_id").order("city_id").order("sort"),
   ]);
   const canCreate = Boolean(process.env.SUPABASE_SECRET_KEY);
+  const chip = "flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-surface px-3 text-sm transition-colors has-[:checked]:border-primary has-[:checked]:bg-surface-tint has-[:checked]:text-accent-foreground";
 
   return (
     <>
-      <PageHeader title="المستخدمين والصلاحيات" subtitle="مين يدخل الموقع، ودوره، وأنهي فروع يشوفها" />
-
-      <section className="mb-8">
-        <h2 className="mb-2 font-bold">إضافة مستخدم</h2>
+      <PageHeader title={U.title} sub={U.sub} />
+      <Panel title={U.add}>
         {canCreate ? (
-          <ActionForm action={createUser} className="card grid gap-3 p-5 sm:grid-cols-4">
-            <Field label="الاسم"><input name="full_name" required className="input" /></Field>
-            <Field label="الإيميل"><input name="email" type="email" required className="input text-left" dir="ltr" /></Field>
-            <Field label="كلمة مرور مؤقتة"><input name="password" required minLength={8} className="input text-left" dir="ltr" /></Field>
-            <div className="flex items-end"><SubmitButton>إضافة</SubmitButton></div>
+          <ActionForm action={createUser} className="grid gap-3 sm:grid-cols-[1fr_1.3fr_1fr_auto] sm:items-end">
+            <Field><FieldLabel htmlFor="u-name">{U.name}</FieldLabel><Input id="u-name" name="full_name" required dir="auto" /></Field>
+            <Field><FieldLabel htmlFor="u-email">{U.email}</FieldLabel><Input id="u-email" name="email" type="email" required dir="ltr" autoComplete="off" spellCheck={false} /></Field>
+            <Field><FieldLabel htmlFor="u-pw">{U.tempPassword}</FieldLabel><Input id="u-pw" name="password" required minLength={8} dir="ltr" autoComplete="new-password" /></Field>
+            <SubmitButton>{U.create}</SubmitButton>
           </ActionForm>
-        ) : (
-          <div className="card p-4 text-sm text-slate-600">
-            إضافة المستخدمين من هنا محتاجة خطوة إعداد واحدة: مفتاح <code dir="ltr">SUPABASE_SECRET_KEY</code> في إعدادات Netlify.
-          </div>
-        )}
-      </section>
+        ) : <p className="text-sm text-ink-muted">{U.needsKey}</p>}
+      </Panel>
 
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         {(profiles ?? []).map((p) => {
           const mine = new Set((links ?? []).filter((l) => l.profile_id === p.id).map((l) => l.branch_id));
+          const self = p.id === user.id;
           return (
-            <details key={p.id} className="card p-4" open={!p.active}>
-              <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
-                <span className="font-semibold">{p.full_name || "—"} <span className="text-sm font-normal text-slate-500" dir="ltr">{p.email}</span></span>
-                <span className="flex gap-2">
-                  <Badge tone={p.active ? "green" : "amber"}>{p.active ? "مفعّل" : "مستني التفعيل"}</Badge>
-                  <Badge>{ROLE_LABELS[p.role as Role]}</Badge>
-                  {p.role === "supervisor" && <Badge tone="blue">{mine.size} فرع</Badge>}
+            <details key={p.id} className="group rounded-2xl bg-surface" open={!p.active}>
+              <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-4 md:px-5 [&::-webkit-details-marker]:hidden">
+                <span className="min-w-0">
+                  <span className="font-semibold" dir="auto">{p.full_name || "—"}</span>
+                  <span className="ms-2 text-sm text-ink-muted" dir="ltr">{p.email}</span>
+                </span>
+                <span className="flex flex-wrap items-center gap-2">
+                  <Badge variant={p.active ? "success" : "warning"}>{p.active ? U.active : U.pending}</Badge>
+                  <Badge variant="neutral">{t.roles[p.role as Role]}</Badge>
+                  {p.role === "supervisor" && <Badge variant="info">{U.branchesN(mine.size)}</Badge>}
+                  <ChevronDownIcon className="size-4 text-ink-muted transition-transform duration-150 group-open:rotate-180" aria-hidden />
                 </span>
               </summary>
-              <ActionForm action={updateUser.bind(null, p.id)} className="mt-4 grid gap-4">
+              <ActionForm action={updateUser.bind(null, p.id)} className="flex flex-col gap-4 px-4 pb-5 md:px-5">
                 <div className="flex flex-wrap items-end gap-4">
-                  <Field label="الدور">
-                    <select name="role" defaultValue={p.role} className="input" disabled={p.id === user.id}>
-                      {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
-                    {p.id === user.id && <input type="hidden" name="role" value={p.role} />}
+                  <Field className="w-auto min-w-56">
+                    <FieldLabel htmlFor={`role-${p.id}`}>{U.role}</FieldLabel>
+                    <NativeSelect id={`role-${p.id}`} name="role" defaultValue={p.role} disabled={self} className="w-full">
+                      {ROLES.map((r) => <NativeSelectOption key={r} value={r}>{t.roles[r]}</NativeSelectOption>)}
+                    </NativeSelect>
+                    {self && <input type="hidden" name="role" value={p.role} />}
                   </Field>
-                  <label className="flex items-center gap-2 pb-2 text-sm font-semibold">
-                    <input type="checkbox" name="active" defaultChecked={p.active} disabled={p.id === user.id} /> الحساب مفعّل
-                    {p.id === user.id && <input type="hidden" name="active" value="on" />}
+                  <label className="flex min-h-10 items-center gap-2 text-sm font-medium">
+                    <input type="checkbox" name="active" defaultChecked={p.active} disabled={self} className="size-4 accent-primary" /> {U.accountActive}
+                    {self && <input type="hidden" name="active" value="on" />}
                   </label>
                 </div>
-                <fieldset>
-                  <legend className="label">الفروع (للمشرف)</legend>
+                <FieldSet>
+                  <FieldLegend variant="label">{U.branchesFor}</FieldLegend>
                   <div className="flex flex-wrap gap-2">
                     {(branches ?? []).map((b) => (
-                      <label key={b.id} className="flex cursor-pointer items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-sm has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50">
-                        <input type="checkbox" name="branch_ids" value={b.id} defaultChecked={mine.has(b.id)} /> {b.name_ar}
+                      <label key={b.id} className={chip}>
+                        <input type="checkbox" name="branch_ids" value={b.id} defaultChecked={mine.has(b.id)} className="accent-primary" /> {pick(locale, b.name_ar, b.name_en)}
                       </label>
                     ))}
                   </div>
-                </fieldset>
-                <div><SubmitButton>حفظ</SubmitButton></div>
+                </FieldSet>
+                <div><SubmitButton>{t.common.save}</SubmitButton></div>
               </ActionForm>
             </details>
           );

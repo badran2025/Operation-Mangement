@@ -6,7 +6,7 @@ import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
 import { daysUntil, dueInfo, greeting, nf, OPEN_STATUSES, todayLabel } from "@/lib/i18n/format";
 import type { BranchSummary } from "@/lib/types";
-import type { TicketRow } from "@/lib/tickets";
+import { STATUS_TONE, type TicketRow } from "@/lib/tickets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyNote, Kpi, PageHeader, Panel, RowChevron, SoftRow } from "@/components/app/blocks";
@@ -14,9 +14,6 @@ import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_TONE: Record<string, "info" | "warning" | "success" | "danger" | "neutral"> = {
-  new: "danger", assigned: "info", in_progress: "success", waiting_parts: "warning", resolved: "success", closed: "neutral", cancelled: "neutral",
-};
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ city?: string }> }) {
   const { supabase, profile } = await requireActive();
@@ -49,7 +46,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     <>
       <PageHeader
         eyebrow={<span className="mb-2 inline-block rounded-full bg-brand-accent px-2.5 py-0.5 text-[12.5px] font-semibold text-[#3b2a00]">{todayLabel(locale)}</span>}
-        title={`${greeting(t)}${firstName ? (locale === "ar" ? ` يا ${firstName}` : `, ${firstName}`) : ""}`}
+        title={t.dashboard.hello(greeting(t), firstName)}
         sub={t.dashboard.sub(branches.length)}
       >
         <Button render={<Link href="/maintenance/new" />} nativeButton={false}>
@@ -65,7 +62,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         {isAdmin && <Kpi label={t.dashboard.docsExpiring} value={n(docs.length)} tone={docs.length ? "warning" : undefined} />}
       </section>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <Panel
           title={t.dashboard.branches}
           action={cities.length > 1 && (
