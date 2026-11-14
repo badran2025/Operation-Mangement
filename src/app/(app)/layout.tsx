@@ -6,7 +6,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { profile } = await requireActive();
   const isAdmin = profile.role === "admin";
   const links = [
-    { href: "/", label: "الفروع", show: true },
+    { href: "/", label: "الفروع", show: isAdmin || profile.role === "supervisor" },
+    { href: "/maintenance", label: "الصيانة", show: true },
     { href: "/housing", label: "السكن", show: isAdmin || profile.role === "supervisor" },
     { href: "/documents", label: "المستندات", show: isAdmin },
     { href: "/users", label: "المستخدمين", show: isAdmin },
@@ -21,7 +22,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             {links.map((l) => (
               <Link key={l.href} href={l.href} className="rounded-lg px-3 py-2 hover:bg-slate-100">{l.label}</Link>
             ))}
-            <span className="cursor-not-allowed rounded-lg px-3 py-2 text-slate-400" title="المرحلة الجاية">الصيانة (قريباً)</span>
           </nav>
           <div className="flex items-center gap-2 text-sm">
             <Link href="/account" className="text-slate-600 hover:text-brand-700">

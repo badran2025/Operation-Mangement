@@ -37,4 +37,7 @@ export type BranchSummary = {
   off_today: number;
   working_today: number;
   incomplete: number;
+  open_tickets: number;
+  overdue_tickets: number;
+  stopped: boolean;
 };

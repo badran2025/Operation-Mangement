@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireActive } from "@/lib/auth";
 import { dayLabel, riyadhWeekday } from "@/lib/format";
 import type { BranchSummary } from "@/lib/types";
@@ -7,7 +8,8 @@ import { Badge, Empty, PageHeader, Stat } from "@/components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  const { supabase } = await requireActive();
+  const { supabase, profile } = await requireActive();
+  if (profile.role === "technician" || profile.role === "maintenance_manager") redirect("/maintenance");
   const { data, error } = await supabase
     .from("v_branch_summary")
     .select("*")
@@ -23,12 +25,14 @@ export default async function Dashboard() {
     <>
       <PageHeader title="الفروع" subtitle={`النهارده ${dayLabel(riyadhWeekday())} · ${branches.length} فرع في ${cities.length} مدن`} />
 
-      <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
         <Stat label="إجمالي العمال" value={sum("workers_total")} />
         <Stat label="شغالين النهارده" value={sum("working_today")} />
         <Stat label="إجازة أسبوعية النهارده" value={sum("off_today")} />
         <Stat label="في إجازة طويلة" value={sum("on_leave")} />
         <Stat label="بيانات ناقصة" value={sum("incomplete")} tone={sum("incomplete") ? "amber" : undefined} />
+        <Stat label="بلاغات صيانة مفتوحة" value={sum("open_tickets")} />
+        <Stat label="بلاغات متأخرة" value={sum("overdue_tickets")} tone={sum("overdue_tickets") ? "red" : undefined} />
       </div>
 
       {branches.length === 0 && <Empty>مفيش فروع متاحة ليك. لو إنت مشرف، اطلب من مدير التشغيل يربطك بفروعك.</Empty>}
@@ -62,9 +66,10 @@ export default async function Dashboard() {
                     <span>إجازة النهارده: <b>{b.off_today}</b></span>
                     {b.on_leave > 0 && <span>إجازة طويلة: <b>{b.on_leave}</b></span>}
                   </div>
-                  {(b.incomplete > 0 || b.status !== "active") && (
+                  {(b.incomplete > 0 || b.status !== "active" || b.stopped || b.open_tickets > 0) && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {b.status === "stopped" && <Badge tone="red">الفرع متوقف</Badge>}
+                      {(b.stopped || b.status === "stopped") && <Badge tone="red">الفرع متوقف</Badge>}
+                      {b.open_tickets > 0 && <Badge tone={b.overdue_tickets ? "red" : "blue"}>🔧 {b.open_tickets} بلاغ{b.overdue_tickets ? ` · ${b.overdue_tickets} متأخر` : ""}</Badge>}
                       {b.status === "closed" && <Badge tone="gray">مقفول</Badge>}
                       {b.incomplete > 0 && <Badge tone="amber">{b.incomplete} بيانات ناقصة</Badge>}
                     </div>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireActive } from "@/lib/auth";
 import { dayLabel, formatDaysOff, formatShifts, formatTime, riyadhWeekday, STATUS_LABELS } from "@/lib/format";
 import type { WorkerRow } from "@/lib/types";
+import { dueLabel, OPEN_STATUSES, TICKET_STATUS, type TicketRow } from "@/lib/tickets";
 import { Badge, Empty, PageHeader, Stat } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -22,11 +23,13 @@ export default async function BranchPage({ params }: { params: Promise<{ id: str
   const id = Number((await params).id);
   const { supabase, profile } = await requireActive();
 
-  const [{ data: branch }, { data: hours }, { data: workers }] = await Promise.all([
+  const [{ data: branch }, { data: hours }, { data: workers }, { data: tix }] = await Promise.all([
     supabase.from("branches").select("*, cities(name_ar)").eq("id", id).maybeSingle(),
     supabase.from("branch_hours").select("*").eq("branch_id", id).order("weekday"),
     supabase.from("v_workers_current").select("*").eq("branch_id", id).order("full_name"),
+    supabase.from("v_tickets").select("*").eq("branch_id", id).in("status", OPEN_STATUSES).order("due_at"),
   ]);
+  const openTickets = (tix ?? []) as TicketRow[];
   if (!branch) notFound();
   const list = (workers ?? []) as WorkerRow[];
   const isAdmin = profile.role === "admin";
@@ -42,6 +45,7 @@ export default async function BranchPage({ params }: { params: Promise<{ id: str
         back={{ href: "/", label: "الفروع" }}
       >
         {branch.map_url && <a href={branch.map_url} target="_blank" rel="noreferrer" className="btn-ghost">📍 الخريطة</a>}
+        <Link href={`/maintenance/new?branch=${id}`} className="btn-ghost">🔧 بلاغ صيانة</Link>
         {isAdmin && <Link href={`/workers/new?branch=${id}`} className="btn-primary">+ إضافة عامل</Link>}
       </PageHeader>
 
@@ -64,6 +68,26 @@ export default async function BranchPage({ params }: { params: Promise<{ id: str
           {branch.phone && <div className="mt-1">التواصل: <span dir="ltr">{branch.phone}</span></div>}
         </div>
       </div>
+
+      {openTickets.length > 0 && (
+        <div className="card mb-4 p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="font-bold">بلاغات صيانة مفتوحة ({openTickets.length})</h2>
+            <Link href={`/maintenance?tab=open&branch=${id}`} className="text-sm text-brand-700 hover:underline">كل البلاغات</Link>
+          </div>
+          <ul className="divide-y divide-slate-100 text-sm">
+            {openTickets.slice(0, 6).map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <Link href={`/maintenance/${t.id}`} className="hover:text-brand-700 hover:underline">#{t.id} {t.title}</Link>
+                <span className="flex items-center gap-2">
+                  <Badge tone={TICKET_STATUS[t.status].tone}>{TICKET_STATUS[t.status].label}</Badge>
+                  <span className={`text-xs ${t.overdue ? "font-semibold text-red-600" : "text-slate-500"}`}>{dueLabel(t)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {list.length === 0 ? (
         <Empty>مفيش عمال في الفرع ده.</Empty>
