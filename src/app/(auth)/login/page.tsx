@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { getT } from "@/lib/i18n/server";
 import { ActionForm } from "@/components/ActionForm";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -13,7 +14,7 @@ export default async function LoginPage() {
       <div className="flex justify-end gap-2 py-4"><LangToggle /><ThemeToggle /></div>
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center pb-16">
         <div className="mb-7 flex flex-col items-center gap-3 text-center">
-          <span className="grid size-12 place-items-center rounded-xl bg-brand text-xl font-bold text-white shadow-[inset_0_-4px_0_var(--brand-accent)]" aria-hidden>k</span>
+          <Image src="/brand/kleen-badge.png" alt="Kleen" width={88} height={88} priority className="rounded-2xl" />
           <h1 className="text-2xl font-semibold">{t.auth.title}</h1>
           <p className="text-ink-muted">{t.auth.subtitle}</p>
         </div>

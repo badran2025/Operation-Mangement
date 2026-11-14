@@ -96,10 +96,19 @@ export function BottomNav({ items, overdue, userName, signOut }: { items: NavKey
   );
 }
 
+/** Kleen mark (redrawn from the official logo as SVG) + product name. */
+export function KleenMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 548 549" className={cn("size-8 shrink-0 text-brand", className)} aria-hidden>
+      <path fill="currentColor" fillRule="evenodd" d="M104 0h340a104 104 0 0 1 104 104v341a104 104 0 0 1-104 104H104A104 104 0 0 1 0 445V104A104 104 0 0 1 104 0zM316 150h166L233 399H66z" />
+    </svg>
+  );
+}
+
 export function BrandMark({ label }: { label: string }) {
   return (
     <Link href="/" className="flex items-center gap-2.5 px-2">
-      <span className="grid size-8 place-items-center rounded-lg bg-brand font-bold text-white shadow-[inset_0_-3px_0_var(--brand-accent)]" aria-hidden>k</span>
+      <KleenMark />
       <span className="text-[17px] font-bold text-ink">{label}</span>
     </Link>
   );

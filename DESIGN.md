@@ -1,29 +1,29 @@
 ---
 version: alpha
 name: kleen-ops-fresh-fold
-description: "Fresh Fold — a soft, roomy operations UI for Kleen laundries. Cool off-white canvas (#f4f7fb), white surfaces separated by tone not borders, deep navy ink, one action color: Kleen blue (#1f7fc0). Kleen yellow (#ffc531) appears only on today's date chip and the brand mark. Work Sans for English, Firjar for Arabic, generous radius (12–20px), pill buttons, big friendly numbers. Bilingual (English default, Arabic RTL) with light (default) and dark themes."
+description: "Fresh Fold — a soft, roomy operations UI for Kleen laundries. Cool off-white canvas (#f4f7fb), white surfaces separated by tone not borders, deep navy ink, one action color derived from the official Kleen blue (#0597ce → #03729e for AA on white). Yellow (#ffc531) appears only on today's date chip. Work Sans for English, Firjar for Arabic, generous radius (12–20px), pill buttons, big friendly numbers. Bilingual (English default, Arabic RTL) with light (default) and dark themes."
 colors:
-  primary: "#1f7fc0"
-  primary-hover: "#196ca4"
+  primary: "#03729e"
+  primary-hover: "#025f86"
   on-primary: "#ffffff"
-  brand: "#1f8bd0"
+  brand: "#0597ce"
   brand-accent: "#ffc531"
   canvas: "#f4f7fb"
   surface: "#ffffff"
-  surface-tint: "#e7f1fb"
+  surface-tint: "#e3f2fa"
   surface-sunken: "#eef3f9"
   ink: "#1b2235"
   ink-muted: "#5d6683"
   hairline: "#e3e8f1"
-  focus: "#1f7fc0"
+  focus: "#03729e"
   success: "#17713f"
   success-soft: "#e9f6ef"
   warning: "#8a5a00"
   warning-soft: "#fff4d4"
   danger: "#b42318"
   danger-soft: "#fdecec"
-  info: "#155f97"
-  info-soft: "#e7f1fb"
+  info: "#03628a"
+  info-soft: "#e3f2fa"
   dark-canvas: "#121726"
   dark-surface: "#1a2033"
   dark-surface-tint: "#1f2a44"
@@ -31,7 +31,7 @@ colors:
   dark-ink: "#e8ecf6"
   dark-ink-muted: "#a3abc4"
   dark-hairline: "#2a3149"
-  dark-primary: "#4aa3e6"
+  dark-primary: "#0597ce"
   dark-on-primary: "#0b1422"
 typography:
   display:  { fontFamily: "Work Sans / Firjar", fontSize: 30px, fontWeight: 600, lineHeight: 1.2, letterSpacing: 0px }
@@ -62,8 +62,9 @@ Direction: *Fresh Fold*, adapted from `mercury/DESIGN.md` (tonal elevation inste
 
 ## Colors
 ### Brand & Accent
-- **primary `#1f7fc0`** — the single main action per view (New ticket, Save), selected tab, focus ring, links.
-- **brand-accent `#ffc531`** — only the brand mark underline and today's date chip. Never for buttons or status.
+- **brand `#0597ce`** — the official Kleen blue (sampled from the logo files). Used for the logo mark, favicon, and as the primary in dark mode. White text on it is only 3.3:1, so it is never used behind small white text in light mode.
+- **primary `#03729e`** — the same hue, deepened for AA (5.4:1 with white text, 5.0:1 as a link on canvas): the single main action per view, selected tab, focus ring, links.
+- **brand-accent `#ffc531`** — only today's date chip (taken from the company's document template; the logo itself has no yellow). Never for buttons or status.
 ### Surface
 - canvas `#f4f7fb` (cool, never cream) → surface `#ffffff` for cards/panels → surface-sunken `#eef3f9` for rows inside cards and hovers. Elevation is tonal: **no drop shadows on cards**, hairlines only for inputs, tables and dividers.
 - surface-tint `#e7f1fb` highlights the first KPI and the active nav item.
@@ -73,9 +74,9 @@ Direction: *Fresh Fold*, adapted from `mercury/DESIGN.md` (tonal elevation inste
 - danger `#b42318` / `#fdecec` — overdue, branch stopped, errors.
 - warning `#8a5a00` / `#fff4d4` — waiting for parts, documents expiring ≤ 90 days.
 - success `#17713f` / `#e9f6ef` — resolved, all clear.
-- info `#155f97` / `#e7f1fb` — assigned, neutral information.
+- info `#03628a` / `#e3f2fa` — assigned, neutral information.
 ### Dark mode
-Same roles: canvas `#121726`, surface `#1a2033`, sunken `#161b2c`, tint `#1f2a44`, ink `#e8ecf6`, muted `#a3abc4`, hairline `#2a3149`, primary `#4aa3e6` with dark text `#0b1422`. Semantic soft backgrounds become deep tints (`#3d1a20`, `#3a2f12`, `#173528`, `#1f3352`) with light text (`#ff9b8f`, `#ffd666`, `#7fd9a6`, `#9ccdf5`).
+Same roles: canvas `#121726`, surface `#1a2033`, sunken `#161b2c`, tint `#1f2a44`, ink `#e8ecf6`, muted `#a3abc4`, hairline `#2a3149`, primary = the exact brand `#0597ce` with dark text `#0b1422` (5.6:1). Semantic soft backgrounds become deep tints (`#3d1a20`, `#3a2f12`, `#173528`, `#1f3352`) with light text (`#ff9b8f`, `#ffd666`, `#7fd9a6`, `#9ccdf5`).
 
 ## Typography
 ### Font Family
@@ -138,5 +139,5 @@ Tables keep columns and scroll horizontally; meta lines wrap; secondary meta hid
 New screens reuse: card (xl) → soft rows (14px) → badges/pills. New status = one of the four semantic pairs, never a new hue. New tokens go into this file first, then `globals.css`.
 
 ## Known Gaps
-- Brand colors are estimated from the logo; replace with official values when available.
+- Logo assets: `public/brand/` (badge, wordmark, laundry logo) and `src/app/icon.svg` (the mark, redrawn as SVG from the official logo).
 - Charts are not designed yet (when needed: primary + muted ink + semantic colors only).
