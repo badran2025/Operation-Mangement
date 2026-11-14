@@ -5,6 +5,10 @@ import { getT } from "./i18n/server";
 export async function friendlyError(message: string): Promise<string> {
   const { t } = await getT();
   const m = message.toLowerCase();
+  if (m.includes("needs assignee")) return t.errors.needsAssignee;
+  if (m.includes("note required")) return t.errors.noteRequired;
+  if (m.includes("bad transition")) return t.errors.badTransition;
+  if (m.includes("ticket is closed")) return t.errors.ticketClosed;
   if (m.includes("not allowed") || m.includes("مش مسموح") || m.includes("permission denied")) return t.errors.notAllowed;
   if (m.includes("العنوان مطلوب")) return t.errors.titleRequired;
   if (m.includes("مش موجود أو مش مفعّل")) return t.errors.userInactive;

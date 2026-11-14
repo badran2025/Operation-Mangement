@@ -44,6 +44,14 @@ export function formatDateTime(l: Locale, iso: string | null | undefined): strin
   return new Intl.DateTimeFormat(intlLocale(l), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: TZ }).format(new Date(iso));
 }
 
+/** "7 Nov" (adds the year when it is not this year) */
+export function formatDay(l: Locale, iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const sameYear = d.getUTCFullYear() === new Date().getUTCFullYear();
+  return new Intl.DateTimeFormat(intlLocale(l), { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }), timeZone: TZ }).format(d);
+}
+
 export function todayLabel(l: Locale, date = new Date()): string {
   return new Intl.DateTimeFormat(intlLocale(l), { weekday: "long", day: "numeric", month: "long", timeZone: TZ }).format(date);
 }
@@ -77,6 +85,8 @@ export function timeAgo(t: Dict, iso: string | null | undefined): string {
 }
 
 export const OPEN_STATUSES = ["new", "assigned", "in_progress", "waiting_parts"];
+/** Everything that is not finished yet (includes "fixed, awaiting confirmation") */
+export const ACTIVE_STATUSES = [...OPEN_STATUSES, "resolved"];
 
 export function dueInfo(t: Dict, due: string | null, status: string): { text: string; late: boolean } | null {
   if (!due || !OPEN_STATUSES.includes(status)) return null;

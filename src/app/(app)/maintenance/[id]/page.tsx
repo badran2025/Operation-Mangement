@@ -1,20 +1,16 @@
 import { notFound } from "next/navigation";
-import { FileIcon } from "lucide-react";
+import Link from "next/link";
+import { CheckIcon, ChevronDownIcon, FileIcon, PauseIcon } from "lucide-react";
 import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
 import type { Dict } from "@/lib/i18n/dictionaries";
-import { dueInfo, duration, formatDateTime, OPEN_STATUSES, timeAgo } from "@/lib/i18n/format";
-import { PRIORITIES, PRIORITY_TONE, STATUSES, STATUS_TONE, waNumber, type TicketRow } from "@/lib/tickets";
-import { ActionForm } from "@/components/ActionForm";
-import { SubmitButton } from "@/components/SubmitButton";
+import { dueInfo, duration, formatDateTime, formatDay, OPEN_STATUSES, timeAgo } from "@/lib/i18n/format";
+import { PRIORITY_TONE, STATUS_RANK, STATUS_TONE, waNumber, type TicketRow } from "@/lib/tickets";
 import { Badge } from "@/components/ui/badge";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { PageHeader, Panel } from "@/components/app/blocks";
-import { assignAction, priorityAction, setStatusAction } from "../actions";
-import { CommentBox, ReminderButton } from "./ClientBits";
+import { cn } from "@/lib/utils";
+import { AssignForm, CommentBox, ReminderButton, StepButton } from "./ClientBits";
 
 export const dynamic = "force-dynamic";
 
@@ -35,16 +31,37 @@ function eventText(t: Dict, e: Ev): string {
   }
 }
 
-function StatusButtons({ id, options }: { id: number; options: { status: string; label: string; variant?: "default" | "outline" | "destructive" }[] }) {
+/** Where the ticket is in its life: milestones reached so far. */
+function Steps({ t, locale, ticket }: { t: Dict; locale: "en" | "ar"; ticket: TicketRow }) {
+  const F = t.maintenance.flow;
+  const rank = STATUS_RANK[ticket.status];
+  const hold = ticket.status === "waiting_parts";
+  const steps = [
+    { label: F.steps.reported, note: formatDay(locale, ticket.created_at) },
+    { label: F.steps.assigned, note: ticket.assignee_display },
+    { label: hold ? F.onHold : F.steps.work, note: null },
+    { label: F.steps.fixed, note: ticket.resolved_at ? formatDay(locale, ticket.resolved_at) : null },
+    { label: F.steps.closed, note: ticket.closed_at ? formatDay(locale, ticket.closed_at) : null },
+  ];
   return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((o) => (
-        <ActionForm key={o.status} action={setStatusAction.bind(null, id)}>
-          <input type="hidden" name="status" value={o.status} />
-          <SubmitButton variant={o.variant ?? "outline"}>{o.label}</SubmitButton>
-        </ActionForm>
-      ))}
-    </div>
+    <ol className="grid grid-cols-5">
+      {steps.map((s, i) => {
+        const reached = i <= rank, current = i === rank;
+        return (
+          <li key={i} aria-current={current ? "step" : undefined} className="relative flex flex-col items-center gap-1.5 px-0.5 text-center">
+            {i > 0 && <span className={cn("absolute end-1/2 top-[11px] h-0.5 w-full", reached ? "bg-primary" : "bg-hairline")} aria-hidden />}
+            <span className={cn("relative z-10 flex size-6 items-center justify-center rounded-full",
+              !reached && "bg-surface-sunken ring-2 ring-inset ring-hairline",
+              reached && !current && "bg-primary text-primary-foreground",
+              current && (hold ? "bg-warning text-surface ring-4 ring-warning-soft" : "bg-primary text-primary-foreground ring-4 ring-surface-tint"))}>
+              {reached && (current && hold ? <PauseIcon className="size-3" aria-hidden /> : <CheckIcon className="size-3.5" aria-hidden />)}
+            </span>
+            <span className={cn("text-[12px] leading-tight sm:text-[13px]", current ? "font-semibold text-ink" : reached ? "text-ink" : "text-ink-muted")}>{s.label}</span>
+            {reached && s.note && <span className="num hidden max-w-full truncate text-[12px] text-ink-muted sm:block" dir="auto">{s.note}</span>}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -67,8 +84,13 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
   const branchName = pick(locale, br?.name_ar, br?.name_en);
   const catName = cat ? pick(locale, cat.name_ar, cat.name_en) : "—";
   const role = profile.role;
+  const F = M.flow;
+  const st = ticket.status;
   const isManager = role === "admin" || role === "maintenance_manager";
-  const isOpen = OPEN_STATUSES.includes(ticket.status);
+  const canWork = isManager || (role === "technician" && ticket.assigned_to === user.id);
+  const canConfirm = isManager || role === "supervisor";
+  const isOpen = OPEN_STATUSES.includes(st);
+  const tech = ticket.assignee_display ?? "";
 
   const attachments = (atts ?? []) as Att[];
   const signed = attachments.length
@@ -103,6 +125,14 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
     </div>
   );
 
+  const Item = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="min-w-0"><dt className="text-[13px] text-ink-muted">{label}</dt><dd className="m-0 font-medium">{children}</dd></div>
+  );
+  const assignForm = (submitLabel: string) => (
+    <AssignForm ticketId={ticket.id} staff={(staff ?? []).map((s) => ({ id: s.id, name: s.full_name }))} priority={ticket.priority} submitLabel={submitLabel}
+      current={{ userId: ticket.assigned_to, name: ticket.assignee_display, phone: ticket.assignee_contact }} />
+  );
+
   return (
     <>
       <PageHeader
@@ -113,25 +143,123 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
         {phone && isOpen && role !== "technician" && <ReminderButton ticketId={ticket.id} phone={phone} message={reminderMsg} />}
       </PageHeader>
 
+      <Panel>
+        {st === "cancelled" ? <p className="font-medium text-ink-muted">{F.cancelledNote}</p> : <Steps t={t} locale={locale} ticket={ticket} />}
+      </Panel>
+
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-6">
+        {/* what to do now comes first on a phone */}
+        <div className="flex min-w-0 flex-col gap-6 xl:order-2">
+          <Panel title={F.next} className={cn(((st === "new" && isManager) || (isOpen && st !== "new" && canWork) || (st === "resolved" && canConfirm)) && "ring-2 ring-primary")}>
+            {st === "new" && (isManager ? <><p className="mb-4 text-sm text-ink-muted">{F.newManager}</p>{assignForm(F.assign)}</> : <p className="text-ink-muted">{F.newWaiting}</p>)}
+
+            {st === "assigned" && (canWork ? (
+              <>
+                <p className="mb-3 text-sm text-ink-muted">{isManager ? F.assignedManager(tech) : F.assignedYou}</p>
+                <div className="flex flex-wrap gap-2">
+                  <StepButton ticketId={ticket.id} status="in_progress" label={F.start} variant="default" />
+                  <StepButton ticketId={ticket.id} status="waiting_parts" label={F.hold} reasonPh={F.holdPh} />
+                </div>
+              </>
+            ) : <p className="text-ink-muted">{F.assignedWaiting(tech)}</p>)}
+
+            {st === "in_progress" && (canWork ? (
+              <>
+                <p className="mb-3 text-sm text-ink-muted">{F.progressAct}</p>
+                <div className="flex flex-wrap gap-2">
+                  <StepButton ticketId={ticket.id} status="resolved" label={F.fixed} variant="default" />
+                  <StepButton ticketId={ticket.id} status="waiting_parts" label={F.hold} reasonPh={F.holdPh} />
+                </div>
+              </>
+            ) : <p className="text-ink-muted">{F.progressWaiting(tech)}</p>)}
+
+            {st === "waiting_parts" && (
+              <>
+                <div className="mb-3 rounded-[14px] bg-warning-soft px-3.5 py-2.5 text-sm text-warning">
+                  <div className="font-semibold">{F.holdReason}</div>
+                  <div className="user-text" dir="auto">{ticket.hold_reason ?? "—"}</div>
+                </div>
+                {canWork ? (
+                  <>
+                    <p className="mb-3 text-sm text-ink-muted">{F.holdAct}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <StepButton ticketId={ticket.id} status="in_progress" label={F.resume} variant="default" />
+                      <StepButton ticketId={ticket.id} status="resolved" label={F.fixed} />
+                    </div>
+                  </>
+                ) : <p className="text-ink-muted">{F.holdWaiting(tech)}</p>}
+              </>
+            )}
+
+            {st === "resolved" && (canConfirm ? (
+              <>
+                <p className="mb-3 text-sm text-ink-muted">{F.resolvedConfirm(tech)}</p>
+                <div className="flex flex-wrap gap-2">
+                  <StepButton ticketId={ticket.id} status="closed" label={F.confirmClose} variant="default" />
+                  <StepButton ticketId={ticket.id} status="in_progress" label={F.stillBroken} variant="destructive" reasonPh={F.brokenPh} />
+                </div>
+              </>
+            ) : <p className="text-ink-muted">{F.resolvedWaiting}</p>)}
+
+            {st === "closed" && (
+              <>
+                <p className={cn("text-sm text-ink-muted", canConfirm && "mb-3")}>{F.closedNote}</p>
+                {canConfirm && <StepButton ticketId={ticket.id} status="in_progress" label={F.reopen} reasonPh={F.reopenPh} />}
+              </>
+            )}
+
+            {st === "cancelled" && (isManager ? <StepButton ticketId={ticket.id} status="new" label={F.restore} /> : <p className="text-ink-muted">{F.cancelledNote}</p>)}
+          </Panel>
+
+          {isManager && st !== "closed" && st !== "cancelled" && (
+            <details className="group rounded-2xl bg-surface">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 md:px-5 [&::-webkit-details-marker]:hidden">
+                <span>
+                  <span className="block text-[17px] font-semibold">{F.manage}</span>
+                  <span className="block text-[13px] text-ink-muted">{F.manageHint}</span>
+                </span>
+                <ChevronDownIcon className="size-4 shrink-0 text-ink-muted transition-transform duration-150 group-open:rotate-180" aria-hidden />
+              </summary>
+              <div className="flex flex-col gap-5 px-4 pb-5 md:px-5">
+                {st !== "new" && assignForm(F.saveChanges)}
+                <StepButton ticketId={ticket.id} status="cancelled" label={F.cancel} variant="destructive" reasonPh={F.cancelPh} />
+              </div>
+            </details>
+          )}
+          {ticket.last_reminder_at && <p className="text-xs text-ink-muted">{M.lastReminder}: {timeAgo(t, ticket.last_reminder_at)}</p>}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-6 xl:order-1">
           <Panel>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={STATUS_TONE[ticket.status]}>{M.status[ticket.status]}</Badge>
+              <Badge variant={STATUS_TONE[st]}>{M.status[st]}</Badge>
               <Badge variant={PRIORITY_TONE[ticket.priority]}>{M.priorityLabel}: {M.priority[ticket.priority]}</Badge>
               {ticket.stops_branch && <Badge variant="danger">{isOpen ? M.stopped : M.wasStopped}</Badge>}
               {due && <span className={due.late ? "font-semibold text-danger" : "text-ink-muted"}>{due.text}</span>}
             </div>
-            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <div><dt className="text-[13px] text-ink-muted">{M.reportedBy}</dt><dd className="m-0" dir="auto">{ticket.reporter_display ?? "—"}<span className="text-ink-muted">{t.common.comma}{formatDateTime(locale, ticket.created_at)}</span></dd></div>
-              <div><dt className="text-[13px] text-ink-muted">{M.technician}</dt><dd className="m-0" dir="auto">{ticket.assignee_display ?? <span className="text-warning">{M.nobody}</span>}</dd></div>
-              <div><dt className="text-[13px] text-ink-muted">{M.due}</dt><dd className="m-0">{formatDateTime(locale, ticket.due_at)}</dd></div>
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3.5 text-sm lg:grid-cols-4">
+              <Item label={M.reportedBy}><span dir="auto">{ticket.reporter_display ?? "—"}</span><span className="block text-[13px] font-normal text-ink-muted">{formatDateTime(locale, ticket.created_at)}</span></Item>
+              <Item label={M.technician}>
+                {ticket.assignee_display ? <span dir="auto">{ticket.assignee_display}</span> : <span className="text-warning">{M.nobody}</span>}
+                {ticket.assignee_contact && (
+                  <span className="block text-[13px] font-normal">
+                    <a href={`tel:${ticket.assignee_contact}`} dir="ltr" className="text-primary hover:underline">{ticket.assignee_contact}</a>
+                  </span>
+                )}
+              </Item>
+              <Item label={M.due}>{formatDateTime(locale, ticket.due_at)}<span className="block text-[13px] font-normal text-ink-muted">{F.target(M.priorityHint[ticket.priority])}</span></Item>
+              <Item label={M.branch}><Link href={`/branches/${ticket.branch_id}`} className="text-primary hover:underline">{branchName}</Link><span className="block text-[13px] font-normal text-ink-muted">{catName}</span></Item>
               {ticket.resolved_at && (
-                <div><dt className="text-[13px] text-ink-muted">{M.timeToResolve}</dt><dd className="m-0">{duration(t, Math.round((new Date(ticket.resolved_at).getTime() - new Date(ticket.created_at).getTime()) / 60000))}</dd></div>
+                <Item label={M.timeToResolve}>{duration(t, Math.round((new Date(ticket.resolved_at).getTime() - new Date(ticket.created_at).getTime()) / 60000))}</Item>
               )}
             </dl>
-            {ticket.description && <p className="mt-4 whitespace-pre-line" dir="auto">{ticket.description}</p>}
-            <Files list={filesFor(null)} />
+            {(ticket.description || filesFor(null).length > 0) && (
+              <div className="mt-4 border-t border-hairline pt-4">
+                <h2 className="mb-1 text-[13px] text-ink-muted">{M.details}</h2>
+                {ticket.description && <p className="user-text whitespace-pre-line" dir="auto">{ticket.description}</p>}
+                <Files list={filesFor(null)} />
+              </div>
+            )}
           </Panel>
 
           <section className="flex flex-col gap-3">
@@ -144,83 +272,13 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
                     <span><b className="font-semibold" dir="auto">{e.profiles?.full_name ?? M.ev.system}</b> {eventText(t, e)}</span>
                     <time className="text-xs text-ink-muted" dateTime={e.created_at} title={formatDateTime(locale, e.created_at)}>{timeAgo(t, e.created_at)}</time>
                   </div>
-                  {e.body && <p className="mt-1 whitespace-pre-line text-ink" dir="auto">{e.body}</p>}
+                  {e.body && <p className="user-text mt-1 whitespace-pre-line text-ink" dir="auto">{e.body}</p>}
                   <Files list={filesFor(e.id)} />
                 </li>
               ))}
             </ol>
             <CommentBox ticketId={ticket.id} />
           </section>
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-6">
-          {role === "technician" && ticket.assigned_to === user.id && isOpen && (
-            <Panel title={M.updateStatus}>
-              <StatusButtons id={ticket.id} options={[
-                { status: "in_progress", label: M.started },
-                { status: "waiting_parts", label: M.waitingParts },
-                { status: "resolved", label: M.fixed, variant: "default" as const },
-              ].filter((o) => o.status !== ticket.status)} />
-            </Panel>
-          )}
-
-          {role === "supervisor" && ticket.status === "resolved" && (
-            <Panel title={M.resolvedTitle} className="ring-2 ring-primary">
-              <p className="mb-3 text-sm text-ink-muted">{M.resolvedBody}</p>
-              <StatusButtons id={ticket.id} options={[
-                { status: "closed", label: M.confirmClose, variant: "default" },
-                { status: "in_progress", label: M.stillBroken, variant: "destructive" },
-              ]} />
-            </Panel>
-          )}
-          {role === "supervisor" && ticket.status === "closed" && (
-            <StatusButtons id={ticket.id} options={[{ status: "in_progress", label: M.reopen, variant: "destructive" }]} />
-          )}
-
-          {isManager && (
-            <>
-              <Panel title={M.assignTitle}>
-                <ActionForm action={assignAction.bind(null, ticket.id)} className="flex flex-col gap-4">
-                  <Field>
-                    <FieldLabel htmlFor="as-who">{M.technician}</FieldLabel>
-                    <NativeSelect id="as-who" name="assigned_to" defaultValue={ticket.assigned_to ?? (ticket.assignee_display ? "external" : "")} className="w-full">
-                      <NativeSelectOption value="">{M.nobody}</NativeSelectOption>
-                      {(staff ?? []).map((s) => <NativeSelectOption key={s.id} value={s.id}>{s.full_name}</NativeSelectOption>)}
-                      <NativeSelectOption value="external">{M.externalTech}</NativeSelectOption>
-                    </NativeSelect>
-                  </Field>
-                  <Field><FieldLabel htmlFor="as-name">{M.externalName}</FieldLabel><Input id="as-name" name="assignee_name" defaultValue={ticket.assigned_to ? "" : ticket.assignee_display ?? ""} dir="auto" /></Field>
-                  <Field><FieldLabel htmlFor="as-phone">{M.techWhatsapp}</FieldLabel><Input id="as-phone" name="assignee_phone" type="tel" inputMode="tel" defaultValue={ticket.assigned_to ? "" : ticket.assignee_contact ?? ""} dir="ltr" placeholder="05xxxxxxxx" /></Field>
-                  <SubmitButton>{M.saveAssign}</SubmitButton>
-                </ActionForm>
-              </Panel>
-
-              <Panel title={M.statusPriority}>
-                <div className="flex flex-col gap-5">
-                  <ActionForm action={setStatusAction.bind(null, ticket.id)} className="flex flex-col gap-3">
-                    <Field>
-                      <FieldLabel htmlFor="st">{M.updateStatus}</FieldLabel>
-                      <NativeSelect id="st" name="status" defaultValue={ticket.status} className="w-full">
-                        {STATUSES.map((k) => <NativeSelectOption key={k} value={k}>{M.status[k]}</NativeSelectOption>)}
-                      </NativeSelect>
-                    </Field>
-                    <Input name="note" placeholder={M.note} aria-label={M.note} dir="auto" />
-                    <SubmitButton variant="outline">{M.updateStatus}</SubmitButton>
-                  </ActionForm>
-                  <ActionForm action={priorityAction.bind(null, ticket.id)} className="flex flex-col gap-3">
-                    <Field>
-                      <FieldLabel htmlFor="pr">{M.priorityLabel}</FieldLabel>
-                      <NativeSelect id="pr" name="priority" defaultValue={ticket.priority} className="w-full">
-                        {PRIORITIES.map((k) => <NativeSelectOption key={k} value={k}>{M.priority[k]}: {M.priorityHint[k]}</NativeSelectOption>)}
-                      </NativeSelect>
-                    </Field>
-                    <SubmitButton variant="outline">{M.changePriority}</SubmitButton>
-                  </ActionForm>
-                </div>
-              </Panel>
-            </>
-          )}
-          {ticket.last_reminder_at && <p className="text-xs text-ink-muted">{M.lastReminder}: {timeAgo(t, ticket.last_reminder_at)}</p>}
         </div>
       </div>
     </>

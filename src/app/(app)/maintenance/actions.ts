@@ -48,19 +48,33 @@ export async function setStatusAction(ticketId: number, _: ActionState, fd: Form
   return { ok: (await getT()).t.common.saved };
 }
 
+/** Triage in one step: who fixes it + how urgent it is. */
 export async function assignAction(ticketId: number, _: ActionState, fd: FormData): Promise<ActionState> {
   const { supabase } = await requireActive();
+  const { t } = await getT();
   const who = String(fd.get("assigned_to") ?? "");
   const isExternal = who === "external";
-  const { error } = await supabase.rpc("assign_ticket", {
-    p_ticket_id: ticketId,
-    p_assigned_to: (isExternal || !who ? null : who) as string,
-    p_assignee_name: isExternal ? String(fd.get("assignee_name") ?? "") : undefined,
-    p_assignee_phone: String(fd.get("assignee_phone") ?? ""),
-  });
-  if (error) return { error: await friendlyError(error.message) };
+  const name = String(fd.get("assignee_name") ?? "").trim();
+  const priority = String(fd.get("priority") ?? "");
+  const hadTech = fd.get("had_tech") === "1";
+  if (isExternal && !name) return { error: t.maintenance.flow.nameRequired };
+  if (!who && !hadTech && priority === String(fd.get("current_priority") ?? "")) return { error: t.maintenance.flow.chooseTech };
+
+  if (priority && priority !== String(fd.get("current_priority") ?? "")) {
+    const { error } = await supabase.rpc("set_ticket_priority", { p_ticket_id: ticketId, p_priority: priority });
+    if (error) return { error: await friendlyError(error.message) };
+  }
+  if (who || hadTech) {
+    const { error } = await supabase.rpc("assign_ticket", {
+      p_ticket_id: ticketId,
+      p_assigned_to: (isExternal || !who ? null : who) as string,
+      p_assignee_name: isExternal ? name : undefined,
+      p_assignee_phone: isExternal ? String(fd.get("assignee_phone") ?? "") : undefined,
+    });
+    if (error) return { error: await friendlyError(error.message) };
+  }
   refresh(ticketId);
-  return { ok: (await getT()).t.common.saved };
+  return { ok: t.common.saved };
 }
 
 export async function priorityAction(ticketId: number, _: ActionState, fd: FormData): Promise<ActionState> {

@@ -4,9 +4,9 @@ import { PlusIcon } from "lucide-react";
 import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
-import { daysUntil, dueInfo, greeting, nf, OPEN_STATUSES, todayLabel } from "@/lib/i18n/format";
+import { daysUntil, dueInfo, greeting, nf, ACTIVE_STATUSES, todayLabel } from "@/lib/i18n/format";
 import type { BranchSummary } from "@/lib/types";
-import { STATUS_TONE, type TicketRow } from "@/lib/tickets";
+import { PRIORITY_TONE, STATUS_TONE, type TicketRow } from "@/lib/tickets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyNote, Kpi, PageHeader, Panel, RowChevron, SoftRow } from "@/components/app/blocks";
@@ -22,17 +22,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const n = nf(locale);
   const isAdmin = profile.role === "admin";
 
-  const [{ data: bData }, { data: tData }, { data: dData }, { data: branchNames }] = await Promise.all([
+  const [{ data: bData }, { data: tData }, { data: dData }] = await Promise.all([
     supabase.from("v_branch_summary").select("*").order("city_sort").order("sort"),
-    supabase.from("v_tickets").select("*").in("status", OPEN_STATUSES).order("due_at").limit(6),
+    supabase.from("v_tickets").select("*").in("status", ACTIVE_STATUSES).order("due_at").limit(6),
     isAdmin
       ? supabase.from("worker_documents").select("id, doc_type, expiry_date, worker_id, workers(full_name)").not("expiry_date", "is", null).order("expiry_date").limit(30)
       : Promise.resolve({ data: [] as never[] }),
-    supabase.from("branches").select("id, name_en"),
   ]);
   const branches = (bData ?? []) as BranchSummary[];
   const tickets = (tData ?? []) as TicketRow[];
-  const enName = new Map((branchNames ?? []).map((b) => [b.id, b.name_en]));
   const docs = (dData ?? []).map((d) => ({ ...d, days: daysUntil(d.expiry_date)! })).filter((d) => d.days <= 90);
 
   const sum = (k: keyof BranchSummary) => branches.reduce((s, b) => s + Number(b[k] ?? 0), 0);
@@ -54,12 +52,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </Button>
       </PageHeader>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5" aria-label={t.nav.overview}>
-        <Kpi label={t.dashboard.workers} value={n(sum("workers_total"))} highlight className="col-span-2 md:col-span-1" />
-        <Kpi label={t.dashboard.workingToday} value={n(sum("working_today"))} />
-        <Kpi label={t.dashboard.openTickets} value={n(sum("open_tickets"))} />
-        <Kpi label={t.dashboard.overdue} value={n(sum("overdue_tickets"))} tone={sum("overdue_tickets") ? "danger" : undefined} />
-        {isAdmin && <Kpi label={t.dashboard.docsExpiring} value={n(docs.length)} tone={docs.length ? "warning" : undefined} />}
+      <section className={cn("grid grid-cols-2 gap-3 md:grid-cols-3", isAdmin ? "xl:grid-cols-6" : "xl:grid-cols-4")} aria-label={t.nav.overview}>
+        <Kpi label={t.dashboard.workers} value={n(sum("workers_total"))} highlight href="/workers" />
+        <Kpi label={t.dashboard.workingToday} value={n(sum("working_today"))} href="/workers?show=working" />
+        <Kpi label={t.dashboard.openTickets} value={n(sum("open_tickets"))} href="/maintenance" />
+        <Kpi label={t.dashboard.overdue} value={n(sum("overdue_tickets"))} tone={sum("overdue_tickets") ? "danger" : undefined} href="/maintenance?tab=overdue" />
+        {isAdmin && <Kpi label={t.dashboard.incomplete} value={n(sum("incomplete"))} tone={sum("incomplete") ? "warning" : undefined} href="/workers?show=incomplete" />}
+        {isAdmin && <Kpi label={t.dashboard.docsExpiring} value={n(docs.length)} tone={docs.length ? "warning" : undefined} href="/documents" />}
       </section>
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
@@ -112,13 +111,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 return (
                   <li key={k.id}>
                     <SoftRow href={`/maintenance/${k.id}`} className="flex-col items-stretch gap-1">
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center justify-between gap-2">
                         <span className="user-text min-w-0 flex-1 truncate font-medium" dir="auto">{k.title}</span>
+                        {(k.priority === "urgent" || k.priority === "high") && <Badge variant={PRIORITY_TONE[k.priority]}>{t.maintenance.priority[k.priority]}</Badge>}
                         <Badge variant={STATUS_TONE[k.status]}>{t.maintenance.status[k.status]}</Badge>
                       </div>
                       <div className="flex flex-wrap gap-x-3.5 gap-y-0.5 text-[13px] text-ink-muted">
-                        <span>{locale === "ar" ? k.branch_ar : enName.get(k.branch_id) ?? k.branch_ar}</span>
-                        <span dir="auto">{k.assignee_display ?? t.maintenance.nobody}</span>
+                        <span>{pick(locale, k.branch_ar, k.branch_en)}</span>
+                        {k.assignee_display ? <span dir="auto">{k.assignee_display}</span> : <span className="font-medium text-warning">{t.maintenance.nobody}</span>}
                         {due && <span className={cn(due.late && "font-semibold text-danger")}>{due.text}</span>}
                       </div>
                     </SoftRow>

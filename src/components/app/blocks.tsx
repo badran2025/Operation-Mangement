@@ -38,14 +38,21 @@ export function Panel({ title, action, children, className }: { title?: React.Re
   );
 }
 
-/** KPI tile: value above label. */
-export function Kpi({ label, value, tone, highlight, className }: { label: string; value: React.ReactNode; tone?: "danger" | "warning"; highlight?: boolean; className?: string }) {
-  return (
-    <div className={cn("flex flex-col gap-1.5 rounded-xl p-4 md:p-[18px]", highlight ? "bg-surface-tint" : "bg-surface", className)}>
+/** KPI tile: value above label. With `href` it is a filter link; `active` marks the current filter. */
+export function Kpi({ label, value, tone, highlight, className, href, active, hint }: {
+  label: string; value: React.ReactNode; tone?: "danger" | "warning"; highlight?: boolean; className?: string;
+  href?: string; active?: boolean; hint?: string;
+}) {
+  const cls = cn("relative flex flex-col gap-1.5 rounded-xl p-4 md:p-[18px]", highlight ? "bg-surface-tint" : "bg-surface",
+    href && "transition-colors duration-150 hover:bg-surface-sunken", active && "ring-2 ring-primary", className);
+  const body = (
+    <>
       <span className={cn("num text-[30px] font-semibold leading-none md:text-[34px]", tone === "danger" && "text-danger", tone === "warning" && "text-warning")}>{value}</span>
       <span className="text-[13.5px] text-ink-muted">{label}</span>
-    </div>
+      {hint && <span className="absolute end-3 top-3 rounded-full bg-primary px-2 py-0.5 text-[11.5px] font-semibold text-primary-foreground">{hint}</span>}
+    </>
   );
+  return href ? <Link href={href} scroll={false} aria-current={active ? "true" : undefined} className={cls}>{body}</Link> : <div className={cls}>{body}</div>;
 }
 
 /** Row inside a panel (14px radius = concentric with the 20px card). */

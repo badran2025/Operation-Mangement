@@ -2,23 +2,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { BuildingIcon, FileTextIcon, HomeIcon, LayoutGridIcon, MenuIcon, UsersIcon, WrenchIcon, UserIcon, LogOutIcon } from "lucide-react";
+import { BuildingIcon, FileTextIcon, HomeIcon, LayoutGridIcon, MenuIcon, ShieldCheckIcon, UsersIcon, WrenchIcon, UserIcon, LogOutIcon } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
-export type NavKey = "overview" | "maintenance" | "housing" | "documents" | "users";
+export type NavKey = "overview" | "maintenance" | "workers" | "housing" | "documents" | "users";
 const ITEMS: Record<NavKey, { href: string; icon: typeof HomeIcon }> = {
   overview: { href: "/", icon: LayoutGridIcon },
   maintenance: { href: "/maintenance", icon: WrenchIcon },
+  workers: { href: "/workers", icon: UsersIcon },
   housing: { href: "/housing", icon: HomeIcon },
   documents: { href: "/documents", icon: FileTextIcon },
-  users: { href: "/users", icon: UsersIcon },
+  users: { href: "/users", icon: ShieldCheckIcon },
 };
 
 function useActive() {
   const path = usePathname();
-  return (href: string) => (href === "/" ? path === "/" || path.startsWith("/branches") || path.startsWith("/workers") : path.startsWith(href));
+  return (href: string) => (href === "/" ? path === "/" || path.startsWith("/branches") : path.startsWith(href));
 }
 
 export function SidebarNav({ items, overdue }: { items: NavKey[]; overdue: number }) {

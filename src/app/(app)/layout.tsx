@@ -11,8 +11,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { t } = await getT();
   const role = profile.role;
   const items: NavKey[] =
-    role === "admin" ? ["overview", "maintenance", "housing", "documents", "users"]
-    : role === "supervisor" ? ["overview", "maintenance", "housing"]
+    role === "admin" ? ["overview", "maintenance", "workers", "housing", "documents", "users"]
+    : role === "supervisor" ? ["overview", "maintenance", "workers", "housing"]
     : ["maintenance"];
   const { count: overdue } = await supabase.from("v_tickets").select("id", { count: "exact", head: true }).eq("overdue", true);
   const name = profile.full_name || profile.email || "";
@@ -45,7 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <ThemeToggle />
           </div>
         </header>
-        <main id="main" className="mx-auto flex w-full max-w-[1320px] flex-col gap-6 px-4 pb-8 pt-2 md:px-7">{children}</main>
+        <main id="main" className="mx-auto flex w-full max-w-[1560px] flex-col gap-6 px-4 pb-8 pt-2 md:px-7">{children}</main>
       </div>
 
       <BottomNav items={items} overdue={overdue ?? 0} userName={name} signOut={signOut} />

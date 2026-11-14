@@ -58,7 +58,7 @@ export default async function UsersPage() {
                   <ChevronDownIcon className="size-4 text-ink-muted transition-transform duration-150 group-open:rotate-180" aria-hidden />
                 </span>
               </summary>
-              <ActionForm action={updateUser.bind(null, p.id)} className="flex flex-col gap-4 px-4 pb-5 md:px-5">
+              <ActionForm action={updateUser.bind(null, p.id)} className="group/form flex flex-col gap-4 px-4 pb-5 md:px-5">
                 <div className="flex flex-wrap items-end gap-4">
                   <Field className="w-auto min-w-56">
                     <FieldLabel htmlFor={`role-${p.id}`}>{U.role}</FieldLabel>
@@ -72,7 +72,7 @@ export default async function UsersPage() {
                     {self && <input type="hidden" name="active" value="on" />}
                   </label>
                 </div>
-                <FieldSet>
+                <FieldSet className="hidden group-has-[option[value=supervisor]:checked]/form:flex">
                   <FieldLegend variant="label">{U.branchesFor}</FieldLegend>
                   <div className="flex flex-wrap gap-2">
                     {(branches ?? []).map((b) => (

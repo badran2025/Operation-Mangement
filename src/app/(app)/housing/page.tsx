@@ -30,7 +30,7 @@ export default async function HousingPage() {
       <PageHeader title={t.housing.title} sub={t.housing.sub} />
       {noHousing > 0 && (
         <Alert className="border-0 bg-warning-soft text-warning">
-          <AlertDescription className="font-medium text-warning">{t.housing.noHousingWarn(noHousing)}</AlertDescription>
+          <AlertDescription className="font-medium text-warning">{t.housing.noHousingWarn(noHousing)} <Link href="/workers?show=nohousing" className="underline underline-offset-2">{t.housing.showThem}</Link></AlertDescription>
         </Alert>
       )}
       {(housings ?? []).length === 0 ? <EmptyNote>{t.housing.empty}</EmptyNote> : (
