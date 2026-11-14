@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/components/ActionForm";
+import { getT } from "@/lib/i18n/server";
 
 export async function signIn(_: ActionState, fd: FormData): Promise<ActionState> {
   const supabase = await createClient();
@@ -9,7 +10,7 @@ export async function signIn(_: ActionState, fd: FormData): Promise<ActionState>
     email: String(fd.get("email") ?? "").trim(),
     password: String(fd.get("password") ?? ""),
   });
-  if (error) return { error: "الإيميل أو كلمة المرور غلط" };
+  if (error) return { error: (await getT()).t.auth.wrong };
   redirect("/");
 }
 

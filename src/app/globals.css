@@ -1,37 +1,215 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-@theme {
-  --font-sans: var(--font-cairo), system-ui, sans-serif;
-  --color-brand-50: #ecfdf7;
-  --color-brand-100: #d1faec;
-  --color-brand-500: #10a37f;
-  --color-brand-600: #0b8a6b;
-  --color-brand-700: #0a6e57;
+/* Tokens come from DESIGN.md (Fresh Fold). Edit DESIGN.md first, then here. */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --canvas: #f4f7fb;
+  --surface: #ffffff;
+  --surface-tint: #e7f1fb;
+  --surface-sunken: #eef3f9;
+  --ink: #1b2235;
+  --ink-muted: #5d6683;
+  --hairline: #e3e8f1;
+  --brand: #1f8bd0;
+  --brand-accent: #ffc531;
+  --primary-hover: #196ca4;
+  --success: #17713f; --success-soft: #e9f6ef;
+  --warning: #8a5a00; --warning-soft: #fff4d4;
+  --danger: #b42318;  --danger-soft: #fdecec;
+  --info: #155f97;    --info-soft: #e7f1fb;
+  --overlay-shadow: 0 12px 32px rgba(27, 34, 53, 0.14);
+
+  /* shadcn roles */
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: #1f7fc0;
+  --primary-foreground: #ffffff;
+  --secondary: var(--surface-sunken);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--surface-tint);
+  --accent-foreground: #155f97;
+  --destructive: var(--danger);
+  --border: var(--hairline);
+  --input: var(--hairline);
+  --ring: #1f7fc0;
+  --chart-1: #1f7fc0; --chart-2: #5d6683; --chart-3: #17713f; --chart-4: #8a5a00; --chart-5: #b42318;
+  --radius: 12px;
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: #1f7fc0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--surface-tint);
+  --sidebar-accent-foreground: #155f97;
+  --sidebar-border: var(--hairline);
+  --sidebar-ring: #1f7fc0;
 }
 
-body {
-  background: #f5f7f6;
-  color: #1f2a27;
+.dark {
+  --canvas: #121726;
+  --surface: #1a2033;
+  --surface-tint: #1f2a44;
+  --surface-sunken: #161b2c;
+  --ink: #e8ecf6;
+  --ink-muted: #a3abc4;
+  --hairline: #2a3149;
+  --primary-hover: #68b4ec;
+  --success: #7fd9a6; --success-soft: #173528;
+  --warning: #ffd666; --warning-soft: #3a2f12;
+  --danger: #ff9b8f;  --danger-soft: #3d1a20;
+  --info: #9ccdf5;    --info-soft: #1f3352;
+  --overlay-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --primary: #4aa3e6;
+  --primary-foreground: #0b1422;
+  --accent-foreground: #9ccdf5;
+  --ring: #68b4ec;
+  --chart-1: #4aa3e6; --chart-2: #a3abc4; --chart-3: #7fd9a6; --chart-4: #ffd666; --chart-5: #ff9b8f;
+  --sidebar-primary: #4aa3e6;
+  --sidebar-primary-foreground: #0b1422;
+  --sidebar-accent-foreground: #9ccdf5;
+  --sidebar-ring: #68b4ec;
 }
 
+@theme inline {
+  --font-sans: var(--font-work-sans), var(--font-firjar), system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-tint: var(--surface-tint);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-hairline: var(--hairline);
+  --color-brand: var(--brand);
+  --color-brand-accent: var(--brand-accent);
+  --color-primary-hover: var(--primary-hover);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  /* DESIGN.md radius scale pinned to the classes components use */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-4xl: 28px;
+  --shadow-overlay: var(--overlay-shadow);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  :lang(ar) body {
+    line-height: 1.7;
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mixed-language user text: own direction (correct truncation side), aligned to the page start */
+@utility user-text {
+  unicode-bidi: plaintext;
+}
+[dir="ltr"] .user-text { text-align: left; }
+[dir="rtl"] .user-text { text-align: right; }
+
+/* ---------------------------------------------------------------------------
+   Legacy utilities used by pages not yet rebuilt — mapped to the new tokens.
+   Remove once every page uses the shadcn components.
+--------------------------------------------------------------------------- */
 @utility input {
-  @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100;
+  @apply h-10 w-full rounded-lg border border-input bg-surface px-3 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring;
 }
 @utility label {
-  @apply mb-1 block text-sm font-semibold text-slate-700;
+  @apply mb-1 block text-sm font-medium text-ink;
 }
 @utility btn {
-  @apply inline-flex items-center justify-center gap-1 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-60;
+  @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors disabled:opacity-60;
 }
 @utility btn-primary {
-  @apply inline-flex items-center justify-center gap-1 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-60 bg-brand-600 text-white hover:bg-brand-700;
+  @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors disabled:opacity-60 bg-primary text-primary-foreground hover:bg-primary-hover;
 }
 @utility btn-ghost {
-  @apply inline-flex items-center justify-center gap-1 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-60 border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+  @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors disabled:opacity-60 border border-hairline bg-surface text-ink hover:bg-surface-sunken;
 }
 @utility btn-danger {
-  @apply inline-flex items-center justify-center gap-1 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-60 border border-red-200 bg-white text-red-600 hover:bg-red-50;
+  @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors disabled:opacity-60 bg-danger-soft text-danger hover:opacity-90;
 }
 @utility card {
-  @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  @apply rounded-2xl bg-surface;
 }
