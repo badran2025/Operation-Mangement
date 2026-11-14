@@ -8,7 +8,7 @@ description: Badran's web design system and workflow for building or redesigning
 A design workflow built from 21 curated sources (inspiration & style · UI building · motion & visuals).
 The output of every project is: a `DESIGN.md` → tokens in code → pages built from components → a reviewed, polished result.
 
-> Status: **Part 1 (inspiration & style) is complete.** Parts 2 (building UI piece by piece) and 3 (motion, effects, illustrations, icons) are being added — see the sections marked *pending*.
+> Status: **Parts 1 (inspiration & style) and 2 (building UI piece by piece) are complete.** Part 3 (motion, effects, illustrations, icons) is being added — see sections marked *pending*.
 
 ## When invoked — the workflow
 
@@ -16,8 +16,8 @@ The output of every project is: a `DESIGN.md` → tokens in code → pages built
 2. **Gather direction (part 1).** Read `references/1-inspiration-and-style/choosing-direction.md`. Pick 2–3 references from `references/1-inspiration-and-style/style-catalog.md` (open the actual `design-md/<name>/DESIGN.md`), and use `sources.md` to look at Kage / Refero / Minimal Gallery for the specific components needed. Write what you take from each.
 3. **Plan, then self-review.** Compact plan (4–6 colors, type roles, layout concept with ASCII wireframe, 3 principles). Check it against the generated-UI defaults list; revise anything generic.
 4. **Write `DESIGN.md`** at the project root from `templates/DESIGN.template.md`, following `references/1-inspiration-and-style/design-md-spec.md`. Show the user the direction (a quick preview page or screenshot) **before** rebuilding everything.
-5. **Implement tokens** as CSS variables / Tailwind `@theme` with the same names. No raw hex or one-off spacing in components.
-6. **Build piece by piece (part 2 — pending).** Use canonical component names from `references/1-inspiration-and-style/component-names.md`. Every data view gets loading / empty / error states.
+5. **Set up the foundation (part 2).** shadcn/ui on Next.js + Tailwind v4 per `references/2-building-ui/foundation-shadcn.md`: pick the style by the DESIGN.md geometry, `rtl: true` for Arabic, map DESIGN.md tokens onto the theme variables (full procedure: `vendor/shadcn-skill/design-system.md`). No raw hex or one-off spacing in components.
+6. **Build piece by piece (part 2).** Follow the ladder in `references/2-building-ui/piece-by-piece.md`: shell → page skeleton → blocks → components → data & states → behavior → polish → screenshots. Write the 4-part spec (structure, content, states, behavior) for each block first. Search registries before building (`references/2-building-ui/component-sources.md`); obey the shadcn rules (`vendor/shadcn-skill/rules/`). Effects only per `references/2-building-ui/effects-catalog.md`.
 7. **Motion & visuals (part 3 — pending).** One orchestrated moment max; purposeful micro-interactions only.
 8. **Review.** Run `references/1-inspiration-and-style/ui-details-checklist.md`, take screenshots at 1280px and 390px, fix, re-screenshot. Then report what changed and why.
 
@@ -40,7 +40,11 @@ The output of every project is: a `DESIGN.md` → tokens in code → pages built
 | `references/1-inspiration-and-style/ui-details-checklist.md` | Pre-ship checklist (a11y, forms, typography, surfaces, icons, states) |
 | `templates/DESIGN.template.md` | Starting DESIGN.md |
 | `design-md/<name>/DESIGN.md` | 84 full style analyses (MIT) |
-| `vendor/` | Full original skills: Anthropic frontend-design (Apache-2.0), make-interfaces-feel-better (MIT), Vercel web interface guidelines (MIT) |
-| `references/2-building-ui/` | *pending — part 2* |
+| `vendor/` | Full original skills (their `SKILL.md` renamed `SKILL.reference.md` so they don't load as separate skills): Anthropic frontend-design (Apache-2.0), make-interfaces-feel-better (MIT), Vercel web interface guidelines (MIT) |
+| `references/2-building-ui/foundation-shadcn.md` | Stack setup, style picking, RTL, DESIGN.md → theme mapping, shadcn rules |
+| `references/2-building-ui/piece-by-piece.md` | The build ladder, 4-part piece spec, block recipes, dashboard pattern names, definition of done |
+| `references/2-building-ui/component-sources.md` | shadcn, Magic UI, Aceternity, Motion Primitives, 21st.dev, VibePrompt, Kinetics — what/when/how/license |
+| `references/2-building-ui/effects-catalog.md` | Effect components by purpose, and which are allowed in ops apps |
+| `vendor/shadcn-skill/` | Official shadcn agent skill (MIT): rules, CLI, DESIGN.md → design system flow |
 | `references/3-motion-and-visuals/` | *pending — part 3* |
 | `SOURCES.md` | All sources and licenses |

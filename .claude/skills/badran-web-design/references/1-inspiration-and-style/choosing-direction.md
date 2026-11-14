@@ -1,6 +1,6 @@
 # Choosing a visual direction
 
-Condensed from Anthropic's `frontend-design` skill (full text, Apache-2.0: `vendor/anthropic-frontend-design/SKILL.md`) plus project rules.
+Condensed from Anthropic's `frontend-design` skill (full text, Apache-2.0: `vendor/anthropic-frontend-design/SKILL.reference.md`) plus project rules.
 
 ## 1. Ground it in the subject
 Name the product, its audience, and the screen's **primary job** before choosing anything. Distinctive choices come from the subject's world (a laundry-operations tool ≠ a crypto landing page). If unknown, propose one and confirm with the user.
