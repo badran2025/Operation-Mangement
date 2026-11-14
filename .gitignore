@@ -41,6 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 # local sqlite db
-/prisma/*.db
-/prisma/*.db-journal
 !.env.example
+
+# netlify
+.netlify
