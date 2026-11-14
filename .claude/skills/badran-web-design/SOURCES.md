@@ -29,4 +29,14 @@
 | Magic UI | https://magicui.design · https://github.com/magicuidesign/magicui | Component names by purpose; install via `@magicui` | MIT |
 | Motion Primitives | https://motion-primitives.com · https://github.com/ibelick/motion-primitives | Component names; install via `@motion-primitives` | MIT |
 | Kinetics | https://kinetics.colorion.co · https://github.com/ckissi/kinetics | Reference for motion (part 3) | No license file — reference only |
-## Part 3 — Motion, effects, illustrations, icons (pending)
+## Part 3 — Motion, effects, maps, illustrations, icons
+| Source | URL | Used as | License |
+|---|---|---|---|
+| MicroKit UI | https://microkit.co · https://github.com/henriquegpb/microkit | Micro-interaction picks; install via `@microkit` registry | MIT |
+| Anime.js | https://animejs.com · https://github.com/juliangarnier/anime | Timeline/SVG/scroll animation engine (API verified from source) | MIT |
+| Uiverse | https://uiverse.io · https://github.com/uiverse-io/galaxy | Community HTML/CSS elements (site blocks bots; repo used) | MIT |
+| mapcn | https://www.mapcn.dev · https://github.com/AnmolSaini16/mapcn | Map components; agent skill vendored in `vendor/mapcn-skill/` | MIT |
+| Liquid Glass | https://liquidglass.dev · https://github.com/gentpan/liquidglass | Refractive glass components; agent skill vendored in `vendor/liquid-glass-skill/` | MIT |
+| Kitbitz | https://kitbitz.art | Illustrations (catalog JSON + MCP) | Illustrations CC0 (site/plugin/MCP code not) |
+| 3dicons | https://3dicons.co | 3D icon renders | CC0 (v1) |
+| Emil Kowalski skills | https://github.com/emilkowalski/skills | Motion principles (condensed) | MIT |

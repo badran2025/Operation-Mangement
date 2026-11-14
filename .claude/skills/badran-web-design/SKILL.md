@@ -8,7 +8,7 @@ description: Badran's web design system and workflow for building or redesigning
 A design workflow built from 21 curated sources (inspiration & style · UI building · motion & visuals).
 The output of every project is: a `DESIGN.md` → tokens in code → pages built from components → a reviewed, polished result.
 
-> Status: **Parts 1 (inspiration & style) and 2 (building UI piece by piece) are complete.** Part 3 (motion, effects, illustrations, icons) is being added — see sections marked *pending*.
+> All three parts are complete: 1 inspiration & style · 2 building UI piece by piece · 3 motion, effects, maps, illustrations & icons.
 
 ## When invoked — the workflow
 
@@ -18,7 +18,7 @@ The output of every project is: a `DESIGN.md` → tokens in code → pages built
 4. **Write `DESIGN.md`** at the project root from `templates/DESIGN.template.md`, following `references/1-inspiration-and-style/design-md-spec.md`. Show the user the direction (a quick preview page or screenshot) **before** rebuilding everything.
 5. **Set up the foundation (part 2).** shadcn/ui on Next.js + Tailwind v4 per `references/2-building-ui/foundation-shadcn.md`: pick the style by the DESIGN.md geometry, `rtl: true` for Arabic, map DESIGN.md tokens onto the theme variables (full procedure: `vendor/shadcn-skill/design-system.md`). No raw hex or one-off spacing in components.
 6. **Build piece by piece (part 2).** Follow the ladder in `references/2-building-ui/piece-by-piece.md`: shell → page skeleton → blocks → components → data & states → behavior → polish → screenshots. Write the 4-part spec (structure, content, states, behavior) for each block first. Search registries before building (`references/2-building-ui/component-sources.md`); obey the shadcn rules (`vendor/shadcn-skill/rules/`). Effects only per `references/2-building-ui/effects-catalog.md`.
-7. **Motion & visuals (part 3 — pending).** One orchestrated moment max; purposeful micro-interactions only.
+7. **Motion & visuals (part 3).** Run the decision framework in `references/3-motion-and-visuals/motion-principles.md` (frequency → purpose → easing → duration) before any animation; pick the cheapest tool from `motion-tools.md` (CSS → View Transitions → Motion → Anime.js; ready micro-interactions from MicroKit/Motion Primitives). Maps, illustrations, 3D icons and UI icons per `maps-illustrations-icons.md`. One orchestrated moment per page at most.
 8. **Review.** Run `references/1-inspiration-and-style/ui-details-checklist.md`, take screenshots at 1280px and 390px, fix, re-screenshot. Then report what changed and why.
 
 ## Non-negotiables
@@ -46,5 +46,8 @@ The output of every project is: a `DESIGN.md` → tokens in code → pages built
 | `references/2-building-ui/component-sources.md` | shadcn, Magic UI, Aceternity, Motion Primitives, 21st.dev, VibePrompt, Kinetics — what/when/how/license |
 | `references/2-building-ui/effects-catalog.md` | Effect components by purpose, and which are allowed in ops apps |
 | `vendor/shadcn-skill/` | Official shadcn agent skill (MIT): rules, CLI, DESIGN.md → design system flow |
-| `references/3-motion-and-visuals/` | *pending — part 3* |
+| `references/3-motion-and-visuals/motion-principles.md` | When/why/how to animate: frequency, purpose, easing tokens, durations, springs, RTL motion, reduced motion |
+| `references/3-motion-and-visuals/motion-tools.md` | CSS / View Transitions / Motion / Anime.js v4 / MicroKit / Uiverse / Liquid Glass / Kinetics |
+| `references/3-motion-and-visuals/maps-illustrations-icons.md` | mapcn maps, Kitbitz illustrations, 3dicons, UI icon rules |
+| `vendor/mapcn-skill/`, `vendor/liquid-glass-skill/` | Official agent skills for maps and liquid glass (MIT) |
 | `SOURCES.md` | All sources and licenses |
