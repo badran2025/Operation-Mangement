@@ -5,6 +5,7 @@ import { getT } from "./i18n/server";
 export async function friendlyError(message: string): Promise<string> {
   const { t } = await getT();
   const m = message.toLowerCase();
+  if (m.includes("plan cycle")) return t.errors.planCycle;
   if (m.includes("needs assignee")) return t.errors.needsAssignee;
   if (m.includes("note required")) return t.errors.noteRequired;
   if (m.includes("bad transition")) return t.errors.badTransition;

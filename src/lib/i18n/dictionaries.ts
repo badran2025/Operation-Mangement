@@ -7,7 +7,7 @@ const en = {
     viewAll: "View all", map: "Map", phone: "Phone", email: "Email", notes: "Notes", optional: "optional",
     saved: "Saved", yes: "Yes", no: "No", loading: "Loading…", comma: ", ",
   },
-  nav: { overview: "Overview", branches: "Branches", maintenance: "Maintenance", workers: "Workers", housing: "Housing", documents: "Documents", users: "Users", account: "My account", signOut: "Sign out", skip: "Skip to content" },
+  nav: { overview: "Overview", branches: "Branches", maintenance: "Maintenance", workers: "Workers", housing: "Housing", documents: "Documents", plan: "Plan", users: "Users", account: "My account", signOut: "Sign out", skip: "Skip to content" },
   shell: { searchPlaceholder: "Search branches, workers, tickets…", switchLang: "العربية", themeToDark: "Dark mode", themeToLight: "Light mode", menu: "Menu" },
   roles: { admin: "Operations manager (admin)", supervisor: "Branch supervisor", maintenance_manager: "Maintenance manager", technician: "Technician" },
   auth: {
@@ -68,6 +68,19 @@ const en = {
     filters: { all: "Everyone", working: "Working today", off: "Off today", leave: "On leave", incomplete: "Incomplete data", nohousing: "No housing" } as Record<string, string>,
     empty: "No workers match.", showingN: (n: string) => `${n} shown`, missing: "Missing:",
   },
+  plan: {
+    title: "Plan", sub: "Everything operations runs on, arranged as a map. Open any item to write down what has to be prepared.",
+    map: "Map", list: "List", expandAll: "Expand all", collapseAll: "Collapse all", empty: "No plan yet.",
+    stats: { items: "Items to prepare", done: "Ready", doing: "In preparation", todo: "Not started" },
+    status: { todo: "Not started", doing: "In preparation", done: "Ready" } as Record<string, string>,
+    statusLabel: "Status", auto: "Worked out from its sub-items.",
+    progress: (d: number, n: number) => `${d} of ${n} ready`, progressShort: (d: number, n: number) => `${d}/${n}`,
+    checklist: "What needs preparing", checklistEmpty: "Nothing written yet. Add the first thing to prepare.", addItemPh: "e.g. collect uniform sizes from each branch", add: "Add",
+    notes: "Notes", notesPh: "Decisions, contacts, anything to remember", saveNotes: "Save notes",
+    subItems: "Sub-items", addChildPh: "Add a sub-item", openPage: "Open the page", onSite: "Has a page on the site", path: "Path",
+    more: "More options", rename: "Name", link: "Link to a page", linkPh: "/workers or https://…", moveUnder: "Move under",
+    delete: "Delete item", deleteConfirm: (n: number) => (n ? `Delete this item and its ${n} sub-items?` : "Delete this item?"),
+  },
   housing: { title: "Housing", sub: "Workers in each housing and which branches they work in", noHousingWarn: (n: number) => `${n} workers have no housing recorded.`, showThem: "Show them", residents: "residents", capacity: (n: number) => `Capacity ${n}`, empty: "No housing recorded yet." },
   documents: { title: "Documents", sub: "Iqamas, passports, insurance and contracts that expire soon", expired: "Expired", within30: "Within 30 days", within90: "Within 90 days", recorded: "Recorded", none: "No documents expire in the next 90 days.", col: { worker: "Worker", doc: "Document", expiry: "Expiry", state: "Status" } },
   users: {
@@ -80,6 +93,7 @@ const en = {
   account: { title: "My account", newPassword: "New password", confirm: "Confirm password", change: "Change password", changed: "Password changed", mismatch: "Passwords do not match" },
   errors: {
     needsAssignee: "Assign a technician first", noteRequired: "Write the reason first", badTransition: "This step is not possible from the current status", ticketClosed: "This ticket is closed",
+    planCycle: "An item cannot be moved under one of its own sub-items",
     notAllowed: "You are not allowed to do this", titleRequired: "Write the problem title", userInactive: "This user does not exist or is not active",
     selfAdmin: "You cannot remove admin rights from yourself", generic: (m: string) => `Something went wrong: ${m}`,
     fileTooBig: (n: string, mb: number) => `${n} is larger than ${mb} MB`, uploadFailed: (n: string, m: string) => `Could not upload ${n}: ${m}`,
@@ -145,7 +159,7 @@ const ar: Dict = {
     viewAll: "عرض الكل", map: "الخريطة", phone: "الجوال", email: "الإيميل", notes: "ملاحظات", optional: "اختياري",
     saved: "اتحفظ", yes: "نعم", no: "لا", loading: "جاري التحميل…", comma: "، ",
   },
-  nav: { overview: "نظرة عامة", branches: "الفروع", maintenance: "الصيانة", workers: "العمال", housing: "السكن", documents: "المستندات", users: "المستخدمين", account: "حسابي", signOut: "خروج", skip: "تخطي للمحتوى" },
+  nav: { overview: "نظرة عامة", branches: "الفروع", maintenance: "الصيانة", workers: "العمال", housing: "السكن", documents: "المستندات", plan: "الخطة", users: "المستخدمين", account: "حسابي", signOut: "خروج", skip: "تخطي للمحتوى" },
   shell: { searchPlaceholder: "ابحث عن فرع أو عامل أو بلاغ…", switchLang: "English", themeToDark: "الوضع الداكن", themeToLight: "الوضع الفاتح", menu: "القائمة" },
   roles: { admin: "مدير التشغيل (أدمن)", supervisor: "مشرف فرع", maintenance_manager: "مدير الصيانة", technician: "فني صيانة" },
   auth: {
@@ -206,6 +220,19 @@ const ar: Dict = {
     filters: { all: "الكل", working: "شغالين النهارده", off: "إجازة النهارده", leave: "في إجازة", incomplete: "بيانات ناقصة", nohousing: "بدون سكن" },
     empty: "مفيش عمال بالشروط دي.", showingN: (n: string) => `المعروض ${n}`, missing: "الناقص:",
   },
+  plan: {
+    title: "الخطة", sub: "كل اللي التشغيل قايم عليه، مترتب كخريطة. افتح أي بند واكتب المطلوب تجهيزه.",
+    map: "خريطة", list: "قائمة", expandAll: "فتح الكل", collapseAll: "قفل الكل", empty: "مفيش خطة لسه.",
+    stats: { items: "بنود محتاجة تتجهز", done: "جاهز", doing: "جاري التجهيز", todo: "لسه مبدأش" },
+    status: { todo: "لسه مبدأش", doing: "جاري التجهيز", done: "جاهز" },
+    statusLabel: "الحالة", auto: "بتتحسب من البنود اللي تحته.",
+    progress: (d: number, n: number) => `${d} جاهز من ${n}`, progressShort: (d: number, n: number) => `${d}/${n}`,
+    checklist: "المطلوب تجهيزه", checklistEmpty: "لسه مفيش حاجة مكتوبة. ضيف أول حاجة محتاجة تتجهز.", addItemPh: "مثال: تجميع مقاسات الزي من كل فرع", add: "إضافة",
+    notes: "ملاحظات", notesPh: "قرارات، أرقام تواصل، أي حاجة محتاج تفتكرها", saveNotes: "حفظ الملاحظات",
+    subItems: "البنود الفرعية", addChildPh: "إضافة بند فرعي", openPage: "فتح الصفحة", onSite: "ليه صفحة على الموقع", path: "المسار",
+    more: "خيارات أكتر", rename: "الاسم", link: "لينك لصفحة", linkPh: "/workers أو https://…", moveUnder: "نقل تحت",
+    delete: "حذف البند", deleteConfirm: (n: number) => (n ? `حذف البند ده و${n} بند تحته؟` : "حذف البند ده؟"),
+  },
   housing: { title: "السكن", sub: "عدد العمال في كل سكن وتوزيعهم على الفروع", noHousingWarn: (n: number) => `${n} عامل لسه مش متسجل لهم سكن.`, showThem: "اعرضهم", residents: "ساكن", capacity: (n: number) => `السعة ${n}`, empty: "مفيش سكنات متسجلة." },
   documents: { title: "المستندات", sub: "الإقامات والجوازات والتأمين والعقود اللي قربت تنتهي", expired: "منتهية", within30: "خلال 30 يوم", within90: "خلال 90 يوم", recorded: "إجمالي المسجل", none: "مفيش مستندات هتنتهي خلال 90 يوم.", col: { worker: "العامل", doc: "المستند", expiry: "تاريخ الانتهاء", state: "الحالة" } },
   users: {
@@ -218,6 +245,7 @@ const ar: Dict = {
   account: { title: "حسابي", newPassword: "كلمة مرور جديدة", confirm: "تأكيد كلمة المرور", change: "تغيير كلمة المرور", changed: "اتغيرت كلمة المرور", mismatch: "كلمتين المرور مش متطابقين" },
   errors: {
     needsAssignee: "حوّل البلاغ لفني الأول", noteRequired: "اكتب السبب الأول", badTransition: "الخطوة دي مش ممكنة من الحالة الحالية", ticketClosed: "البلاغ ده مقفول",
+    planCycle: "مينفعش تنقل بند تحت بند من البنود اللي تحته",
     notAllowed: "مش مسموح لك بالعملية دي", titleRequired: "اكتب عنوان المشكلة", userInactive: "المستخدم ده مش موجود أو مش مفعّل",
     selfAdmin: "مينفعش تشيل صلاحية الأدمن عن نفسك", generic: (m: string) => `حصل خطأ: ${m}`,
     fileTooBig: (n: string, mb: number) => `الملف ${n} أكبر من ${mb} ميجا`, uploadFailed: (n: string, m: string) => `فشل رفع ${n}: ${m}`,
