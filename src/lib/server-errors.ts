@@ -5,6 +5,9 @@ import { getT } from "./i18n/server";
 export async function friendlyError(message: string): Promise<string> {
   const { t } = await getT();
   const m = message.toLowerCase();
+  if (m.includes("equipment_code_key")) return t.branchesTab.equipment.codeTaken;
+  if (m.includes("branches_code_key")) return t.branchesTab.info.codeTaken;
+  if (m.includes("branches_code_format")) return t.branchesTab.info.codeBad;
   if (m.includes("equipment not in branch")) return t.branchesTab.equipment.notInBranch;
   if (m.includes("plan cycle")) return t.errors.planCycle;
   if (m.includes("needs assignee")) return t.errors.needsAssignee;

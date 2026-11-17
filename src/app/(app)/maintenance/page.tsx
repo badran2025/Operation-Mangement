@@ -136,7 +136,7 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
                   : done && k.closed_at ? <span className="text-ink-muted">{M.closedOn(formatDay(locale, k.closed_at))}</span>
                   : k.resolved_at ? <span className="text-ink-muted">{M.fixedOn(formatDay(locale, k.resolved_at))}</span> : <span className="text-ink-muted">—</span>;
                 const branch = pick(locale, k.branch_ar, k.branch_en);
-                const category = [k.category_id ? pick(locale, k.category_ar, k.category_en) : null, k.equipment_name].filter(Boolean).join(t.common.comma) || null;
+                const category = [k.category_id ? pick(locale, k.category_ar, k.category_en) : null, k.equipment_code && `${k.equipment_code} ${k.equipment_name}`].filter(Boolean).join(t.common.comma) || null;
                 return (
                   <Link key={k.id} role="row" href={`/maintenance/${k.id}`}
                     className={cn("block rounded-[14px] bg-canvas px-3.5 py-3 text-sm transition-colors duration-150 hover:bg-surface-sunken", GRID)}>

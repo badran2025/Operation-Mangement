@@ -59,9 +59,10 @@ export default async function BranchesPage({ searchParams }: { searchParams: Pro
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-semibold md:px-5 [&::-webkit-details-marker]:hidden">
             {B.add}<ChevronDownIcon className="size-4 text-ink-muted transition-transform duration-150 group-open:rotate-180" aria-hidden />
           </summary>
-          <ActionForm action={createBranch} className="grid gap-3 px-4 pb-5 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end md:px-5">
+          <ActionForm action={createBranch} className="grid gap-3 px-4 pb-5 sm:grid-cols-[1fr_1fr_120px_1fr_auto] sm:items-end md:px-5">
             <Field><FieldLabel htmlFor="nb-ar">{B.nameAr}</FieldLabel><Input id="nb-ar" name="name_ar" required dir="rtl" /></Field>
             <Field><FieldLabel htmlFor="nb-en">{B.nameEn}</FieldLabel><Input id="nb-en" name="name_en" required dir="ltr" /></Field>
+            <Field><FieldLabel htmlFor="nb-code">{B.info.code}</FieldLabel><Input id="nb-code" name="code" required maxLength={5} dir="ltr" className="uppercase" placeholder="AQQ" /></Field>
             <Field>
               <FieldLabel htmlFor="nb-city">{B.city}</FieldLabel>
               <NativeSelect id="nb-city" name="city_id" required className="w-full">

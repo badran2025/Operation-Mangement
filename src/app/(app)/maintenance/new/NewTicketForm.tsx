@@ -15,7 +15,7 @@ import { createTicketAction } from "../actions";
 type Opt = { id: number; name: string };
 const PRIORITIES = ["urgent", "high", "normal", "low"] as const;
 
-type Machine = { id: number; branchId: number; name: string; categoryId: number | null };
+type Machine = { id: number; branchId: number; name: string; code: string; categoryId: number | null };
 
 export function NewTicketForm({ branches, categories, defaultBranch, machines, defaultEquipment }: {
   branches: Opt[]; categories: Opt[]; defaultBranch?: number; machines: Machine[]; defaultEquipment?: number;
@@ -29,7 +29,7 @@ export function NewTicketForm({ branches, categories, defaultBranch, machines, d
   const [branchId, setBranchId] = useState<string>(String(defaultBranch ?? (branches.length === 1 ? branches[0].id : "")));
   const [machineId, setMachineId] = useState<string>(defaultEquipment ? String(defaultEquipment) : "");
   const [catId, setCatId] = useState<string>(() => String(machines.find((m) => m.id === defaultEquipment)?.categoryId ?? ""));
-  const branchMachines = machines.filter((m) => String(m.branchId) === branchId).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const branchMachines = machines.filter((m) => String(m.branchId) === branchId).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

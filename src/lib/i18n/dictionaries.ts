@@ -80,7 +80,7 @@ const en = {
     },
     info: {
       edit: "Edit info", save: "Save info", saved: "Info saved", phone: "Phone", address: "Address", map: "Map link", statusLabel: "Status",
-      hoursNote: "Note on hours", notes: "Notes", ppmDay: "Deep cleaning & PPM day", ppmTime: "Time", none: "None", hours: "Opening hours",
+      hoursNote: "Note on hours", notes: "Notes", openMap: "Open in maps", code: "Branch code", codeHint: "2 to 5 capital letters or numbers, used in equipment codes (e.g. AQQ)", codeTaken: "Another branch already uses this code", codeBad: "Branch code: 2 to 5 capital letters or numbers", ppmDay: "Deep cleaning & PPM day", ppmTime: "Time", none: "None", hours: "Opening hours",
       open: "Open", h24: "24 hours", closedDay: "Closed", from: "From", to: "To", sameEveryDay: "Copy Sunday to every day",
       badTime: "Check the opening hours: each open day needs a start and an end",
     },
@@ -98,7 +98,8 @@ const en = {
       warrantyTo: (d: string) => `Warranty until ${d}`, warrantyOver: "Out of warranty", openTickets: (n: string) => `${n} open tickets`,
       history: "Repair history", noHistory: "No maintenance tickets for this machine yet.", empty: "No machines recorded yet.",
       deleteConfirm: "Delete this machine? Its tickets stay, without the machine.", saved: "Machine saved", reportIssue: "Report an issue",
-      machine: "Machine / equipment", machineNone: "Not related to listed equipment", noMachines: "No equipment recorded for this branch yet", quantity: "Quantity", notWorking: (n: string) => `${n} not working`, allWorking: "All working", kpi: "Equipment not working", notInBranch: "This machine is not in the chosen branch",
+      machine: "Machine / equipment", machineNone: "Not related to listed equipment", noMachines: "No equipment recorded for this branch yet", quantity: "Quantity", notWorking: (n: string) => `${n} not working`, allWorking: "All working", kpi: "Equipment not working", code: "Code", codePh: "Filled in automatically", codeTaken: "This code is already used by another item",
+      labels: "Print labels", labelsTitle: (b: string) => `Equipment labels: ${b}`, labelsSub: "Print, cut and stick each label on its machine. Branch staff report problems by this code.", reportBy: "Report a problem with this code", notInBranch: "This machine is not in the chosen branch",
     },
     materials: {
       sub: "What branches can order, with the minimum and maximum to keep. Orders are placed in Odoo.",
@@ -289,7 +290,7 @@ const ar: Dict = {
     },
     info: {
       edit: "تعديل البيانات", save: "حفظ البيانات", saved: "اتحفظت البيانات", phone: "الجوال", address: "العنوان", map: "لينك الخريطة", statusLabel: "الحالة",
-      hoursNote: "ملاحظة على المواعيد", notes: "ملاحظات", ppmDay: "يوم التنظيف العميق والصيانة الوقائية", ppmTime: "الساعة", none: "مفيش", hours: "ساعات العمل",
+      hoursNote: "ملاحظة على المواعيد", notes: "ملاحظات", openMap: "افتح على الخريطة", code: "كود الفرع", codeHint: "من 2 لـ 5 حروف إنجليزي كابيتال أو أرقام، بيتحط في أكواد المعدات (مثال: AQQ)", codeTaken: "فيه فرع تاني بنفس الكود", codeBad: "كود الفرع: من 2 لـ 5 حروف إنجليزي كابيتال أو أرقام", ppmDay: "يوم التنظيف العميق والصيانة الوقائية", ppmTime: "الساعة", none: "مفيش", hours: "ساعات العمل",
       open: "شغال", h24: "24 ساعة", closedDay: "مقفول", from: "من", to: "إلى", sameEveryDay: "نسخ مواعيد الأحد لكل الأيام",
       badTime: "راجع ساعات العمل: كل يوم شغال لازم يكون ليه بداية ونهاية",
     },
@@ -307,7 +308,8 @@ const ar: Dict = {
       warrantyTo: (d: string) => `ضمان لحد ${d}`, warrantyOver: "الضمان خلص", openTickets: (n: string) => `${n} بلاغ مفتوح`,
       history: "سجل الأعطال", noHistory: "مفيش بلاغات صيانة للماكينة دي لسه.", empty: "مفيش معدات متسجلة لسه.",
       deleteConfirm: "حذف الماكينة دي؟ بلاغاتها هتفضل موجودة من غير الماكينة.", saved: "اتحفظت الماكينة", reportIssue: "بلاغ صيانة",
-      machine: "الماكينة / المعدة", machineNone: "مش متعلقة بمعدة من المسجلة", noMachines: "مفيش معدات متسجلة للفرع ده لسه", quantity: "العدد", notWorking: (n: string) => `${n} مش شغالة`, allWorking: "كلها شغالة", kpi: "معدات مش شغالة", notInBranch: "الماكينة دي مش في الفرع اللي اخترته",
+      machine: "الماكينة / المعدة", machineNone: "مش متعلقة بمعدة من المسجلة", noMachines: "مفيش معدات متسجلة للفرع ده لسه", quantity: "العدد", notWorking: (n: string) => `${n} مش شغالة`, allWorking: "كلها شغالة", kpi: "معدات مش شغالة", code: "الكود", codePh: "بيتكتب لوحده", codeTaken: "الكود ده مستخدم لمعدة تانية",
+      labels: "طباعة الملصقات", labelsTitle: (b: string) => `ملصقات معدات ${b}`, labelsSub: "اطبعها وقصّها والزق كل ملصق على المعدة بتاعته. موظفين الفرع يبلّغوا عن أي عطل بالكود ده.", reportBy: "بلّغ عن أي عطل بالكود ده", notInBranch: "الماكينة دي مش في الفرع اللي اخترته",
     },
     materials: {
       sub: "المواد اللي الفروع بتطلبها، والحد الأدنى والأقصى لكل مادة. الطلب نفسه بيتم على Odoo.",

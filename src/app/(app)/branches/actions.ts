@@ -21,10 +21,10 @@ function safeUrl(v: string | null): string | null {
 export async function createBranch(_: ActionState, fd: FormData): Promise<ActionState> {
   const { supabase } = await requireAdmin();
   const { t } = await getT();
-  const nameAr = s(fd, "name_ar"), nameEn = s(fd, "name_en"), city = Number(s(fd, "city_id"));
+  const nameAr = s(fd, "name_ar"), nameEn = s(fd, "name_en"), city = Number(s(fd, "city_id")), code = s(fd, "code").toUpperCase() || null;
   if (!nameAr || !nameEn || !city) return { error: t.branchesTab.required };
   const { data: last } = await supabase.from("branches").select("sort").eq("city_id", city).order("sort", { ascending: false }).limit(1).maybeSingle();
-  const { data, error } = await supabase.from("branches").insert({ name_ar: nameAr, name_en: nameEn, city_id: city, sort: (last?.sort ?? 0) + 1 }).select("id").single();
+  const { data, error } = await supabase.from("branches").insert({ name_ar: nameAr, name_en: nameEn, code, city_id: city, sort: (last?.sort ?? 0) + 1 }).select("id").single();
   if (error) return { error: await friendlyError(error.message) };
   refreshAll();
   redirect(`/branches/${data.id}?s=info&edit=1`);
@@ -45,7 +45,7 @@ export async function updateBranchInfo(id: number, _: ActionState, fd: FormData)
   }
   const ppmDay = s(fd, "ppm_weekday");
   const row = {
-    name_ar: s(fd, "name_ar"), name_en: s(fd, "name_en"), status: s(fd, "status") || "active",
+    name_ar: s(fd, "name_ar"), name_en: s(fd, "name_en"), code: s(fd, "code").toUpperCase() || null, status: s(fd, "status") || "active",
     phone: opt(fd, "phone"), address: opt(fd, "address"), map_url: safeUrl(opt(fd, "map_url")), hours_note: opt(fd, "hours_note"),
     ppm_weekday: ppmDay === "" ? null : Number(ppmDay), ppm_time: ppmDay === "" ? null : opt(fd, "ppm_time"), notes: opt(fd, "notes"),
   };
@@ -114,6 +114,7 @@ export async function saveEquipment(id: number | null, _: ActionState, fd: FormD
     branch_id: Number(s(fd, "branch_id")), category_id: cat ? Number(cat) : null, name: s(fd, "name"),
     brand: opt(fd, "brand"), model: opt(fd, "model"), serial_no: opt(fd, "serial_no"), capacity: opt(fd, "capacity"),
     quantity: Math.max(1, Math.floor(Number(s(fd, "quantity")) || 1)),
+    code: s(fd, "code").toUpperCase() || null,
     installed_on: opt(fd, "installed_on"), warranty_until: opt(fd, "warranty_until"), status: s(fd, "status") || "working", notes: opt(fd, "notes"),
   };
   if (!row.name) return { error: t.branchesTab.required };

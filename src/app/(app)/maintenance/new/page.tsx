@@ -13,7 +13,7 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
   const [{ data: branches }, { data: cats }, { data: machines }] = await Promise.all([
     supabase.from("branches").select("id, name_ar, name_en, cities(name_ar, name_en)").order("city_id").order("sort"),
     supabase.from("ticket_categories").select("id, name_ar, name_en").order("sort"),
-    supabase.from("equipment").select("id, branch_id, name, category_id").neq("status", "retired").order("name"),
+    supabase.from("equipment").select("id, branch_id, name, code, category_id").neq("status", "retired").order("name"),
   ]);
   type NameAr = { name_ar: string; name_en: string } | null;
   return (
@@ -23,7 +23,7 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
         <NewTicketForm
           defaultBranch={branch ? Number(branch) : undefined}
           defaultEquipment={equipment ? Number(equipment) : undefined}
-          machines={(machines ?? []).map((m) => ({ id: m.id, branchId: m.branch_id, name: m.name, categoryId: m.category_id }))}
+          machines={(machines ?? []).map((m) => ({ id: m.id, branchId: m.branch_id, name: `${m.code} · ${m.name}`, code: m.code, categoryId: m.category_id }))}
           branches={(branches ?? []).map((b) => {
             const c = b.cities as unknown as NameAr;
             return { id: b.id, name: `${pick(locale, c?.name_ar, c?.name_en)}: ${pick(locale, b.name_ar, b.name_en)}` };

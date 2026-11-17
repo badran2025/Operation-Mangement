@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronDownIcon, ExternalLinkIcon, FileIcon, MapPinIcon, PlusIcon, WrenchIcon } from "lucide-react";
+import { ChevronDownIcon, ExternalLinkIcon, FileIcon, MapPinIcon, PlusIcon, PrinterIcon, WrenchIcon } from "lucide-react";
 import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
@@ -129,7 +129,13 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
             </div>
             <div>
               <dt className="text-[13px] font-medium text-ink-muted">{B.info.address}</dt>
-              <dd className="m-0" dir="auto">{branch.address ?? "—"}</dd>
+              <dd className="m-0">
+                {branch.map_url ? (
+                  <a href={branch.map_url} target="_blank" rel="noreferrer" className="inline-flex items-start gap-1.5 text-primary hover:underline">
+                    <MapPinIcon className="mt-1 size-4 shrink-0" aria-hidden /><span dir="auto">{branch.address ?? B.info.openMap}</span>
+                  </a>
+                ) : <span dir="auto">{branch.address ?? "—"}</span>}
+              </dd>
             </div>
             {branch.notes && (
               <div className="sm:col-span-2">
@@ -202,16 +208,21 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
     const order = new Map((cats ?? []).map((c, i) => [c.id, i]));
     const groups = [...new Set(equipment.map((e) => e.category_id))]
       .sort((a, b) => (a === null ? 1 : b === null ? -1 : (order.get(a) ?? 0) - (order.get(b) ?? 0)))
-      .map((cid) => [cid, equipment.filter((e) => e.category_id === cid).sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true }))] as const);
+      .map((cid) => [cid, equipment.filter((e) => e.category_id === cid).sort((x, y) => x.code.localeCompare(y.code, undefined, { numeric: true }))] as const);
     return (
-      <Panel title={B.sections.equipment} action={canEdit && <AddEquipment branchId={id} branches={brOpts} categories={catOpts} />}>
+      <Panel title={B.sections.equipment} action={
+        <div className="flex flex-wrap gap-2">
+          {equipment.length > 0 && <Button variant="outline" render={<Link href={`/branches/${id}/labels`} />} nativeButton={false}><PrinterIcon data-icon="inline-start" />{E.labels}</Button>}
+          {canEdit && <AddEquipment branchId={id} branches={brOpts} categories={catOpts} />}
+        </div>
+      }>
         <p className="-mt-1 mb-4 text-sm text-ink-muted">{E.sub}</p>
         {equipment.length === 0 ? <EmptyNote>{E.empty}</EmptyNote> : (
           <div className="flex flex-col gap-2">
             {groups.map(([cid, items]) => {
               const down = items.filter((e) => e.status === "needs_repair" || e.status === "stopped").length;
               return (
-              <details key={cid ?? "none"} open={down > 0} className="group/g rounded-2xl border border-hairline">
+              <details key={cid ?? "none"} className="group/g rounded-2xl border border-hairline">
                 <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
                   <ChevronDownIcon className="size-4 text-ink-muted transition-transform duration-150 group-open/g:rotate-180" aria-hidden />
                   <span>{cid ? catName.get(cid) : t.maintenance.category}</span><span className="num font-normal text-ink-muted">{n(items.reduce((s, e) => s + e.quantity, 0))}</span>
@@ -225,9 +236,10 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
               return (
                 <li key={e.id}>
                   <details className="group rounded-[14px] bg-canvas">
-                    <summary className="grid cursor-pointer list-none grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-3.5 py-3 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto] [&::-webkit-details-marker]:hidden">
+                    <summary className="grid cursor-pointer list-none grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-3.5 py-3 sm:grid-cols-[110px_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto] [&::-webkit-details-marker]:hidden">
+                      <span className="num hidden rounded-lg bg-surface px-2 py-1 text-center text-[13px] font-bold tracking-wide sm:block" dir="ltr">{e.code}</span>
                       <span className="min-w-0">
-                        <span className="user-text block truncate font-semibold" dir="auto">{e.name}{e.quantity > 1 && <span className="num ms-1.5 font-normal text-ink-muted">×{n(e.quantity)}</span>}</span>
+                        <span className="block truncate"><span className="num me-2 text-[12.5px] font-bold sm:hidden" dir="ltr">{e.code}</span><span className="user-text font-semibold" dir="auto">{e.name}</span>{e.quantity > 1 && <span className="num ms-1.5 font-normal text-ink-muted">×{n(e.quantity)}</span>}</span>
                         {e.notes && <span className={cn("block truncate text-[13px]", e.status === "working" ? "text-ink-muted" : "text-warning")} dir="auto">{e.notes}</span>}
                       </span>
                       <span className="hidden min-w-0 text-[13px] sm:block">

@@ -138,7 +138,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
       <PageHeader
         back={{ href: "/maintenance", label: M.title }}
         title={ticket.title}
-        sub={<span>#{ticket.id}{t.common.comma}{branchName}{t.common.comma}{catName}{ticket.equipment_name && <>{t.common.comma}{ticket.equipment_name}</>}{ticket.legacy_ref && <>{t.common.comma}{M.fromAirtable}</>}</span>}
+        sub={<span>#{ticket.id}{t.common.comma}{branchName}{t.common.comma}{catName}{ticket.equipment_name && <>{t.common.comma}<b className="num font-semibold" dir="ltr">{ticket.equipment_code}</b> {ticket.equipment_name}</>}{ticket.legacy_ref && <>{t.common.comma}{M.fromAirtable}</>}</span>}
       >
         {phone && isOpen && role !== "technician" && <ReminderButton ticketId={ticket.id} phone={phone} message={reminderMsg} />}
       </PageHeader>

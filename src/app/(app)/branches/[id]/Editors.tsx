@@ -22,7 +22,7 @@ const hhmm = (v: string | null) => (v ? (v.startsWith("24:") ? "00:00" : v.slice
 
 // ---------- branch info + opening hours ----------
 export function InfoEditor({ branch, hours, startOpen }: {
-  branch: { id: number; name_ar: string; name_en: string; status: string; phone: string | null; address: string | null; map_url: string | null;
+  branch: { id: number; name_ar: string; name_en: string; code: string | null; status: string; phone: string | null; address: string | null; map_url: string | null;
     hours_note: string | null; ppm_weekday: number | null; ppm_time: string | null; notes: string | null };
   hours: Hour[]; startOpen?: boolean;
 }) {
@@ -42,6 +42,11 @@ export function InfoEditor({ branch, hours, startOpen }: {
     <ActionForm action={updateBranchInfo.bind(null, branch.id)} className="grid gap-4 sm:grid-cols-2">
       <Field><FieldLabel htmlFor="bi-ar">{B.nameAr}</FieldLabel><Input id="bi-ar" name="name_ar" defaultValue={branch.name_ar} required dir="rtl" /></Field>
       <Field><FieldLabel htmlFor="bi-en">{B.nameEn}</FieldLabel><Input id="bi-en" name="name_en" defaultValue={branch.name_en} required dir="ltr" /></Field>
+      <Field>
+        <FieldLabel htmlFor="bi-code">{I.code}</FieldLabel>
+        <Input id="bi-code" name="code" defaultValue={branch.code ?? ""} dir="ltr" className="uppercase" maxLength={5} autoCapitalize="characters" />
+        <p className="text-[12.5px] text-ink-muted">{I.codeHint}</p>
+      </Field>
       <Field>
         <FieldLabel htmlFor="bi-st">{I.statusLabel}</FieldLabel>
         <NativeSelect id="bi-st" name="status" defaultValue={branch.status} className="w-full">
@@ -172,7 +177,7 @@ export function FileEditor({ branchId, kinds, file, defaultKind }: {
 // ---------- equipment ----------
 export type EquipmentRow = {
   id: number; branch_id: number; category_id: number | null; name: string; brand: string | null; model: string | null; serial_no: string | null;
-  capacity: string | null; installed_on: string | null; warranty_until: string | null; status: string; notes: string | null; quantity: number;
+  capacity: string | null; installed_on: string | null; warranty_until: string | null; status: string; notes: string | null; quantity: number; code: string;
 };
 
 export function EquipmentEditor({ item, branchId, branches, categories, onDone }: {
@@ -185,6 +190,7 @@ export function EquipmentEditor({ item, branchId, branches, categories, onDone }
   const p = item ? `e${item.id}` : "en";
   return (
     <ActionForm action={saveEquipment.bind(null, item?.id ?? null)} className="grid gap-3 sm:grid-cols-3">
+      <Field><FieldLabel htmlFor={`${p}-code`}>{E.code}</FieldLabel><Input id={`${p}-code`} name="code" defaultValue={item?.code ?? ""} placeholder={E.codePh} dir="ltr" className="uppercase" autoCapitalize="characters" /></Field>
       <Field><FieldLabel htmlFor={`${p}-name`}>{E.name} *</FieldLabel><Input id={`${p}-name`} name="name" required defaultValue={item?.name ?? ""} placeholder={E.namePh} dir="auto" /></Field>
       <Field>
         <FieldLabel htmlFor={`${p}-cat`}>{E.category}</FieldLabel>
