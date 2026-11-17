@@ -45,6 +45,10 @@ function scheduleFrom(fd: FormData) {
 async function friendly(msg: string) {
   const { t } = await getT();
   if (msg.includes("workers_emp_no_key")) return t.worker.empNoTaken;
+  if (msg.includes("transfer future date")) return t.worker.transferFuture;
+  if (msg.includes("transfer before current")) return t.worker.transferBefore;
+  if (msg.includes("transfer no change")) return t.worker.transferNoChange;
+  if (msg.includes("not allowed")) return t.errors.notAllowed;
   return msg;
 }
 
@@ -80,8 +84,8 @@ export async function transferWorker(id: number, _: ActionState, fd: FormData): 
     p_start_date: opt(fd, "start_date") ?? undefined, p_note: opt(fd, "note") ?? undefined,
   });
   if (error) return { error: await friendly(error.message) };
-  revalidatePath(`/workers/${id}`);
-  revalidatePath("/");
+  // branch and role feed every page (branches, workers, overview, housing), so refresh them all
+  revalidatePath("/", "layout");
   return { ok: (await getT()).t.worker.transferred };
 }
 

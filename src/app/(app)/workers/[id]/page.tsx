@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
 import type { Dict } from "@/lib/i18n/dictionaries";
-import { daysUntil, formatDate, formatDaysOff, formatShifts } from "@/lib/i18n/format";
+import { daysUntil, formatDate, formatDaysOff, formatShifts, TZ } from "@/lib/i18n/format";
 import type { WorkerRow } from "@/lib/types";
 import { ActionForm } from "@/components/ActionForm";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -42,6 +42,8 @@ export default async function WorkerPage({ params }: { params: Promise<{ id: str
     supabase.from("housings").select("id, name").order("name"),
   ]);
   if (!w) notFound();
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date());
+  const current = (history ?? []).find((h) => !h.end_date);
   const worker = w as WorkerRow & Record<string, never>;
   const branch = (branches ?? []).find((b) => b.id === worker.branch_id);
   const docMap = new Map((docs ?? []).map((d) => [d.doc_type, d]));
@@ -126,7 +128,7 @@ export default async function WorkerPage({ params }: { params: Promise<{ id: str
                   {(jobs ?? []).map((j) => <NativeSelectOption key={j.id} value={j.id}>{pick(locale, j.name_ar, j.name_en)}</NativeSelectOption>)}
                 </NativeSelect>
               </Field>
-              <Field><FieldLabel htmlFor="t-from">{t.worker.from}</FieldLabel><Input id="t-from" name="start_date" type="date" /></Field>
+              <Field><FieldLabel htmlFor="t-from">{t.worker.from}</FieldLabel><Input id="t-from" name="start_date" type="date" max={today} min={current?.start_date ?? undefined} /></Field>
               <Field><FieldLabel htmlFor="t-note">{t.worker.reason}</FieldLabel><Input id="t-note" name="note" placeholder={t.worker.reasonPh} dir="auto" /></Field>
               <SubmitButton>{t.worker.record}</SubmitButton>
             </ActionForm>
