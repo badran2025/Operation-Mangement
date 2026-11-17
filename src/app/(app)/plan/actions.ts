@@ -25,13 +25,15 @@ export async function createNode(parentId: number, title: string): Promise<Res> 
   return { id: data.id };
 }
 
-export async function updateNode(id: number, patch: { title?: string; status?: string; notes?: string; link?: string; parent_id?: number }): Promise<Res> {
+export async function updateNode(id: number, patch: { title?: string; status?: string; notes?: string; link?: string; parent_id?: number; platform?: string; policy?: string }): Promise<Res> {
   const { supabase } = await requireAdmin();
   const row: Record<string, unknown> = {};
   if (patch.title !== undefined) { if (!clean(patch.title)) return {}; row.title = clean(patch.title); }
   if (patch.status !== undefined) { if (!["todo", "doing", "done"].includes(patch.status)) return {}; row.status = patch.status; }
   if (patch.notes !== undefined) row.notes = clean(patch.notes) || null;
   if (patch.link !== undefined) row.link = safeLink(patch.link);
+  if (patch.platform !== undefined) row.platform = clean(patch.platform).slice(0, 60) || null;
+  if (patch.policy !== undefined) row.policy = clean(patch.policy) || null;
   if (patch.parent_id !== undefined) row.parent_id = patch.parent_id;
   const { error } = await supabase.from("plan_nodes").update(row).eq("id", id);
   if (error) return { error: await friendlyError(error.message) };

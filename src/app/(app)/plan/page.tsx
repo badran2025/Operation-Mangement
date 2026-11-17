@@ -10,7 +10,7 @@ export default async function PlanPage() {
   const { supabase } = await requireAdmin();
   const { t } = await getT();
   const [{ data: nodes }, { data: items }] = await Promise.all([
-    supabase.from("plan_nodes").select("id, parent_id, title, status, notes, link, sort"),
+    supabase.from("plan_nodes").select("id, parent_id, title, status, notes, link, sort, platform, policy"),
     supabase.from("plan_items").select("id, node_id, body, done, sort").order("sort").order("id"),
   ]);
   return (

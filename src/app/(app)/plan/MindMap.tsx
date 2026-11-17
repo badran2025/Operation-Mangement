@@ -12,7 +12,7 @@ const ROW = 86;
 const W = 236;
 
 type Data = {
-  title: string; depth: number; stats: Stats; kids: number; collapsed: boolean; rtl: boolean; selected: boolean; linked: boolean;
+  title: string; depth: number; stats: Stats; kids: number; collapsed: boolean; rtl: boolean; selected: boolean; linked: boolean; platform: string | null;
   progress: string; onToggle: () => void;
 };
 type PlanNode = Node<Data, "plan">;
@@ -37,6 +37,9 @@ const PlanCard = memo(function PlanCard({ data }: NodeProps<PlanNode>) {
         <span className={cn("user-text line-clamp-2 min-w-0 flex-1 text-[14px] leading-snug", depth <= 1 ? "font-semibold" : "font-medium")}>{data.title}</span>
         {data.linked && <LinkIcon className="mt-1 size-3.5 shrink-0 opacity-60" aria-hidden />}
       </div>
+      {data.platform && (
+        <span className={cn("self-start rounded-full px-2 py-0.5 text-[11.5px] font-semibold", root ? "bg-white/20" : "bg-info-soft text-info")}>{data.platform}</span>
+      )}
       {data.kids > 0 && (
         <div className="flex items-center gap-2" dir={data.rtl ? "rtl" : "ltr"}>
           <span className={cn("h-1.5 flex-1 overflow-hidden rounded-full", root ? "bg-white/25" : "bg-surface-sunken")}>
@@ -66,9 +69,9 @@ const PlanCard = memo(function PlanCard({ data }: NodeProps<PlanNode>) {
 
 const nodeTypes = { plan: PlanCard };
 
-export function MindMap({ tree, collapsed, onToggle, onOpen, selectedId, rtl, progress }: {
+export function MindMap({ tree, collapsed, onToggle, onOpen, selectedId, rtl, progress, platformLabel }: {
   tree: Tree; collapsed: Set<number>; onToggle: (id: number) => void; onOpen: (id: number) => void;
-  selectedId: number | null; rtl: boolean; progress: (done: number, total: number) => string;
+  selectedId: number | null; rtl: boolean; progress: (done: number, total: number) => string; platformLabel: (p: string) => string;
 }) {
   const { resolvedTheme } = useTheme();
   const { nodes, edges } = useMemo(() => {
@@ -93,14 +96,14 @@ export function MindMap({ tree, collapsed, onToggle, onOpen, selectedId, rtl, pr
         id: String(id), type: "plan", position: { x: depth * COL * (rtl ? -1 : 1), y },
         data: {
           title: n.title, depth, stats: s, kids: kids.length, collapsed: collapsed.has(id), rtl, selected: selectedId === id,
-          linked: Boolean(n.link), progress: progress(s.done, s.leaves), onToggle: () => onToggle(id),
+          linked: Boolean(n.link), platform: n.platform && n.platform !== "site" ? platformLabel(n.platform) : null, progress: progress(s.done, s.leaves), onToggle: () => onToggle(id),
         },
       });
       return y;
     };
     tree.roots.forEach((r) => place(r.id, 0));
     return { nodes, edges };
-  }, [tree, collapsed, rtl, selectedId, onToggle, progress]);
+  }, [tree, collapsed, rtl, selectedId, onToggle, progress, platformLabel]);
 
   return (
     <div dir="ltr" className="h-[min(76dvh,820px)] min-h-[480px] overflow-hidden rounded-2xl bg-canvas">

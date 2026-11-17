@@ -1,5 +1,5 @@
 export type Status = "todo" | "doing" | "done";
-export type PNode = { id: number; parent_id: number | null; title: string; status: Status; notes: string | null; link: string | null; sort: number };
+export type PNode = { id: number; parent_id: number | null; title: string; status: Status; notes: string | null; link: string | null; sort: number; platform: string | null; policy: string | null };
 export type PItem = { id: number; node_id: number; body: string; done: boolean; sort: number };
 export type Stats = { leaves: number; done: number; doing: number; status: Status };
 
@@ -34,6 +34,9 @@ export function buildTree(nodes: PNode[]) {
   return { children, byId, stats, path, descendants, depth, roots: children(null) };
 }
 export type Tree = ReturnType<typeof buildTree>;
+
+/** Systems an item can run on; anything else is stored as typed. */
+export const PLATFORMS = ["site", "odoo", "sheets", "whatsapp", "paper"] as const;
 
 export const STATUS_DOT: Record<Status, string> = { todo: "bg-ink-muted/35", doing: "bg-warning", done: "bg-success" };
 export const STATUS_BADGE: Record<Status, "neutral" | "warning" | "success"> = { todo: "neutral", doing: "warning", done: "success" };

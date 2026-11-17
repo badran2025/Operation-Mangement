@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Kpi, Panel } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
 import { addItem, createNode, deleteItem, deleteNode, setItemDone, updateNode } from "./actions";
-import { buildTree, STATUS_BADGE, STATUS_DOT, type PItem, type PNode, type Status, type Tree } from "./tree";
+import { buildTree, PLATFORMS, STATUS_BADGE, STATUS_DOT, type PItem, type PNode, type Status, type Tree } from "./tree";
 
 const MindMap = dynamic(() => import("./MindMap").then((m) => m.MindMap), { ssr: false, loading: () => <div className="h-[min(76dvh,820px)] min-h-[480px] rounded-2xl bg-canvas" /> });
 
@@ -51,6 +51,7 @@ export function PlanBoard({ nodes, items }: { nodes: PNode[]; items: PItem[] }) 
     });
   }, []);
   const progress = useCallback((d: number, n: number) => P.progressShort(d, n), [P]);
+  const platformLabel = useCallback((p: string) => P.platforms[p] ?? p, [P]);
   const pickView = (v: "map" | "list") => { setView(v); write(VIEW, v); };
 
   const root = tree.roots[0];
@@ -91,7 +92,7 @@ export function PlanBoard({ nodes, items }: { nodes: PNode[]; items: PItem[] }) 
         </div>
 
         {!root ? <p className="text-ink-muted">{P.empty}</p>
-          : view === "map" ? <MindMap tree={tree} collapsed={collapsed} onToggle={toggle} onOpen={setOpenId} selectedId={openId} rtl={rtl} progress={progress} />
+          : view === "map" ? <MindMap tree={tree} collapsed={collapsed} onToggle={toggle} onOpen={setOpenId} selectedId={openId} rtl={rtl} progress={progress} platformLabel={platformLabel} />
           : <OutlineList tree={tree} collapsed={collapsed} onToggle={toggle} onOpen={setOpenId} />}
       </Panel>
 
@@ -125,6 +126,7 @@ function OutlineList({ tree, collapsed, onToggle, onOpen }: { tree: Tree; collap
           <button type="button" onClick={() => onOpen(id)} className="flex min-h-9 min-w-0 flex-1 items-center gap-2.5 text-start">
             {depth > 0 && <span className={cn("size-2.5 shrink-0 rounded-full", STATUS_DOT[s.status])} aria-hidden />}
             <span className={cn("user-text min-w-0 flex-1 truncate", depth <= 1 ? "font-semibold" : "")} dir="auto">{n.title}</span>
+            {n.platform && n.platform !== "site" && <span className="shrink-0 rounded-full bg-info-soft px-2 py-0.5 text-[11.5px] font-semibold text-info">{t.plan.platforms[n.platform] ?? n.platform}</span>}
             {n.link && <LinkIcon className="size-3.5 shrink-0 text-ink-muted" aria-label={t.plan.onSite} />}
             {kids.length > 0 && <span className="num shrink-0 text-[12.5px] text-ink-muted">{t.plan.progressShort(s.done, s.leaves)}</span>}
           </button>
@@ -148,6 +150,10 @@ function NodeDetails({ tree, id, items, onOpen, onDeleted }: { tree: Tree; id: n
   const path = tree.path(id);
   const [title, setTitle] = useState(n.title);
   const [notes, setNotes] = useState(n.notes ?? "");
+  const [policy, setPolicy] = useState(n.policy ?? "");
+  const preset = (PLATFORMS as readonly string[]).includes(n.platform ?? "");
+  const [otherOpen, setOtherOpen] = useState(Boolean(n.platform) && !preset);
+  const [other, setOther] = useState(preset ? "" : n.platform ?? "");
   const [link, setLink] = useState(n.link ?? "");
   const [newItem, setNewItem] = useState("");
   const [newChild, setNewChild] = useState("");
@@ -202,6 +208,42 @@ function NodeDetails({ tree, id, items, onOpen, onDeleted }: { tree: Tree; id: n
       </SheetHeader>
 
       {error && <p role="alert" className="text-sm font-semibold text-danger">{error}</p>}
+
+      <section className="flex flex-col gap-2">
+        <h3 className={label}>{P.platformLabel}</h3>
+        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={P.platformLabel}>
+          {PLATFORMS.map((k) => {
+            const on = n.platform === k;
+            return (
+              <button key={k} type="button" role="radio" aria-checked={on} disabled={pending}
+                onClick={() => { setOtherOpen(false); run(() => updateNode(id, { platform: on ? "" : k })); }}
+                className={cn("h-8 rounded-full border px-3 text-[13px] font-medium transition-colors duration-150",
+                  on ? "border-primary bg-surface-tint text-accent-foreground" : "border-input text-ink-muted hover:text-ink")}>
+                {P.platforms[k]}
+              </button>
+            );
+          })}
+          <button type="button" role="radio" aria-checked={otherOpen} onClick={() => setOtherOpen(true)}
+            className={cn("h-8 rounded-full border px-3 text-[13px] font-medium transition-colors duration-150",
+              otherOpen ? "border-primary bg-surface-tint text-accent-foreground" : "border-input text-ink-muted hover:text-ink")}>
+            {otherOpen && other ? other : P.other}
+          </button>
+        </div>
+        {otherOpen && (
+          <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); run(() => updateNode(id, { platform: other })); }}>
+            <Input value={other} onChange={(e) => setOther(e.target.value)} placeholder={P.otherPh} aria-label={P.otherPh} dir="auto" />
+            <Button type="submit" variant="outline" disabled={pending || !other.trim() || other === n.platform}>{t.common.save}</Button>
+          </form>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h3 className={label}>{P.policy}</h3>
+        <Textarea value={policy} onChange={(e) => setPolicy(e.target.value)} rows={4} placeholder={P.policyPh} aria-label={P.policy} dir="auto" />
+        {policy !== (n.policy ?? "") && (
+          <Button variant="outline" className="self-start" disabled={pending} onClick={() => run(() => updateNode(id, { policy }))}>{P.savePolicy}</Button>
+        )}
+      </section>
 
       {/* status: chosen for a single item, worked out for a group */}
       {kids.length === 0 ? (
