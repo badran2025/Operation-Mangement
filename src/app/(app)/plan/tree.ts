@@ -1,6 +1,19 @@
 export type Status = "todo" | "doing" | "done";
 export type PNode = { id: number; parent_id: number | null; title: string; status: Status; notes: string | null; link: string | null; sort: number; platform: string | null; policy: string | null };
-export type PItem = { id: number; node_id: number; body: string; done: boolean; sort: number };
+export type Kind = "file" | "review" | "action";
+export type PItem = { id: number; node_id: number; body: string; done: boolean; sort: number; kind: Kind; frequency: string | null };
+export const KINDS: Kind[] = ["file", "review", "action"];
+export const FREQS = ["daily", "weekly", "monthly", "quarterly", "yearly"] as const;
+export type Counts = Record<Kind, number>;
+export function countItems(items: PItem[]) {
+  const m = new Map<number, Counts>();
+  for (const i of items) {
+    const c = m.get(i.node_id) ?? { file: 0, review: 0, action: 0 };
+    c[i.kind] += 1;
+    m.set(i.node_id, c);
+  }
+  return m;
+}
 export type Stats = { leaves: number; done: number; doing: number; status: Status };
 
 /** Children per node, roots, and progress worked out from the leaves under each node. */

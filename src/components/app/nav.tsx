@@ -55,7 +55,7 @@ export function BottomNav({ items, overdue, userName, signOut }: { items: NavKey
   const rest = items.slice(3);
   const cell = "relative flex flex-col items-center justify-center gap-0.5 py-2 text-[11.5px] font-medium min-h-14";
   return (
-    <nav style={{ gridTemplateColumns: `repeat(${main.length + 1}, minmax(0, 1fr))` }} className="fixed inset-x-0 bottom-0 z-30 grid border-t border-hairline bg-canvas/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden" aria-label={t.shell.menu}>
+    <nav style={{ gridTemplateColumns: `repeat(${main.length + 1}, minmax(0, 1fr))` }} className="fixed inset-x-0 bottom-0 z-30 grid print:hidden border-t border-hairline bg-canvas/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden" aria-label={t.shell.menu}>
       {main.map((k) => {
         const { href, icon: Icon } = ITEMS[k];
         const active = isActive(href);

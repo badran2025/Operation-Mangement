@@ -18,10 +18,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const name = profile.full_name || profile.email || "";
 
   return (
-    <div className="min-h-dvh md:grid md:grid-cols-[248px_1fr]">
+    <div className="min-h-dvh md:grid md:grid-cols-[248px_1fr] print:block">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2">{t.nav.skip}</a>
 
-      <aside className="sticky top-0 hidden h-dvh flex-col gap-6 border-e border-hairline bg-surface px-3 py-5 md:flex">
+      <aside className="sticky top-0 hidden h-dvh print:!hidden flex-col gap-6 border-e border-hairline bg-surface px-3 py-5 md:flex">
         <BrandMark label={t.brand} />
         <SidebarNav items={items} overdue={overdue ?? 0} />
         <div className="mt-auto flex flex-col gap-1 border-t border-hairline pt-3">
@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
 
       <div className="flex min-w-0 flex-col pb-20 md:pb-0">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-2 bg-canvas/85 px-4 backdrop-blur-md md:px-7">
+        <header className="sticky top-0 z-20 flex h-16 print:hidden items-center gap-2 bg-canvas/85 px-4 backdrop-blur-md md:px-7">
           <div className="md:hidden"><BrandMark label={t.brand} /></div>
           <div className="ms-auto flex items-center gap-2">
             <LangToggle />

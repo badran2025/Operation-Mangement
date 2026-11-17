@@ -14,8 +14,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { Kpi, Panel } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
-import { addItem, createNode, deleteItem, deleteNode, setItemDone, updateNode } from "./actions";
-import { buildTree, PLATFORMS, STATUS_BADGE, STATUS_DOT, type PItem, type PNode, type Status, type Tree } from "./tree";
+import { addItem, createNode, deleteItem, deleteNode, updateNode } from "./actions";
+import { CountChips, KIND_ICON } from "./CountChips";
+import { buildTree, countItems, FREQS, KINDS, PLATFORMS, STATUS_BADGE, STATUS_DOT, type Counts, type Kind, type PItem, type PNode, type Status, type Tree } from "./tree";
 
 const MindMap = dynamic(() => import("./MindMap").then((m) => m.MindMap), { ssr: false, loading: () => <div className="h-[min(76dvh,820px)] min-h-[480px] rounded-2xl bg-canvas" /> });
 
@@ -29,6 +30,7 @@ export function PlanBoard({ nodes, items }: { nodes: PNode[]; items: PItem[] }) 
   const P = t.plan;
   const rtl = locale === "ar";
   const tree = useMemo(() => buildTree(nodes), [nodes]);
+  const counts = useMemo(() => countItems(items), [items]);
   const [view, setView] = useState<"map" | "list">("map");
   const [openId, setOpenId] = useState<number | null>(null);
   // by default show the first three levels; deeper ones open on demand
@@ -92,8 +94,8 @@ export function PlanBoard({ nodes, items }: { nodes: PNode[]; items: PItem[] }) 
         </div>
 
         {!root ? <p className="text-ink-muted">{P.empty}</p>
-          : view === "map" ? <MindMap tree={tree} collapsed={collapsed} onToggle={toggle} onOpen={setOpenId} selectedId={openId} rtl={rtl} progress={progress} platformLabel={platformLabel} />
-          : <OutlineList tree={tree} collapsed={collapsed} onToggle={toggle} onOpen={setOpenId} />}
+          : view === "map" ? <MindMap tree={tree} collapsed={collapsed} onToggle={toggle} onOpen={setOpenId} selectedId={openId} rtl={rtl} progress={progress} platformLabel={platformLabel} counts={counts} />
+          : <OutlineList tree={tree} collapsed={collapsed} onToggle={toggle} onOpen={setOpenId} counts={counts} />}
       </Panel>
 
       <Sheet open={openId !== null} onOpenChange={(o) => !o && setOpenId(null)}>
@@ -107,7 +109,7 @@ export function PlanBoard({ nodes, items }: { nodes: PNode[]; items: PItem[] }) 
   );
 }
 
-function OutlineList({ tree, collapsed, onToggle, onOpen }: { tree: Tree; collapsed: Set<number>; onToggle: (id: number) => void; onOpen: (id: number) => void }) {
+function OutlineList({ tree, collapsed, onToggle, onOpen, counts }: { tree: Tree; collapsed: Set<number>; onToggle: (id: number) => void; onOpen: (id: number) => void; counts: Map<number, Counts> }) {
   const { t } = useI18n();
   const Row = ({ id, depth }: { id: number; depth: number }) => {
     const n = tree.byId.get(id)!;
@@ -127,6 +129,7 @@ function OutlineList({ tree, collapsed, onToggle, onOpen }: { tree: Tree; collap
             {depth > 0 && <span className={cn("size-2.5 shrink-0 rounded-full", STATUS_DOT[s.status])} aria-hidden />}
             <span className={cn("user-text min-w-0 flex-1 truncate", depth <= 1 ? "font-semibold" : "")} dir="auto">{n.title}</span>
             {n.platform && n.platform !== "site" && <span className="shrink-0 rounded-full bg-info-soft px-2 py-0.5 text-[11.5px] font-semibold text-info">{t.plan.platforms[n.platform] ?? n.platform}</span>}
+            {counts.get(id) && <CountChips c={counts.get(id)!} />}
             {n.link && <LinkIcon className="size-3.5 shrink-0 text-ink-muted" aria-label={t.plan.onSite} />}
             {kids.length > 0 && <span className="num shrink-0 text-[12.5px] text-ink-muted">{t.plan.progressShort(s.done, s.leaves)}</span>}
           </button>
@@ -155,14 +158,11 @@ function NodeDetails({ tree, id, items, onOpen, onDeleted }: { tree: Tree; id: n
   const [otherOpen, setOtherOpen] = useState(Boolean(n.platform) && !preset);
   const [other, setOther] = useState(preset ? "" : n.platform ?? "");
   const [link, setLink] = useState(n.link ?? "");
-  const [newItem, setNewItem] = useState("");
   const [newChild, setNewChild] = useState("");
   const isRoot = n.parent_id === null;
   // show the click right away; the server result replaces it on refresh
   const [optStatus, setOptStatus] = useState<Status | null>(null);
-  const [optDone, setOptDone] = useState<Record<number, boolean>>({});
   useEffect(() => { setOptStatus(null); }, [n.status]);
-  useEffect(() => { setOptDone({}); }, [items]);
   const status = optStatus ?? n.status;
 
   const run = (fn: () => Promise<{ error?: string }>, after?: () => void) => start(async () => {
@@ -178,7 +178,6 @@ function NodeDetails({ tree, id, items, onOpen, onDeleted }: { tree: Tree; id: n
     const pa = tree.path(a.id).map((p) => p.sort).join("."), pb = tree.path(b.id).map((p) => p.sort).join(".");
     return pa.localeCompare(pb, undefined, { numeric: true });
   });
-  const doneItems = items.filter((i) => optDone[i.id] ?? i.done).length;
   const label = "text-[13px] font-semibold text-ink-muted";
 
   return (
@@ -262,30 +261,7 @@ function NodeDetails({ tree, id, items, onOpen, onDeleted }: { tree: Tree; id: n
         </section>
       ) : <p className="-mt-3 text-[13px] text-ink-muted">{P.auto}</p>}
 
-      <section className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between gap-2">
-          <h3 className={label}>{P.checklist}</h3>
-          {items.length > 0 && <span className="num text-[12.5px] text-ink-muted">{doneItems}/{items.length}</span>}
-        </div>
-        {items.length === 0 && <p className="text-sm text-ink-muted">{P.checklistEmpty}</p>}
-        <ul className="flex flex-col gap-1">
-          {items.map((i) => (
-            <li key={i.id} className="group flex items-start gap-2.5 rounded-xl px-2 py-1.5 hover:bg-canvas">
-              <input type="checkbox" checked={optDone[i.id] ?? i.done} onChange={(e) => { const v = e.target.checked; setOptDone((o) => ({ ...o, [i.id]: v })); run(() => setItemDone(i.id, v)); }}
-                className="mt-1 size-4 shrink-0 accent-primary" aria-label={i.body} />
-              <span className={cn("user-text min-w-0 flex-1 text-sm", (optDone[i.id] ?? i.done) && "text-ink-muted line-through")} dir="auto">{i.body}</span>
-              <button type="button" onClick={() => run(() => deleteItem(i.id))} aria-label={t.common.delete}
-                className="shrink-0 rounded-full p-1 text-ink-muted opacity-60 hover:bg-danger-soft hover:text-danger group-hover:opacity-100">
-                <Trash2Icon className="size-3.5" aria-hidden />
-              </button>
-            </li>
-          ))}
-        </ul>
-        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); run(() => addItem(id, newItem), () => setNewItem("")); }}>
-          <Input value={newItem} onChange={(e) => setNewItem(e.target.value)} placeholder={P.addItemPh} aria-label={P.checklist} dir="auto" />
-          <Button type="submit" variant="outline" disabled={pending || !newItem.trim()}><PlusIcon data-icon="inline-start" />{P.add}</Button>
-        </form>
-      </section>
+      {KINDS.map((k) => <ItemSection key={k} kind={k} nodeId={id} items={items.filter((i) => i.kind === k)} pending={pending} run={run} />)}
 
       <section className="flex flex-col gap-2">
         <h3 className={label}>{P.notes}</h3>
@@ -361,3 +337,48 @@ function NodeDetails({ tree, id, items, onOpen, onDeleted }: { tree: Tree; id: n
     </div>
   );
 }
+
+/** One of the three fixed sections: files required, reviews (with how often), actions. */
+function ItemSection({ kind, nodeId, items, pending, run }: {
+  kind: Kind; nodeId: number; items: PItem[]; pending: boolean;
+  run: (fn: () => Promise<{ error?: string }>, after?: () => void) => void;
+}) {
+  const { t } = useI18n();
+  const P = t.plan;
+  const S = P.sections[kind];
+  const Icon = KIND_ICON[kind];
+  const [text, setText] = useState("");
+  const [freq, setFreq] = useState<string>("monthly");
+  return (
+    <section className="flex flex-col gap-2">
+      <div>
+        <h3 className="flex items-center gap-1.5 text-[14px] font-semibold text-ink"><Icon className="size-4 text-primary" aria-hidden />{S.title}</h3>
+        <p className="text-[12.5px] text-ink-muted">{S.hint}</p>
+      </div>
+      {items.length === 0 ? <p className="text-sm text-ink-muted">{P.none}</p> : (
+        <ul className="flex flex-col gap-1">
+          {items.map((i) => (
+            <li key={i.id} className="group flex items-start gap-2 rounded-xl bg-canvas px-3 py-2">
+              {kind === "review" && i.frequency && <span className="mt-0.5 shrink-0 rounded-full bg-info-soft px-2 py-0.5 text-[11.5px] font-semibold text-info">{P.freq[i.frequency]}</span>}
+              <span className="user-text min-w-0 flex-1 text-sm" dir="auto">{i.body}</span>
+              <button type="button" onClick={() => run(() => deleteItem(i.id))} aria-label={t.common.delete}
+                className="shrink-0 rounded-full p-1 text-ink-muted opacity-60 hover:bg-danger-soft hover:text-danger group-hover:opacity-100">
+                <Trash2Icon className="size-3.5" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form className="flex flex-wrap gap-2 sm:flex-nowrap" onSubmit={(e) => { e.preventDefault(); run(() => addItem(nodeId, text, kind, kind === "review" ? freq : null), () => setText("")); }}>
+        <Input value={text} onChange={(e) => setText(e.target.value)} placeholder={S.ph} aria-label={S.title} dir="auto" className="min-w-0 flex-1 basis-full sm:basis-auto" />
+        {kind === "review" && (
+          <NativeSelect value={freq} onChange={(e) => setFreq(e.target.value)} aria-label={P.howOften} className="w-36">
+            {FREQS.map((f) => <NativeSelectOption key={f} value={f}>{P.freq[f]}</NativeSelectOption>)}
+          </NativeSelect>
+        )}
+        <Button type="submit" variant="outline" disabled={pending || !text.trim()}><PlusIcon data-icon="inline-start" />{P.add}</Button>
+      </form>
+    </section>
+  );
+}
+

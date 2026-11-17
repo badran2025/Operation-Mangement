@@ -1,5 +1,8 @@
 import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
+import Link from "next/link";
+import { BookOpenIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/app/blocks";
 import { PlanBoard } from "./PlanBoard";
 import type { PItem, PNode } from "./tree";
@@ -11,11 +14,13 @@ export default async function PlanPage() {
   const { t } = await getT();
   const [{ data: nodes }, { data: items }] = await Promise.all([
     supabase.from("plan_nodes").select("id, parent_id, title, status, notes, link, sort, platform, policy"),
-    supabase.from("plan_items").select("id, node_id, body, done, sort").order("sort").order("id"),
+    supabase.from("plan_items").select("id, node_id, body, done, sort, kind, frequency").order("sort").order("id"),
   ]);
   return (
     <>
-      <PageHeader title={t.plan.title} sub={t.plan.sub} />
+      <PageHeader title={t.plan.title} sub={t.plan.sub}>
+        <Button variant="outline" render={<Link href="/plan/manual" />} nativeButton={false}><BookOpenIcon data-icon="inline-start" />{t.plan.manual}</Button>
+      </PageHeader>
       <PlanBoard nodes={(nodes ?? []) as PNode[]} items={(items ?? []) as PItem[]} />
     </>
   );

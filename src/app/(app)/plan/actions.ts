@@ -47,18 +47,12 @@ export async function deleteNode(id: number): Promise<Res> {
   return done();
 }
 
-export async function addItem(nodeId: number, body: string): Promise<Res> {
+export async function addItem(nodeId: number, body: string, kind: string, frequency?: string | null): Promise<Res> {
   const { supabase } = await requireAdmin();
-  if (!clean(body)) return {};
-  const { data: last } = await supabase.from("plan_items").select("sort").eq("node_id", nodeId).order("sort", { ascending: false }).limit(1).maybeSingle();
-  const { error } = await supabase.from("plan_items").insert({ node_id: nodeId, body: clean(body), sort: (last?.sort ?? -1) + 1 });
-  if (error) return { error: await friendlyError(error.message) };
-  return done();
-}
-
-export async function setItemDone(id: number, isDone: boolean): Promise<Res> {
-  const { supabase } = await requireAdmin();
-  const { error } = await supabase.from("plan_items").update({ done: isDone }).eq("id", id);
+  if (!clean(body) || !["file", "review", "action"].includes(kind)) return {};
+  const freq = kind === "review" && frequency && ["daily", "weekly", "monthly", "quarterly", "yearly"].includes(frequency) ? frequency : null;
+  const { data: last } = await supabase.from("plan_items").select("sort").eq("node_id", nodeId).eq("kind", kind).order("sort", { ascending: false }).limit(1).maybeSingle();
+  const { error } = await supabase.from("plan_items").insert({ node_id: nodeId, body: clean(body), kind, frequency: freq, sort: (last?.sort ?? -1) + 1 });
   if (error) return { error: await friendlyError(error.message) };
   return done();
 }

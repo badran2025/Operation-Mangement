@@ -201,3 +201,8 @@
 }
 .react-flow__controls { border-radius: 12px; overflow: hidden; outline: 1px solid var(--hairline); }
 .react-flow__attribution a { color: var(--ink-muted); }
+
+@media print {
+  :root, .dark { --canvas: #fff; --surface: #fff; --ink: #000; }
+  body { background: #fff; font-size: 12pt; }
+}
