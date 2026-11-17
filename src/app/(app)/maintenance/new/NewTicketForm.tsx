@@ -54,7 +54,7 @@ export function NewTicketForm({ branches, categories, defaultBranch, machines, d
   const chip = "flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-input bg-surface px-4 text-sm transition-colors duration-150 has-[:checked]:border-primary has-[:checked]:bg-surface-tint";
 
   return (
-    <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
+    <form method="post" onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
       <Field>
         <FieldLabel htmlFor="nt-branch">{M.branch} *</FieldLabel>
         <NativeSelect id="nt-branch" name="branch_id" required value={branchId} onChange={(e) => { setBranchId(e.target.value); setMachineId(""); }} className="w-full">

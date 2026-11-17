@@ -132,7 +132,7 @@ export function FileEditor({ branchId, kinds, file, defaultKind }: {
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-3 sm:grid-cols-3">
+    <form method="post" onSubmit={submit} className="grid gap-3 sm:grid-cols-3">
       {!fixedKind && (
         <Field>
           <FieldLabel htmlFor={`${idp}-k`}>{F.kind}</FieldLabel>

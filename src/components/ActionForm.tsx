@@ -21,6 +21,8 @@ export function ActionForm({
   return (
     <form
       className={className}
+      // a submit before the page has loaded must never put the fields (e.g. a password) in the URL
+      method="post"
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);

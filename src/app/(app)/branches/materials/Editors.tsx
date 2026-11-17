@@ -54,7 +54,7 @@ export function MaterialEditor({ item, photoUrl, onDone }: { item?: MaterialRow;
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-3 sm:grid-cols-[96px_1fr_1fr_1fr]">
+    <form method="post" onSubmit={submit} className="grid gap-3 sm:grid-cols-[96px_1fr_1fr_1fr]">
       <div className="row-span-3 flex flex-col items-start gap-2 sm:items-center">
         {preview
           // eslint-disable-next-line @next/next/no-img-element -- local preview / storage URL
