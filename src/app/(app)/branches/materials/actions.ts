@@ -10,19 +10,15 @@ const refreshAll = () => revalidatePath("/", "layout");
 const num = (v: string) => (v.trim() === "" ? null : Number(v));
 
 export async function saveMaterial(input: {
-  id?: number | null; name: string; category: string; unit: string; odooRef: string; min: string; max: string; notes: string; active: boolean;
+  id?: number | null; name: string; category: string; unit: string; odooRef: string; notes: string; active: boolean;
   photoPath?: string | null; removePhoto?: boolean;
 }): Promise<{ error?: string }> {
   const { supabase } = await requireAdmin();
   const { t } = await getT();
-  const M = t.branchesTab.materials;
-  const min = num(input.min), max = num(input.max);
   if (!input.name.trim()) return { error: t.branchesTab.required };
-  if ((min !== null && (isNaN(min) || min < 0)) || (max !== null && (isNaN(max) || max < 0))) return { error: M.minMax };
-  if (min !== null && max !== null && max < min) return { error: M.minMax };
   const row: Record<string, unknown> = {
     name: input.name.trim(), category: CATS.includes(input.category) ? input.category : "other", unit: input.unit.trim() || null,
-    odoo_ref: input.odooRef.trim() || null, min_qty: min, max_qty: max, notes: input.notes.trim() || null, active: input.active,
+    odoo_ref: input.odooRef.trim() || null, notes: input.notes.trim() || null, active: input.active,
   };
   let oldPhoto: string | null = null;
   if (input.id && (input.photoPath || input.removePhoto)) {
@@ -33,6 +29,29 @@ export async function saveMaterial(input: {
   const { error } = input.id ? await supabase.from("materials").update(row).eq("id", input.id) : await supabase.from("materials").insert(row);
   if (error) return { error: await friendlyError(error.message) };
   if (oldPhoto) await supabase.storage.from("material-photos").remove([oldPhoto]);
+  refreshAll();
+  return {};
+}
+
+/** Add a material to a branch, or change its min / max there. */
+export async function saveBranchMaterial(branchId: number, materialId: number, minS: string, maxS: string, notes: string): Promise<{ error?: string }> {
+  const { supabase } = await requireAdmin();
+  const { t } = await getT();
+  const min = num(minS), max = num(maxS);
+  if (!materialId) return { error: t.branchesTab.materials.choose };
+  if ((min !== null && (isNaN(min) || min < 0)) || (max !== null && (isNaN(max) || max < 0)) || (min !== null && max !== null && max < min)) {
+    return { error: t.branchesTab.materials.minMax };
+  }
+  const { error } = await supabase.from("branch_materials").upsert({ branch_id: branchId, material_id: materialId, min_qty: min, max_qty: max, notes: notes.trim() || null });
+  if (error) return { error: await friendlyError(error.message) };
+  refreshAll();
+  return {};
+}
+
+export async function removeBranchMaterial(branchId: number, materialId: number): Promise<{ error?: string }> {
+  const { supabase } = await requireAdmin();
+  const { error } = await supabase.from("branch_materials").delete().eq("branch_id", branchId).eq("material_id", materialId);
+  if (error) return { error: await friendlyError(error.message) };
   refreshAll();
   return {};
 }

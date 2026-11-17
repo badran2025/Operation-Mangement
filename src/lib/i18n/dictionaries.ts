@@ -98,7 +98,7 @@ const en = {
       warrantyTo: (d: string) => `Warranty until ${d}`, warrantyOver: "Out of warranty", openTickets: (n: string) => `${n} open tickets`,
       history: "Repair history", noHistory: "No maintenance tickets for this machine yet.", empty: "No machines recorded yet.",
       deleteConfirm: "Delete this machine? Its tickets stay, without the machine.", saved: "Machine saved", reportIssue: "Report an issue",
-      machine: "Machine", machineNone: "Not a specific machine", notInBranch: "This machine is not in the chosen branch",
+      machine: "Machine / equipment", machineNone: "Not related to listed equipment", noMachines: "No equipment recorded for this branch yet", quantity: "Quantity", notWorking: (n: string) => `${n} not working`, allWorking: "All working", kpi: "Equipment not working", notInBranch: "This machine is not in the chosen branch",
     },
     materials: {
       sub: "What branches can order, with the minimum and maximum to keep. Orders are placed in Odoo.",
@@ -106,7 +106,11 @@ const en = {
       noGuide: "Not written yet.", empty: "No materials in the list yet.", manage: "Manage the list", min: "Min", max: "Max", unit: "Unit", unitPh: "e.g. carton, litre, piece",
       odoo: "Odoo code", name: "Name", category: "Category", photo: "Photo", removePhoto: "Remove photo", notes: "Notes", inUse: "In use", add: "Add a material",
       categories: { chemicals: "Detergents & chemicals", packaging: "Packaging", consumables: "Consumables", tools: "Tools", other: "Other" } as Record<string, string>,
-      deleteConfirm: "Delete this material?", saved: "Saved", minMax: "Max must be more than min", notInUse: "Not in use",
+      deleteConfirm: "Delete this material? It is removed from every branch.", saved: "Saved", minMax: "Max must be more than min", notInUse: "Not in use",
+      usedIn: (n: string) => `Used in ${n} branches`, catalogSub: "Every material any branch can order: name, photo, unit and Odoo code. Each branch then picks its own materials with its own min and max.",
+      branchSub: "The materials this branch orders, with the minimum and maximum to keep. Orders are placed in Odoo.",
+      branchEmpty: "No materials chosen for this branch yet.", assign: "Add to this branch", choose: "Choose a material",
+      notListed: "Not in the list? Add it to the materials list first.", remove: "Remove from branch", removeConfirm: "Remove this material from the branch?",
     },
   },
   plan: {
@@ -303,7 +307,7 @@ const ar: Dict = {
       warrantyTo: (d: string) => `ضمان لحد ${d}`, warrantyOver: "الضمان خلص", openTickets: (n: string) => `${n} بلاغ مفتوح`,
       history: "سجل الأعطال", noHistory: "مفيش بلاغات صيانة للماكينة دي لسه.", empty: "مفيش معدات متسجلة لسه.",
       deleteConfirm: "حذف الماكينة دي؟ بلاغاتها هتفضل موجودة من غير الماكينة.", saved: "اتحفظت الماكينة", reportIssue: "بلاغ صيانة",
-      machine: "الماكينة", machineNone: "مش ماكينة معينة", notInBranch: "الماكينة دي مش في الفرع اللي اخترته",
+      machine: "الماكينة / المعدة", machineNone: "مش متعلقة بمعدة من المسجلة", noMachines: "مفيش معدات متسجلة للفرع ده لسه", quantity: "العدد", notWorking: (n: string) => `${n} مش شغالة`, allWorking: "كلها شغالة", kpi: "معدات مش شغالة", notInBranch: "الماكينة دي مش في الفرع اللي اخترته",
     },
     materials: {
       sub: "المواد اللي الفروع بتطلبها، والحد الأدنى والأقصى لكل مادة. الطلب نفسه بيتم على Odoo.",
@@ -311,7 +315,11 @@ const ar: Dict = {
       noGuide: "لسه متكتبش.", empty: "مفيش مواد في القائمة لسه.", manage: "تعديل القائمة", min: "أدنى", max: "أقصى", unit: "الوحدة", unitPh: "مثال: كرتونة، لتر، حبة",
       odoo: "كود Odoo", name: "الاسم", category: "التصنيف", photo: "الصورة", removePhoto: "شيل الصورة", notes: "ملاحظات", inUse: "مستخدمة", add: "إضافة مادة",
       categories: { chemicals: "منظفات وكيماويات", packaging: "تغليف", consumables: "مستهلكات", tools: "أدوات", other: "أخرى" },
-      deleteConfirm: "حذف المادة دي؟", saved: "اتحفظ", minMax: "الحد الأقصى لازم يكون أكبر من الأدنى", notInUse: "مش مستخدمة",
+      deleteConfirm: "حذف المادة دي؟ هتتشال من كل الفروع.", saved: "اتحفظ", minMax: "الحد الأقصى لازم يكون أكبر من الأدنى", notInUse: "مش مستخدمة",
+      usedIn: (n: string) => `مستخدمة في ${n} فرع`, catalogSub: "كل المواد اللي أي فرع ممكن يطلبها: الاسم والصورة والوحدة وكود Odoo. وبعدين كل فرع بيختار مواده بالحد الأدنى والأقصى بتوعه.",
+      branchSub: "المواد اللي الفرع ده بيطلبها، والحد الأدنى والأقصى لكل مادة. الطلب نفسه بيتم على Odoo.",
+      branchEmpty: "لسه مفيش مواد متحددة للفرع ده.", assign: "إضافة للفرع", choose: "اختار المادة",
+      notListed: "المادة مش موجودة؟ ضيفها في قائمة المواد الأول.", remove: "شيلها من الفرع", removeConfirm: "تشيل المادة دي من الفرع؟",
     },
   },
   plan: {

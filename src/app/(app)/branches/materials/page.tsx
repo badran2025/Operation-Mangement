@@ -14,17 +14,19 @@ export default async function MaterialsPage() {
   const B = t.branchesTab;
   const M = B.materials;
   const isAdmin = profile.role === "admin";
-  const [{ data: mats }, { data: texts }] = await Promise.all([
+  const [{ data: mats }, { data: texts }, { data: used }] = await Promise.all([
     supabase.from("materials").select("*").order("category").order("sort").order("name"),
     supabase.from("app_texts").select("key, body"),
+    supabase.from("branch_materials").select("material_id"),
   ]);
+  const usedIn = (id: number) => (used ?? []).filter((u) => u.material_id === id).length;
   const items = ((mats ?? []) as MaterialRow[]).filter((m) => isAdmin || m.active);
   const text = (k: string): string => (texts ?? []).find((x) => x.key === k)?.body ?? "";
   const photo = (p: string | null) => (p ? supabase.storage.from("material-photos").getPublicUrl(p).data.publicUrl : null);
 
   return (
     <>
-      <PageHeader back={{ href: "/branches", label: t.nav.branches }} title={B.materialsList} sub={M.sub} />
+      <PageHeader back={{ href: "/branches", label: t.nav.branches }} title={B.materialsList} sub={M.catalogSub} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Panel title={M.howTo}>
@@ -59,9 +61,11 @@ export default async function MaterialsPage() {
                         <span className="min-w-0 flex-1">
                           <span className="user-text block truncate font-semibold" dir="auto">{m.name}</span>
                           <span className="block truncate text-[13px] text-ink-muted">
-                            {M.min} <b className="num font-semibold text-ink">{m.min_qty ?? "—"}</b><span className="mx-1.5 text-hairline" aria-hidden>|</span>
-                            {M.max} <b className="num font-semibold text-ink">{m.max_qty ?? "—"}</b>{m.unit && <span dir="auto"> {m.unit}</span>}
-                            {m.odoo_ref && <><span className="mx-1.5 text-hairline" aria-hidden>|</span><span className="num" dir="ltr">{m.odoo_ref}</span></>}
+                            {m.unit && <span dir="auto">{m.unit}</span>}
+                            {m.unit && m.odoo_ref && <span className="mx-1.5 text-hairline" aria-hidden>|</span>}
+                            {m.odoo_ref && <span className="num" dir="ltr">{m.odoo_ref}</span>}
+                            {(m.unit || m.odoo_ref) && <span className="mx-1.5 text-hairline" aria-hidden>|</span>}
+                            {M.usedIn(String(usedIn(m.id)))}
                           </span>
                         </span>
                         {!m.active && <Badge variant="neutral">{M.notInUse}</Badge>}

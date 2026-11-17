@@ -11,10 +11,10 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { deleteMaterial, saveMaterial, saveText } from "./actions";
+import { deleteMaterial, removeBranchMaterial, saveBranchMaterial, saveMaterial, saveText } from "./actions";
 
 export type MaterialRow = {
-  id: number; name: string; category: string; unit: string | null; odoo_ref: string | null; min_qty: number | null; max_qty: number | null;
+  id: number; name: string; category: string; unit: string | null; odoo_ref: string | null;
   photo_path: string | null; notes: string | null; active: boolean;
 };
 
@@ -43,7 +43,7 @@ export function MaterialEditor({ item, photoUrl, onDone }: { item?: MaterialRow;
       }
       const res = await saveMaterial({
         id: item?.id ?? null, name: String(fd.get("name") ?? ""), category: String(fd.get("category") ?? "other"), unit: String(fd.get("unit") ?? ""),
-        odooRef: String(fd.get("odoo_ref") ?? ""), min: String(fd.get("min_qty") ?? ""), max: String(fd.get("max_qty") ?? ""),
+        odooRef: String(fd.get("odoo_ref") ?? ""),
         notes: String(fd.get("notes") ?? ""), active: fd.get("active") === "on", photoPath, removePhoto,
       });
       if (res.error) { await removeUploaded("material-photos", photoPath); setError(res.error); return; }
@@ -54,8 +54,8 @@ export function MaterialEditor({ item, photoUrl, onDone }: { item?: MaterialRow;
   }
 
   return (
-    <form method="post" onSubmit={submit} className="grid gap-3 sm:grid-cols-[96px_1fr_1fr_1fr]">
-      <div className="row-span-3 flex flex-col items-start gap-2 sm:items-center">
+    <form method="post" onSubmit={submit} className="grid gap-3 sm:grid-cols-[96px_1fr_1fr_1fr] sm:items-start">
+      <div className="row-span-2 flex flex-col items-start gap-2 sm:items-center">
         {preview
           // eslint-disable-next-line @next/next/no-img-element -- local preview / storage URL
           ? <img src={preview} alt="" width={96} height={96} className="size-24 rounded-xl object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
@@ -76,8 +76,6 @@ export function MaterialEditor({ item, photoUrl, onDone }: { item?: MaterialRow;
         </NativeSelect>
       </Field>
       <Field><FieldLabel htmlFor={`${p}-u`}>{M.unit}</FieldLabel><Input id={`${p}-u`} name="unit" defaultValue={item?.unit ?? ""} placeholder={M.unitPh} dir="auto" /></Field>
-      <Field><FieldLabel htmlFor={`${p}-mi`}>{M.min}</FieldLabel><Input id={`${p}-mi`} name="min_qty" type="number" min={0} step="any" inputMode="decimal" defaultValue={item?.min_qty ?? ""} /></Field>
-      <Field><FieldLabel htmlFor={`${p}-ma`}>{M.max}</FieldLabel><Input id={`${p}-ma`} name="max_qty" type="number" min={0} step="any" inputMode="decimal" defaultValue={item?.max_qty ?? ""} /></Field>
       <Field><FieldLabel htmlFor={`${p}-o`}>{M.odoo}</FieldLabel><Input id={`${p}-o`} name="odoo_ref" defaultValue={item?.odoo_ref ?? ""} dir="ltr" /></Field>
       <Field className="sm:col-span-2"><FieldLabel htmlFor={`${p}-no`}>{M.notes}</FieldLabel><Input id={`${p}-no`} name="notes" defaultValue={item?.notes ?? ""} dir="auto" /></Field>
       <label className="flex min-h-10 items-center gap-2 self-end text-sm font-medium">
@@ -122,5 +120,60 @@ export function TextEditor({ textKey, value, placeholder, label }: { textKey: st
         </Button>
       )}
     </div>
+  );
+}
+
+// ---------- per-branch materials ----------
+export function BranchMaterialEditor({ branchId, materialId, min, max, notes }: { branchId: number; materialId: number; min: number | null; max: number | null; notes: string | null }) {
+  const { t } = useI18n();
+  const M = t.branchesTab.materials;
+  const router = useRouter();
+  const [busy, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const p = `bm${materialId}`;
+  return (
+    <form method="post" className="grid grid-cols-2 gap-3 sm:grid-cols-[110px_110px_1fr_auto] sm:items-end"
+      onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); start(async () => {
+        setError(null); const r = await saveBranchMaterial(branchId, materialId, String(fd.get("min") ?? ""), String(fd.get("max") ?? ""), String(fd.get("notes") ?? ""));
+        if (r.error) setError(r.error); else router.refresh(); }); }}>
+      <Field><FieldLabel htmlFor={`${p}-mi`}>{M.min}</FieldLabel><Input id={`${p}-mi`} name="min" type="number" min={0} step="any" inputMode="decimal" defaultValue={min ?? ""} /></Field>
+      <Field><FieldLabel htmlFor={`${p}-ma`}>{M.max}</FieldLabel><Input id={`${p}-ma`} name="max" type="number" min={0} step="any" inputMode="decimal" defaultValue={max ?? ""} /></Field>
+      <Field className="col-span-2 sm:col-span-1"><FieldLabel htmlFor={`${p}-no`}>{M.notes}</FieldLabel><Input id={`${p}-no`} name="notes" defaultValue={notes ?? ""} dir="auto" /></Field>
+      <div className="col-span-2 flex gap-2 sm:col-span-1">
+        <Button type="submit" variant="outline" disabled={busy}>{busy && <Spinner data-icon="inline-start" />}{t.common.save}</Button>
+        <Button type="button" variant="ghost" className="text-danger hover:bg-danger-soft hover:text-danger" disabled={busy}
+          onClick={() => window.confirm(M.removeConfirm) && start(async () => { const r = await removeBranchMaterial(branchId, materialId); if (r.error) setError(r.error); else router.refresh(); })}>
+          {M.remove}
+        </Button>
+      </div>
+      {error && <p role="alert" className="col-span-full text-sm font-semibold text-danger">{error}</p>}
+    </form>
+  );
+}
+
+export function AddBranchMaterial({ branchId, options }: { branchId: number; options: { id: number; name: string }[] }) {
+  const { t } = useI18n();
+  const M = t.branchesTab.materials;
+  const router = useRouter();
+  const [busy, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [pick, setPick] = useState("");
+  return (
+    <form method="post" className="grid grid-cols-2 gap-3 rounded-2xl bg-canvas p-4 sm:grid-cols-[1fr_110px_110px_auto] sm:items-end"
+      onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); const form = e.currentTarget; start(async () => {
+        setError(null); const r = await saveBranchMaterial(branchId, Number(pick), String(fd.get("min") ?? ""), String(fd.get("max") ?? ""), "");
+        if (r.error) setError(r.error); else { form.reset(); setPick(""); router.refresh(); } }); }}>
+      <Field className="col-span-2 sm:col-span-1">
+        <FieldLabel htmlFor="abm-m">{M.choose}</FieldLabel>
+        <NativeSelect id="abm-m" value={pick} onChange={(e) => setPick(e.target.value)} required className="w-full">
+          <NativeSelectOption value="" disabled>{M.choose}</NativeSelectOption>
+          {options.map((o) => <NativeSelectOption key={o.id} value={o.id}>{o.name}</NativeSelectOption>)}
+        </NativeSelect>
+      </Field>
+      <Field><FieldLabel htmlFor="abm-mi">{M.min}</FieldLabel><Input id="abm-mi" name="min" type="number" min={0} step="any" inputMode="decimal" /></Field>
+      <Field><FieldLabel htmlFor="abm-ma">{M.max}</FieldLabel><Input id="abm-ma" name="max" type="number" min={0} step="any" inputMode="decimal" /></Field>
+      <Button type="submit" className="col-span-2 sm:col-span-1" disabled={busy || !pick}>{busy && <Spinner data-icon="inline-start" />}{M.assign}</Button>
+      {error && <p role="alert" className="col-span-full text-sm font-semibold text-danger">{error}</p>}
+    </form>
   );
 }

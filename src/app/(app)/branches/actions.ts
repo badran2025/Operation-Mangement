@@ -113,6 +113,7 @@ export async function saveEquipment(id: number | null, _: ActionState, fd: FormD
   const row = {
     branch_id: Number(s(fd, "branch_id")), category_id: cat ? Number(cat) : null, name: s(fd, "name"),
     brand: opt(fd, "brand"), model: opt(fd, "model"), serial_no: opt(fd, "serial_no"), capacity: opt(fd, "capacity"),
+    quantity: Math.max(1, Math.floor(Number(s(fd, "quantity")) || 1)),
     installed_on: opt(fd, "installed_on"), warranty_until: opt(fd, "warranty_until"), status: s(fd, "status") || "working", notes: opt(fd, "notes"),
   };
   if (!row.name) return { error: t.branchesTab.required };

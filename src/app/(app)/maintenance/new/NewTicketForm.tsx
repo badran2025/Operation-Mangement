@@ -29,7 +29,7 @@ export function NewTicketForm({ branches, categories, defaultBranch, machines, d
   const [branchId, setBranchId] = useState<string>(String(defaultBranch ?? (branches.length === 1 ? branches[0].id : "")));
   const [machineId, setMachineId] = useState<string>(defaultEquipment ? String(defaultEquipment) : "");
   const [catId, setCatId] = useState<string>(() => String(machines.find((m) => m.id === defaultEquipment)?.categoryId ?? ""));
-  const branchMachines = machines.filter((m) => String(m.branchId) === branchId);
+  const branchMachines = machines.filter((m) => String(m.branchId) === branchId).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -63,22 +63,20 @@ export function NewTicketForm({ branches, categories, defaultBranch, machines, d
         </NativeSelect>
       </Field>
       <Field>
+        <FieldLabel htmlFor="nt-machine">{t.branchesTab.equipment.machine}</FieldLabel>
+        <NativeSelect id="nt-machine" value={machineId} disabled={!branchId || branchMachines.length === 0} className="w-full"
+          onChange={(e) => { setMachineId(e.target.value); const m = branchMachines.find((x) => String(x.id) === e.target.value); if (m?.categoryId) setCatId(String(m.categoryId)); }}>
+          <NativeSelectOption value="">{branchId && branchMachines.length === 0 ? t.branchesTab.equipment.noMachines : t.branchesTab.equipment.machineNone}</NativeSelectOption>
+          {branchMachines.map((m) => <NativeSelectOption key={m.id} value={m.id}>{m.name}</NativeSelectOption>)}
+        </NativeSelect>
+      </Field>
+      <Field>
         <FieldLabel htmlFor="nt-cat">{M.category}</FieldLabel>
         <NativeSelect id="nt-cat" name="category_id" value={catId} onChange={(e) => setCatId(e.target.value)} className="w-full">
           <NativeSelectOption value="">—</NativeSelectOption>
           {categories.map((c) => <NativeSelectOption key={c.id} value={c.id}>{c.name}</NativeSelectOption>)}
         </NativeSelect>
       </Field>
-      {branchMachines.length > 0 && (
-        <Field className="sm:col-span-2">
-          <FieldLabel htmlFor="nt-machine">{t.branchesTab.equipment.machine}</FieldLabel>
-          <NativeSelect id="nt-machine" value={machineId} className="w-full"
-            onChange={(e) => { setMachineId(e.target.value); const m = branchMachines.find((x) => String(x.id) === e.target.value); if (m?.categoryId) setCatId(String(m.categoryId)); }}>
-            <NativeSelectOption value="">{t.branchesTab.equipment.machineNone}</NativeSelectOption>
-            {branchMachines.map((m) => <NativeSelectOption key={m.id} value={m.id}>{m.name}</NativeSelectOption>)}
-          </NativeSelect>
-        </Field>
-      )}
       <Field className="sm:col-span-2">
         <FieldLabel htmlFor="nt-title">{M.problem} *</FieldLabel>
         <Input id="nt-title" name="title" required maxLength={160} placeholder={M.problemPh} dir="auto" />

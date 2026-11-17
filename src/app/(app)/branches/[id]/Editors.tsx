@@ -172,7 +172,7 @@ export function FileEditor({ branchId, kinds, file, defaultKind }: {
 // ---------- equipment ----------
 export type EquipmentRow = {
   id: number; branch_id: number; category_id: number | null; name: string; brand: string | null; model: string | null; serial_no: string | null;
-  capacity: string | null; installed_on: string | null; warranty_until: string | null; status: string; notes: string | null;
+  capacity: string | null; installed_on: string | null; warranty_until: string | null; status: string; notes: string | null; quantity: number;
 };
 
 export function EquipmentEditor({ item, branchId, branches, categories, onDone }: {
@@ -202,6 +202,7 @@ export function EquipmentEditor({ item, branchId, branches, categories, onDone }
       <Field><FieldLabel htmlFor={`${p}-br`}>{E.brand}</FieldLabel><Input id={`${p}-br`} name="brand" defaultValue={item?.brand ?? ""} dir="auto" /></Field>
       <Field><FieldLabel htmlFor={`${p}-mo`}>{E.model}</FieldLabel><Input id={`${p}-mo`} name="model" defaultValue={item?.model ?? ""} dir="auto" /></Field>
       <Field><FieldLabel htmlFor={`${p}-sn`}>{E.serial}</FieldLabel><Input id={`${p}-sn`} name="serial_no" defaultValue={item?.serial_no ?? ""} dir="ltr" /></Field>
+      <Field><FieldLabel htmlFor={`${p}-q`}>{E.quantity}</FieldLabel><Input id={`${p}-q`} name="quantity" type="number" min={1} step={1} inputMode="numeric" defaultValue={item?.quantity ?? 1} /></Field>
       <Field><FieldLabel htmlFor={`${p}-cap`}>{E.capacity}</FieldLabel><Input id={`${p}-cap`} name="capacity" defaultValue={item?.capacity ?? ""} dir="auto" /></Field>
       <Field><FieldLabel htmlFor={`${p}-in`}>{E.installed}</FieldLabel><Input id={`${p}-in`} name="installed_on" type="date" defaultValue={item?.installed_on ?? ""} /></Field>
       <Field><FieldLabel htmlFor={`${p}-wa`}>{E.warranty}</FieldLabel><Input id={`${p}-wa`} name="warranty_until" type="date" defaultValue={item?.warranty_until ?? ""} /></Field>

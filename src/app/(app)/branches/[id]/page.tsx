@@ -15,13 +15,14 @@ import { WorkersTable } from "@/components/app/WorkersTable";
 import { EmptyNote, Kpi, PageHeader, Panel, RowChevron, SoftRow } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
 import { AddEquipment, EquipmentEditor, FileEditor, InfoEditor, type EquipmentRow } from "./Editors";
+import { AddBranchMaterial, BranchMaterialEditor } from "../materials/Editors";
 
 export const dynamic = "force-dynamic";
 
 const SECTIONS = ["info", "workers", "equipment", "materials", "files", "maintenance"] as const;
 type Hours = { weekday: number; open_time: string | null; close_time: string | null; is_24h: boolean; is_closed: boolean };
 type FileRow = { id: number; kind: string; title: string; number: string | null; expiry_date: string | null; notes: string | null; file_path: string | null; mime_type: string | null };
-type Material = { id: number; name: string; category: string; unit: string | null; odoo_ref: string | null; min_qty: number | null; max_qty: number | null; photo_path: string | null; notes: string | null };
+type Material = { id: number; name: string; category: string; unit: string | null; odoo_ref: string | null; photo_path: string | null; active: boolean };
 
 function hoursLines(t: Dict, hours: Hours[]): string[] {
   if (hours.length === 0) return ["—"];
@@ -95,7 +96,7 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
         <Kpi label={t.dashboard.workingToday} value={n(active.length - offToday)} href={`/branches/${id}?s=workers`} />
         <Kpi label={t.dashboard.openTickets} value={n(openTickets.length)} href={`/branches/${id}?s=maintenance`} />
         <Kpi label={t.dashboard.overdue} value={n(overdue)} tone={overdue ? "danger" : undefined} href={`/maintenance?tab=overdue&branch=${id}`} />
-        <Kpi label={B.equipment.statuses.needs_repair} value={n(broken)} tone={broken ? "warning" : undefined} href={`/branches/${id}?s=equipment`} />
+        <Kpi label={B.equipment.kpi} value={n(broken)} tone={broken ? "warning" : undefined} href={`/branches/${id}?s=equipment`} />
         <Kpi label={B.card.filesKpi} value={n(fileAlerts)} tone={fileAlerts ? "warning" : undefined} href={`/branches/${id}?s=files`} />
       </section>
 
@@ -151,7 +152,7 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
         </Panel>
       )}
 
-      {section === "equipment" && <EquipmentSection id={id} equipment={equipment} canEdit={canEditEquipment} canReport={role !== "technician"} />}
+      {section === "equipment" && <EquipmentSection id={id} equipment={equipment} canEdit={canEditEquipment} />}
       {section === "materials" && <MaterialsSection isAdmin={isAdmin} />}
       {section === "files" && <FilesSection id={id} files={files} isAdmin={isAdmin} />}
 
@@ -187,7 +188,7 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
   );
 
   // ---------- sections ----------
-  async function EquipmentSection({ id, equipment, canEdit, canReport }: { id: number; equipment: EquipmentRow[]; canEdit: boolean; canReport: boolean }) {
+  async function EquipmentSection({ id, equipment, canEdit }: { id: number; equipment: EquipmentRow[]; canEdit: boolean }) {
     const E = B.equipment;
     const [{ data: cats }, { data: allBranches }, { data: hist }] = await Promise.all([
       supabase.from("ticket_categories").select("id, name_ar, name_en").order("sort"),
@@ -197,12 +198,27 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
     const catName = new Map((cats ?? []).map((c) => [c.id, pick(locale, c.name_ar, c.name_en)]));
     const catOpts = (cats ?? []).map((c) => ({ id: c.id, name: pick(locale, c.name_ar, c.name_en) }));
     const brOpts = (allBranches ?? []).map((b) => ({ id: b.id, name: pick(locale, b.name_ar, b.name_en) }));
+    // grouped by type, in the order of the type list; machines in natural order (Washer 2 before Washer 10)
+    const order = new Map((cats ?? []).map((c, i) => [c.id, i]));
+    const groups = [...new Set(equipment.map((e) => e.category_id))]
+      .sort((a, b) => (a === null ? 1 : b === null ? -1 : (order.get(a) ?? 0) - (order.get(b) ?? 0)))
+      .map((cid) => [cid, equipment.filter((e) => e.category_id === cid).sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true }))] as const);
     return (
       <Panel title={B.sections.equipment} action={canEdit && <AddEquipment branchId={id} branches={brOpts} categories={catOpts} />}>
         <p className="-mt-1 mb-4 text-sm text-ink-muted">{E.sub}</p>
         {equipment.length === 0 ? <EmptyNote>{E.empty}</EmptyNote> : (
-          <ul className="flex flex-col gap-2">
-            {equipment.map((e) => {
+          <div className="flex flex-col gap-2">
+            {groups.map(([cid, items]) => {
+              const down = items.filter((e) => e.status === "needs_repair" || e.status === "stopped").length;
+              return (
+              <details key={cid ?? "none"} open={down > 0} className="group/g rounded-2xl border border-hairline">
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+                  <ChevronDownIcon className="size-4 text-ink-muted transition-transform duration-150 group-open/g:rotate-180" aria-hidden />
+                  <span>{cid ? catName.get(cid) : t.maintenance.category}</span><span className="num font-normal text-ink-muted">{n(items.reduce((s, e) => s + e.quantity, 0))}</span>
+                  <span className="ms-auto">{down > 0 ? <Badge variant="warning">{E.notWorking(n(down))}</Badge> : <Badge variant="success">{E.allWorking}</Badge>}</span>
+                </summary>
+                <ul className="flex flex-col gap-2 px-2 pb-2">
+            {items.map((e) => {
               const mine = (hist ?? []).filter((h) => h.equipment_id === e.id);
               const open = mine.filter((h) => ACTIVE_STATUSES.includes(h.status)).length;
               const w = daysUntil(e.warranty_until);
@@ -211,8 +227,8 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
                   <details className="group rounded-[14px] bg-canvas">
                     <summary className="grid cursor-pointer list-none grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-3.5 py-3 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto] [&::-webkit-details-marker]:hidden">
                       <span className="min-w-0">
-                        <span className="user-text block truncate font-semibold" dir="auto">{e.name}</span>
-                        <span className="block truncate text-[13px] text-ink-muted">{e.category_id ? catName.get(e.category_id) : "—"}</span>
+                        <span className="user-text block truncate font-semibold" dir="auto">{e.name}{e.quantity > 1 && <span className="num ms-1.5 font-normal text-ink-muted">×{n(e.quantity)}</span>}</span>
+                        {e.notes && <span className={cn("block truncate text-[13px]", e.status === "working" ? "text-ink-muted" : "text-warning")} dir="auto">{e.notes}</span>}
                       </span>
                       <span className="hidden min-w-0 text-[13px] sm:block">
                         <span className="block truncate" dir="auto">{[e.brand, e.model].filter(Boolean).join(" ") || "—"}</span>
@@ -226,10 +242,7 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
                       <ChevronDownIcon className="size-4 text-ink-muted transition-transform duration-150 group-open:rotate-180" aria-hidden />
                     </summary>
                     <div className="flex flex-col gap-4 border-t border-hairline px-3.5 py-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="text-sm font-semibold">{E.history}</h3>
-                        {canReport && <Button size="sm" variant="outline" render={<Link href={`/maintenance/new?branch=${id}&equipment=${e.id}`} />} nativeButton={false}><WrenchIcon data-icon="inline-start" />{E.reportIssue}</Button>}
-                      </div>
+                      <h3 className="text-sm font-semibold">{E.history}</h3>
                       {mine.length === 0 ? <p className="text-sm text-ink-muted">{E.noHistory}</p> : (
                         <ul className="flex flex-col gap-1">
                           {mine.map((h) => (
@@ -244,14 +257,17 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
                           ))}
                         </ul>
                       )}
-                      {e.notes && <p className="text-sm text-ink-muted" dir="auto">{e.notes}</p>}
                       {canEdit && <EquipmentEditor item={e} branchId={id} branches={brOpts} categories={catOpts} />}
                     </div>
                   </details>
                 </li>
               );
             })}
-          </ul>
+                </ul>
+              </details>
+              );
+            })}
+          </div>
         )}
       </Panel>
     );
@@ -259,16 +275,74 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
 
   async function MaterialsSection({ isAdmin }: { isAdmin: boolean }) {
     const M = B.materials;
-    const [{ data: mats }, { data: texts }] = await Promise.all([
-      supabase.from("materials").select("*").eq("active", true).order("category").order("sort").order("name"),
+    const [{ data: mine }, { data: all }, { data: texts }] = await Promise.all([
+      supabase.from("branch_materials").select("material_id, min_qty, max_qty, notes, materials(id, name, category, unit, odoo_ref, photo_path, active)").eq("branch_id", id),
+      isAdmin ? supabase.from("materials").select("id, name, category").eq("active", true).order("name") : Promise.resolve({ data: [] as { id: number; name: string; category: string }[] }),
       supabase.from("app_texts").select("key, body"),
     ]);
-    const text = (k: string) => (texts ?? []).find((x) => x.key === k)?.body ?? null;
-    const items = (mats ?? []) as Material[];
+    const text = (k: string): string | null => (texts ?? []).find((x) => x.key === k)?.body ?? null;
+    type Row = { material_id: number; min_qty: number | null; max_qty: number | null; notes: string | null; materials: Material | null };
+    const items = ((mine ?? []) as unknown as Row[]).filter((r) => r.materials).sort((x, y) => x.materials!.name.localeCompare(y.materials!.name));
     const photo = (p: string | null) => (p ? supabase.storage.from("material-photos").getPublicUrl(p).data.publicUrl : null);
-    const howTo: string | null = text("materials_how_to_order");
+    const assigned = new Set(items.map((r) => r.material_id));
+    const howTo = text("materials_how_to_order");
     return (
       <>
+        <Panel title={B.sections.materials} action={<Link href="/branches/materials" className="text-sm font-medium text-primary hover:underline">{B.materialsList}</Link>}>
+          <p className="-mt-1 mb-4 text-sm text-ink-muted">{M.branchSub}</p>
+          {isAdmin && (
+            <div className="mb-4">
+              <AddBranchMaterial branchId={id} options={(all ?? []).filter((m) => !assigned.has(m.id)).map((m) => ({ id: m.id, name: m.name }))} />
+              <p className="mt-2 text-[13px] text-ink-muted">{M.notListed} <Link href="/branches/materials" className="font-medium text-primary hover:underline">{B.materialsList}</Link></p>
+            </div>
+          )}
+          {items.length === 0 ? <EmptyNote>{M.branchEmpty}</EmptyNote> : (
+            <div className="flex flex-col gap-5">
+              {MATERIAL_CATEGORIES.filter((c) => items.some((r) => r.materials!.category === c)).map((c) => (
+                <section key={c}>
+                  <h3 className="mb-2 text-sm font-semibold text-ink-muted">{M.categories[c]}</h3>
+                  <ul className="flex flex-col gap-2">
+                    {items.filter((r) => r.materials!.category === c).map((r) => {
+                      const m = r.materials!;
+                      const src = photo(m.photo_path);
+                      const head = (
+                        <>
+                          {src
+                            // eslint-disable-next-line @next/next/no-img-element -- storage URL
+                            ? <img src={src} alt="" width={56} height={56} loading="lazy" className="size-14 shrink-0 rounded-xl bg-surface object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
+                            : <span className="size-14 shrink-0 rounded-xl bg-surface-sunken" aria-hidden />}
+                          <span className="min-w-0 flex-1">
+                            <span className="user-text block truncate font-semibold" dir="auto">{m.name}</span>
+                            <span className="block text-[13px] text-ink-muted">
+                              {M.min} <b className="num font-semibold text-ink">{r.min_qty ?? "—"}</b>
+                              <span className="mx-1.5 text-hairline" aria-hidden>|</span>
+                              {M.max} <b className="num font-semibold text-ink">{r.max_qty ?? "—"}</b>
+                              {m.unit && <span dir="auto"> {m.unit}</span>}
+                              {m.odoo_ref && <><span className="mx-1.5 text-hairline" aria-hidden>|</span><span className="num" dir="ltr">{m.odoo_ref}</span></>}
+                            </span>
+                            {r.notes && <span className="block truncate text-[13px] text-ink-muted" dir="auto">{r.notes}</span>}
+                          </span>
+                        </>
+                      );
+                      return (
+                        <li key={r.material_id}>
+                          {isAdmin ? (
+                            <details className="group rounded-[14px] bg-canvas">
+                              <summary className="flex cursor-pointer list-none items-center gap-3 p-2.5 [&::-webkit-details-marker]:hidden">
+                                {head}<ChevronDownIcon className="size-4 shrink-0 text-ink-muted transition-transform duration-150 group-open:rotate-180" aria-hidden />
+                              </summary>
+                              <div className="border-t border-hairline p-4"><BranchMaterialEditor branchId={id} materialId={r.material_id} min={r.min_qty} max={r.max_qty} notes={r.notes} /></div>
+                            </details>
+                          ) : <div className="flex items-center gap-3 rounded-[14px] bg-canvas p-2.5">{head}</div>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
+        </Panel>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Panel title={M.howTo}>
             {howTo ? (
@@ -281,41 +355,6 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
             {text("materials_policy") ? <p className="user-text whitespace-pre-line" dir="auto">{text("materials_policy")}</p> : <p className="text-ink-muted">{M.noGuide}</p>}
           </Panel>
         </div>
-        <Panel title={B.sections.materials} action={isAdmin && <Link href="/branches/materials" className="text-sm font-medium text-primary hover:underline">{M.manage}</Link>}>
-          <p className="-mt-1 mb-4 text-sm text-ink-muted">{M.sub}</p>
-          {items.length === 0 ? <EmptyNote>{M.empty}</EmptyNote> : (
-            <div className="flex flex-col gap-5">
-              {MATERIAL_CATEGORIES.filter((c) => items.some((m) => m.category === c)).map((c) => (
-                <section key={c}>
-                  <h3 className="mb-2 text-sm font-semibold text-ink-muted">{M.categories[c]}</h3>
-                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    {items.filter((m) => m.category === c).map((m) => {
-                      const src = photo(m.photo_path);
-                      return (
-                        <li key={m.id} className="flex items-center gap-3 rounded-[14px] bg-canvas p-2.5">
-                          {src
-                            // eslint-disable-next-line @next/next/no-img-element -- storage URL
-                            ? <img src={src} alt="" width={56} height={56} loading="lazy" className="size-14 shrink-0 rounded-xl bg-surface object-cover outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10" />
-                            : <span className="size-14 shrink-0 rounded-xl bg-surface-sunken" aria-hidden />}
-                          <span className="min-w-0 flex-1">
-                            <span className="user-text block truncate font-semibold" dir="auto">{m.name}</span>
-                            <span className="block text-[13px] text-ink-muted">
-                              {M.min} <b className="num font-semibold text-ink">{m.min_qty ?? "—"}</b>
-                              <span className="mx-1.5 text-hairline" aria-hidden>|</span>
-                              {M.max} <b className="num font-semibold text-ink">{m.max_qty ?? "—"}</b>
-                              {m.unit && <span dir="auto"> {m.unit}</span>}
-                            </span>
-                            {m.odoo_ref && <span className="num block truncate text-[12.5px] text-ink-muted" dir="ltr">{m.odoo_ref}</span>}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          )}
-        </Panel>
       </>
     );
   }
