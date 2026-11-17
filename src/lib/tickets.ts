@@ -6,7 +6,7 @@ export const STATUSES = ["new", "assigned", "in_progress", "waiting_parts", "res
 export const PRIORITIES = ["urgent", "high", "normal", "low"] as const;
 
 export type TicketRow = {
-  id: number; branch_id: number; branch_ar: string; branch_en: string; category_id: number | null; category_ar: string | null; category_en: string | null; hold_reason: string | null;
+  id: number; branch_id: number; branch_ar: string; branch_en: string; category_id: number | null; category_ar: string | null; category_en: string | null; hold_reason: string | null; equipment_id: number | null; equipment_name: string | null;
   title: string; description: string | null; priority: string; status: string; stops_branch: boolean;
   reported_by: string | null; reporter_display: string | null; assigned_to: string | null; assignee_display: string | null;
   assignee_contact: string | null; due_at: string | null; resolved_at: string | null; closed_at: string | null;

@@ -7,9 +7,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
-export type NavKey = "overview" | "maintenance" | "workers" | "plan" | "housing" | "documents" | "users";
+export type NavKey = "overview" | "branches" | "maintenance" | "workers" | "plan" | "housing" | "documents" | "users";
 const ITEMS: Record<NavKey, { href: string; icon: typeof HomeIcon }> = {
   overview: { href: "/", icon: LayoutGridIcon },
+  branches: { href: "/branches", icon: BuildingIcon },
   maintenance: { href: "/maintenance", icon: WrenchIcon },
   workers: { href: "/workers", icon: UsersIcon },
   plan: { href: "/plan", icon: NetworkIcon },
@@ -20,7 +21,7 @@ const ITEMS: Record<NavKey, { href: string; icon: typeof HomeIcon }> = {
 
 function useActive() {
   const path = usePathname();
-  return (href: string) => (href === "/" ? path === "/" || path.startsWith("/branches") : path.startsWith(href));
+  return (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 }
 
 export function SidebarNav({ items, overdue }: { items: NavKey[]; overdue: number }) {

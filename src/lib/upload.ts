@@ -43,3 +43,22 @@ export async function uploadTicketFiles(ticketId: number, files: File[], msgs: U
   }
   return null;
 }
+
+/** Upload one file to a bucket under `prefix/`. Returns the stored path and type, or an error message. */
+export async function uploadFile(bucket: string, prefix: string | number, file: File, msgs: UploadMsgs, maxMb = MAX_FILE_MB): Promise<{ path: string; type: string } | { error: string }> {
+  const supabase = createClient();
+  const blob = await compress(file);
+  if (blob.size > maxMb * 1024 * 1024) return { error: msgs.fileTooBig(file.name, maxMb) };
+  const isJpeg = blob !== file;
+  const ext = isJpeg ? "jpg" : (file.name.split(".").pop() || "bin").toLowerCase();
+  const path = `${prefix}/${crypto.randomUUID()}.${ext}`;
+  const type = isJpeg ? "image/jpeg" : file.type;
+  const up = await supabase.storage.from(bucket).upload(path, blob, { contentType: type });
+  if (up.error) return { error: msgs.uploadFailed(file.name, up.error.message) };
+  return { path, type };
+}
+
+/** Remove a file uploaded just before a save that then failed, so it does not linger in storage. */
+export async function removeUploaded(bucket: string, path: string | null) {
+  if (path) await createClient().storage.from(bucket).remove([path]);
+}

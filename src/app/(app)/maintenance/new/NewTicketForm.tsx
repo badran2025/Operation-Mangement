@@ -15,13 +15,21 @@ import { createTicketAction } from "../actions";
 type Opt = { id: number; name: string };
 const PRIORITIES = ["urgent", "high", "normal", "low"] as const;
 
-export function NewTicketForm({ branches, categories, defaultBranch }: { branches: Opt[]; categories: Opt[]; defaultBranch?: number }) {
+type Machine = { id: number; branchId: number; name: string; categoryId: number | null };
+
+export function NewTicketForm({ branches, categories, defaultBranch, machines, defaultEquipment }: {
+  branches: Opt[]; categories: Opt[]; defaultBranch?: number; machines: Machine[]; defaultEquipment?: number;
+}) {
   const { t } = useI18n();
   const M = t.maintenance;
   const router = useRouter();
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [branchId, setBranchId] = useState<string>(String(defaultBranch ?? (branches.length === 1 ? branches[0].id : "")));
+  const [machineId, setMachineId] = useState<string>(defaultEquipment ? String(defaultEquipment) : "");
+  const [catId, setCatId] = useState<string>(() => String(machines.find((m) => m.id === defaultEquipment)?.categoryId ?? ""));
+  const branchMachines = machines.filter((m) => String(m.branchId) === branchId);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,6 +40,7 @@ export function NewTicketForm({ branches, categories, defaultBranch }: { branche
       branchId: Number(fd.get("branch_id")), categoryId: fd.get("category_id") ? Number(fd.get("category_id")) : null,
       priority: String(fd.get("priority")), title: String(fd.get("title") ?? ""), description: String(fd.get("description") ?? ""),
       stopsBranch: fd.get("stops_branch") === "on",
+      equipmentId: machineId ? Number(machineId) : null,
     });
     if (res.error || !res.id) { setBusy(null); setError(res.error ?? t.errors.generic("")); return; }
     if (files.length) {
@@ -48,18 +57,28 @@ export function NewTicketForm({ branches, categories, defaultBranch }: { branche
     <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
       <Field>
         <FieldLabel htmlFor="nt-branch">{M.branch} *</FieldLabel>
-        <NativeSelect id="nt-branch" name="branch_id" required defaultValue={defaultBranch ?? (branches.length === 1 ? branches[0].id : "")} className="w-full">
+        <NativeSelect id="nt-branch" name="branch_id" required value={branchId} onChange={(e) => { setBranchId(e.target.value); setMachineId(""); }} className="w-full">
           <NativeSelectOption value="" disabled>{t.worker.branchRequired}</NativeSelectOption>
           {branches.map((b) => <NativeSelectOption key={b.id} value={b.id}>{b.name}</NativeSelectOption>)}
         </NativeSelect>
       </Field>
       <Field>
         <FieldLabel htmlFor="nt-cat">{M.category}</FieldLabel>
-        <NativeSelect id="nt-cat" name="category_id" defaultValue="" className="w-full">
+        <NativeSelect id="nt-cat" name="category_id" value={catId} onChange={(e) => setCatId(e.target.value)} className="w-full">
           <NativeSelectOption value="">—</NativeSelectOption>
           {categories.map((c) => <NativeSelectOption key={c.id} value={c.id}>{c.name}</NativeSelectOption>)}
         </NativeSelect>
       </Field>
+      {branchMachines.length > 0 && (
+        <Field className="sm:col-span-2">
+          <FieldLabel htmlFor="nt-machine">{t.branchesTab.equipment.machine}</FieldLabel>
+          <NativeSelect id="nt-machine" value={machineId} className="w-full"
+            onChange={(e) => { setMachineId(e.target.value); const m = branchMachines.find((x) => String(x.id) === e.target.value); if (m?.categoryId) setCatId(String(m.categoryId)); }}>
+            <NativeSelectOption value="">{t.branchesTab.equipment.machineNone}</NativeSelectOption>
+            {branchMachines.map((m) => <NativeSelectOption key={m.id} value={m.id}>{m.name}</NativeSelectOption>)}
+          </NativeSelect>
+        </Field>
+      )}
       <Field className="sm:col-span-2">
         <FieldLabel htmlFor="nt-title">{M.problem} *</FieldLabel>
         <Input id="nt-title" name="title" required maxLength={160} placeholder={M.problemPh} dir="auto" />

@@ -13,7 +13,7 @@ function refresh(id?: number) {
 }
 
 export async function createTicketAction(input: {
-  branchId: number; categoryId: number | null; priority: string; title: string; description: string; stopsBranch: boolean;
+  branchId: number; categoryId: number | null; priority: string; title: string; description: string; stopsBranch: boolean; equipmentId?: number | null;
 }): Promise<{ id?: number; error?: string }> {
   const { supabase } = await requireActive();
   if (!input.branchId) return { error: (await getT()).t.worker.branchRequired };
@@ -21,6 +21,7 @@ export async function createTicketAction(input: {
   const { data, error } = await supabase.rpc("create_ticket", {
     p_branch_id: input.branchId, p_category_id: input.categoryId as number, p_priority: input.priority,
     p_title: input.title, p_description: input.description, p_stops_branch: input.stopsBranch,
+    p_equipment_id: input.equipmentId ?? undefined,
   });
   if (error) return { error: await friendlyError(error.message) };
   refresh();

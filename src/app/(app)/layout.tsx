@@ -11,8 +11,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { t } = await getT();
   const role = profile.role;
   const items: NavKey[] =
-    role === "admin" ? ["overview", "maintenance", "workers", "plan", "housing", "documents", "users"]
-    : role === "supervisor" ? ["overview", "maintenance", "workers", "housing"]
+    role === "admin" ? ["overview", "branches", "maintenance", "workers", "plan", "housing", "documents", "users"]
+    : role === "supervisor" ? ["overview", "branches", "maintenance", "workers", "housing"]
+    : role === "maintenance_manager" ? ["maintenance", "branches"]
     : ["maintenance"];
   const { count: overdue } = await supabase.from("v_tickets").select("id", { count: "exact", head: true }).eq("overdue", true);
   const name = profile.full_name || profile.email || "";
