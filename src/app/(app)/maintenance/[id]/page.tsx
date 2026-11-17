@@ -10,7 +10,7 @@ import { PRIORITY_TONE, STATUS_RANK, STATUS_TONE, waNumber, type TicketRow } fro
 import { Badge } from "@/components/ui/badge";
 import { PageHeader, Panel } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
-import { AssignForm, CommentBox, ReminderButton, StepButton } from "./ClientBits";
+import { AssignForm, CommentBox, ReminderButton, StepButton, StopsBranchToggle } from "./ClientBits";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +27,7 @@ function eventText(t: Dict, e: Ev): string {
     case "priority": return M.ev.priority(M.priority[e.to_value ?? ""] ?? e.to_value ?? "");
     case "reminder": return M.ev.reminder;
     case "parts": return M.ev.parts;
+    case "stops_branch": return e.to_value === "on" ? M.ev.stopsOn : M.ev.stopsOff;
     default: return "";
   }
 }
@@ -222,6 +223,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
               </summary>
               <div className="flex flex-col gap-5 px-4 pb-5 md:px-5">
                 {st !== "new" && assignForm(F.saveChanges)}
+                <StopsBranchToggle ticketId={ticket.id} on={ticket.stops_branch} />
                 <StepButton ticketId={ticket.id} status="cancelled" label={F.cancel} variant="destructive" reasonPh={F.cancelPh} />
               </div>
             </details>

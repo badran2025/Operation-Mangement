@@ -5,7 +5,7 @@ import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
 import type { Dict } from "@/lib/i18n/dictionaries";
-import { ACTIVE_STATUSES, daysUntil, dueInfo, formatDate, formatDay, formatTime, nf } from "@/lib/i18n/format";
+import { ACTIVE_STATUSES, daysUntil, dueInfo, duration, formatDate, formatDateTime, formatDay, formatTime, nf } from "@/lib/i18n/format";
 import { CORE_FILE_KINDS, EQUIPMENT_TONE, FILE_KINDS, fileState, MATERIAL_CATEGORIES } from "@/lib/branch";
 import type { WorkerRow } from "@/lib/types";
 import { PRIORITY_TONE, STATUS_TONE, type TicketRow } from "@/lib/tickets";
@@ -45,14 +45,17 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
   const isAdmin = role === "admin";
   const canEditEquipment = isAdmin || role === "maintenance_manager";
 
-  const [{ data: branch }, { data: hours }, { data: workers }, { data: tix }, { data: eqData }, { data: fileData }] = await Promise.all([
+  const [{ data: branch }, { data: hours }, { data: workers }, { data: tix }, { data: eqData }, { data: fileData }, { data: dt }, { data: stops }] = await Promise.all([
     supabase.from("branches").select("*, cities(name_ar, name_en)").eq("id", id).maybeSingle(),
     supabase.from("branch_hours").select("*").eq("branch_id", id).order("weekday"),
     supabase.from("v_workers_current").select("*").eq("branch_id", id).order("full_name"),
     supabase.from("v_tickets").select("*").eq("branch_id", id).in("status", ACTIVE_STATUSES).order("due_at"),
     supabase.from("equipment").select("*").eq("branch_id", id).order("name"),
     supabase.from("branch_files").select("id, kind, title, number, expiry_date, notes, file_path, mime_type").eq("branch_id", id).order("created_at"),
+    supabase.from("v_branch_downtime").select("*").eq("branch_id", id).maybeSingle(),
+    supabase.from("branch_downtimes").select("id, started_at, ended_at, reason, ticket_id, tickets(title)").eq("branch_id", id).order("started_at", { ascending: false }).limit(20),
   ]);
+  const D = t.branchesTab.downtime;
   if (!branch) notFound();
   // ended workers are history, not part of the branch any more
   const list = ((workers ?? []) as WorkerRow[]).filter((w) => w.status !== "terminated");
@@ -92,12 +95,23 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
         {isAdmin && <Button render={<Link href={`/workers/new?branch=${id}`} />} nativeButton={false}><PlusIcon data-icon="inline-start" />{t.branch.addWorker}</Button>}
       </PageHeader>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-label={name}>
+      {dt?.open_since && (
+        <Link href={dt.open_ticket_id ? `/maintenance/${dt.open_ticket_id}` : `/branches/${id}?s=maintenance`}
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl bg-danger px-4 py-3 text-white transition-opacity hover:opacity-90 md:px-5">
+          <span className="relative flex size-2.5" aria-hidden><span className="absolute inline-flex size-full animate-ping rounded-full bg-white opacity-70" /><span className="relative inline-flex size-2.5 rounded-full bg-white" /></span>
+          <span className="user-text min-w-0 flex-1 font-semibold" dir="auto">{D.because(dt.open_reason ?? "—")}</span>
+          <span className="text-sm opacity-90">{D.since(duration(t, Math.round((Date.now() - new Date(dt.open_since).getTime()) / 60000)))}</span>
+          {dt.open_ticket_id && <span className="text-sm font-semibold underline underline-offset-2">{D.viewTicket} #{dt.open_ticket_id}</span>}
+        </Link>
+      )}
+
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7" aria-label={name}>
         <Kpi label={t.dashboard.workers} value={n(list.length)} highlight href={`/branches/${id}?s=workers`} />
         <Kpi label={t.dashboard.workingToday} value={n(active.length - offToday)} href={`/branches/${id}?s=workers`} />
         <Kpi label={t.dashboard.openTickets} value={n(openTickets.length)} href={`/branches/${id}?s=maintenance`} />
         <Kpi label={t.dashboard.overdue} value={n(overdue)} tone={overdue ? "danger" : undefined} href={`/maintenance?tab=overdue&branch=${id}`} />
         <Kpi label={B.equipment.kpi} value={n(broken)} tone={broken ? "warning" : undefined} href={`/branches/${id}?s=equipment`} />
+        <Kpi label={D.kpiMonth} value={dt?.minutes_month ? duration(t, dt.minutes_month) : n(0)} tone={dt?.open_since ? "danger" : dt?.minutes_month ? "warning" : undefined} href={`/branches/${id}?s=maintenance`} />
         <Kpi label={B.card.filesKpi} value={n(fileAlerts)} tone={fileAlerts ? "warning" : undefined} href={`/branches/${id}?s=files`} />
       </section>
 
@@ -184,6 +198,34 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
                       <Badge variant={STATUS_TONE[k.status] ?? "neutral"}>{t.maintenance.status[k.status]}</Badge>
                       <RowChevron />
                     </SoftRow>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
+      )}
+
+      {section === "maintenance" && (
+        <Panel title={D.history}>
+          {dt?.stops_30d ? <p className="-mt-1 mb-3 text-sm text-ink-muted">{D.last30(duration(t, dt.minutes_30d), n(dt.stops_30d))}</p> : null}
+          {(stops ?? []).length === 0 ? <EmptyNote>{D.historyEmpty}</EmptyNote> : (
+            <ul className="flex flex-col gap-1.5">
+              {(stops ?? []).map((d) => {
+                const mins = Math.round(((d.ended_at ? new Date(d.ended_at).getTime() : Date.now()) - new Date(d.started_at).getTime()) / 60000);
+                const title = (d.tickets as unknown as { title: string } | null)?.title ?? d.reason;
+                const row = (
+                  <>
+                    <span className="user-text min-w-0 flex-1 truncate font-medium" dir="auto">{d.ticket_id && <span className="num me-1.5 text-ink-muted">#{d.ticket_id}</span>}{title}</span>
+                    <span className="num text-[13px] text-ink-muted">{formatDateTime(locale, d.started_at)} – {d.ended_at ? formatDateTime(locale, d.ended_at) : D.ongoing}</span>
+                    <Badge variant={d.ended_at ? "neutral" : "danger"}>{duration(t, mins)}</Badge>
+                  </>
+                );
+                return (
+                  <li key={d.id}>
+                    {d.ticket_id
+                      ? <Link href={`/maintenance/${d.ticket_id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[14px] bg-canvas px-3.5 py-3 text-sm hover:bg-surface-sunken">{row}</Link>
+                      : <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[14px] bg-canvas px-3.5 py-3 text-sm">{row}</div>}
                   </li>
                 );
               })}

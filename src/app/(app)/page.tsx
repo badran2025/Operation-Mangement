@@ -22,14 +22,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const n = nf(locale);
   const isAdmin = profile.role === "admin";
 
-  const [{ data: bData }, { data: tData }, { data: dData }, { data: bfData }] = await Promise.all([
+  const [{ data: bData }, { data: tData }, { data: dData }, { data: bfData }, { data: dtData }] = await Promise.all([
     supabase.from("v_branch_summary").select("*").order("city_sort").order("sort"),
     supabase.from("v_tickets").select("*").in("status", ACTIVE_STATUSES).order("due_at").limit(6),
     isAdmin
       ? supabase.from("worker_documents").select("id, doc_type, expiry_date, worker_id, workers(full_name)").not("expiry_date", "is", null).order("expiry_date").limit(60)
       : Promise.resolve({ data: [] as never[] }),
     isAdmin ? supabase.from("branch_files").select("expiry_date").not("expiry_date", "is", null) : Promise.resolve({ data: [] as { expiry_date: string }[] }),
+    supabase.from("v_branch_downtime").select("branch_id, open_reason").not("open_since", "is", null),
   ]);
+  const stopReason = new Map((dtData ?? []).map((d) => [d.branch_id, d.open_reason as string | null]));
   // branch licences and contracts count with workers' documents
   const branchFilesDue = (bfData ?? []).filter((f) => (daysUntil(f.expiry_date) ?? 999) <= 90).length;
   const branches = (bData ?? []) as BranchSummary[];
@@ -91,7 +93,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 {inCity.map((b) => (
                   <li key={b.id}>
                     <SoftRow href={`/branches/${b.id}`}>
-                      <span className="min-w-0 flex-1 truncate font-semibold">{pick(locale, b.name_ar, b.name_en)}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold">{pick(locale, b.name_ar, b.name_en)}</span>
+                        {stopReason.get(b.id) && <span className="user-text block truncate text-[13px] text-danger" dir="auto">{t.branchesTab.downtime.because(stopReason.get(b.id)!)}</span>}
+                      </span>
                       <span className="hidden text-[13px] text-ink-muted sm:inline">{t.dashboard.working(n(b.working_today))}</span>
                       {b.status !== "active" ? <Badge variant="danger">{t.branchesTab.status[b.status]}</Badge>
                         : b.stopped ? <Badge variant="danger">{t.dashboard.stopped}</Badge>

@@ -70,6 +70,12 @@ const en = {
     empty: "No workers match.", showingN: (n: string) => `${n} shown`, missing: "Missing:",
   },
   branchesTab: {
+    downtime: {
+      because: (r: string) => `Branch stopped: ${r}`, since: (d: string) => `for ${d} so far`, viewTicket: "Open the ticket",
+      kpiMonth: "Stopped this month", history: "Stoppages", historyEmpty: "No stoppages recorded.", ongoing: "Still stopped",
+      last30: (d: string, n: string) => `${d} stopped in the last 30 days (${n} times)`, cardMonth: (d: string) => `Stopped ${d} this month`,
+      started: "Started", ended: "Ended", lasted: "Lasted",
+    },
     title: "Branches", sub: (n: string) => `${n} branches: info, workers, equipment, materials and files`,
     add: "Add branch", required: "Fill in the required fields", materialsList: "Materials list", nameAr: "Name in Arabic", nameEn: "Name in English", city: "City", create: "Add branch",
     sections: { info: "Info", workers: "Workers", equipment: "Equipment", materials: "Materials", files: "Files", maintenance: "Maintenance" } as Record<string, string>,
@@ -198,10 +204,11 @@ const en = {
     resolvedTitle: "The technician says it is fixed", resolvedBody: "Check in the branch, then:", confirmClose: "Confirm and close", stillBroken: "Still broken", reopen: "Reopen ticket",
     assignTitle: "Assign technician", externalTech: "External technician (no account)", externalName: "External technician name", techWhatsapp: "Technician WhatsApp", saveAssign: "Save assignment",
     statusPriority: "Status & priority", note: "Note (optional)", changePriority: "Change priority",
-    stopped: "Branch stopped", wasStopped: "Had stopped the branch", fromAirtable: "Imported from Airtable",
+    stopped: "Branch stopped", wasStopped: "Had stopped the branch", stopsHint: "The branch counts as stopped from when the ticket was opened until it is fixed.", saveStops: "Save", fromAirtable: "Imported from Airtable",
     ev: {
       created: "opened the ticket", status: (a: string, b: string) => `changed status: ${a} → ${b}`, assign: (n: string) => `assigned it to ${n}`, unassign: "removed the assignment",
       priority: (p: string) => `changed priority to ${p}`, reminder: "sent a WhatsApp reminder", parts: "Spare parts", system: "System",
+      stopsOn: "marked that this problem stopped the branch", stopsOff: "marked that this problem did not stop the branch",
     },
     file: "File", reminderMsg: (id: number, branch: string, title: string, due: string, url: string) => `Reminder about maintenance ticket #${id}\nBranch: ${branch}\nProblem: ${title}\n${due}\nPlease update it here: ${url}`,
   },
@@ -280,6 +287,12 @@ const ar: Dict = {
     empty: "مفيش عمال بالشروط دي.", showingN: (n: string) => `المعروض ${n}`, missing: "الناقص:",
   },
   branchesTab: {
+    downtime: {
+      because: (r: string) => `الفرع متوقف بسبب: ${r}`, since: (d: string) => `متوقف من ${d}`, viewTicket: "افتح البلاغ",
+      kpiMonth: "مدة التوقف الشهر ده", history: "سجل التوقفات", historyEmpty: "مفيش توقفات متسجلة.", ongoing: "لسه متوقف",
+      last30: (d: string, n: string) => `اتوقف ${d} في آخر 30 يوم (${n} مرة)`, cardMonth: (d: string) => `اتوقف ${d} الشهر ده`,
+      started: "بدأ", ended: "انتهى", lasted: "المدة",
+    },
     title: "الفروع", sub: (n: string) => `${n} فرع: البيانات والعمال والمعدات والمواد والملفات`,
     add: "إضافة فرع", required: "املا الخانات المطلوبة", materialsList: "قائمة المواد", nameAr: "الاسم بالعربي", nameEn: "الاسم بالإنجليزي", city: "المدينة", create: "إضافة الفرع",
     sections: { info: "البيانات", workers: "العمال", equipment: "المعدات", materials: "المواد", files: "الملفات", maintenance: "الصيانة" },
@@ -408,10 +421,11 @@ const ar: Dict = {
     resolvedTitle: "الفني قال إن المشكلة اتحلت", resolvedBody: "اتأكد في الفرع وبعدين:", confirmClose: "تأكيد وقفل البلاغ", stillBroken: "لسه المشكلة موجودة", reopen: "إعادة فتح البلاغ",
     assignTitle: "تحويل لفني", externalTech: "فني خارجي (مش عنده حساب)", externalName: "اسم الفني الخارجي", techWhatsapp: "رقم واتساب الفني", saveAssign: "حفظ التحويل",
     statusPriority: "الحالة والأولوية", note: "ملاحظة (اختياري)", changePriority: "تغيير الأولوية",
-    stopped: "الفرع متوقف", wasStopped: "كان موقّف الفرع", fromAirtable: "منقول من Airtable",
+    stopped: "الفرع متوقف", wasStopped: "كان موقّف الفرع", stopsHint: "الفرع بيتحسب متوقف من فتح البلاغ لحد ما المشكلة تتحل.", saveStops: "حفظ", fromAirtable: "منقول من Airtable",
     ev: {
       created: "فتح البلاغ", status: (a: string, b: string) => `غيّر الحالة: ${a} ← ${b}`, assign: (n: string) => `حوّل البلاغ إلى ${n}`, unassign: "شال التحويل",
       priority: (p: string) => `غيّر الأولوية إلى ${p}`, reminder: "بعت تذكير واتساب", parts: "قطع غيار", system: "النظام",
+      stopsOn: "علّم إن المشكلة دي موقّفة الفرع", stopsOff: "علّم إن المشكلة دي مش موقّفة الفرع",
     },
     file: "ملف", reminderMsg: (id: number, branch: string, title: string, due: string, url: string) => `تذكير بخصوص بلاغ صيانة #${id}\nالفرع: ${branch}\nالمشكلة: ${title}\n${due}\nبرجاء التحديث على الموقع: ${url}`,
   },

@@ -93,3 +93,12 @@ export async function reminderAction(ticketId: number): Promise<{ error?: string
   refresh(ticketId);
   return {};
 }
+
+export async function stopsBranchAction(ticketId: number, on: boolean): Promise<{ error?: string }> {
+  const { supabase } = await requireActive();
+  const { error } = await supabase.rpc("set_ticket_stops_branch", { p_ticket_id: ticketId, p_on: on });
+  if (error) return { error: await friendlyError(error.message) };
+  refresh(ticketId);
+  revalidatePath("/", "layout");
+  return {};
+}

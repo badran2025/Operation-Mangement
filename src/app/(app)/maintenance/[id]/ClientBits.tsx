@@ -14,7 +14,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { PRIORITIES } from "@/lib/tickets";
-import { addCommentAction, assignAction, refreshTicket, reminderAction, setStatusAction } from "../actions";
+import { addCommentAction, assignAction, refreshTicket, reminderAction, setStatusAction, stopsBranchAction } from "../actions";
 
 type Variant = "default" | "outline" | "destructive" | "ghost";
 
@@ -136,5 +136,30 @@ export function ReminderButton({ ticketId, phone, message }: { ticketId: number;
     >
       <MessageCircleIcon data-icon="inline-start" />{t.maintenance.reminder}
     </Button>
+  );
+}
+
+/** Manager switch: did this problem stop the branch? Drives the branch's downtime. */
+export function StopsBranchToggle({ ticketId, on }: { ticketId: number; on: boolean }) {
+  const { t } = useI18n();
+  const M = t.maintenance;
+  const router = useRouter();
+  const [value, setValue] = useState(on);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="flex flex-col gap-2 rounded-[14px] bg-danger-soft px-4 py-3">
+      <label className="flex min-h-9 cursor-pointer items-center gap-3 text-sm font-semibold text-danger">
+        <input type="checkbox" checked={value} onChange={(e) => setValue(e.target.checked)} className="size-4 accent-danger" />{M.stopsBranch}
+      </label>
+      <p className="text-[12.5px] text-danger/80">{M.stopsHint}</p>
+      {value !== on && (
+        <Button size="sm" variant="outline" className="self-start" disabled={busy}
+          onClick={async () => { setBusy(true); setError(null); const r = await stopsBranchAction(ticketId, value); setBusy(false); if (r.error) setError(r.error); else router.refresh(); }}>
+          {busy && <Spinner data-icon="inline-start" />}{M.saveStops}
+        </Button>
+      )}
+      {error && <p role="alert" className="text-sm font-semibold text-danger">{error}</p>}
+    </div>
   );
 }

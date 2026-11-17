@@ -3,7 +3,7 @@ import { ChevronDownIcon, PackageIcon } from "lucide-react";
 import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
-import { nf } from "@/lib/i18n/format";
+import { duration, nf } from "@/lib/i18n/format";
 import { CORE_FILE_KINDS, fileState } from "@/lib/branch";
 import type { BranchSummary } from "@/lib/types";
 import { ActionForm } from "@/components/ActionForm";
@@ -25,12 +25,14 @@ export default async function BranchesPage({ searchParams }: { searchParams: Pro
   const B = t.branchesTab;
   const n = nf(locale);
   const isAdmin = profile.role === "admin";
-  const [{ data: bData }, { data: eq }, { data: files }, { data: cities }] = await Promise.all([
+  const [{ data: bData }, { data: eq }, { data: files }, { data: cities }, { data: dts }] = await Promise.all([
     supabase.from("v_branch_summary").select("*").order("city_sort").order("sort"),
     supabase.from("equipment").select("branch_id, status"),
     supabase.from("branch_files").select("branch_id, kind, expiry_date"),
     supabase.from("cities").select("id, name_ar, name_en").order("sort"),
+    supabase.from("v_branch_downtime").select("branch_id, open_since, open_reason, minutes_month"),
   ]);
+  const down = new Map((dts ?? []).map((d) => [d.branch_id, d]));
   const branches = (bData ?? []) as BranchSummary[];
   const cityList = [...new Map(branches.map((b) => [b.city_en, b])).keys()];
   const sp = await searchParams;
@@ -89,6 +91,7 @@ export default async function BranchesPage({ searchParams }: { searchParams: Pro
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {shown.map((b) => {
             const s = stats(b.id);
+            const dt = down.get(b.id);
             const flags = [
               b.overdue_tickets > 0 && <Badge key="o" variant="danger">{t.dashboard.overdueN(n(b.overdue_tickets))}</Badge>,
               s.broken > 0 && <Badge key="b" variant="warning">{B.card.broken(n(s.broken))}</Badge>,
@@ -110,6 +113,13 @@ export default async function BranchesPage({ searchParams }: { searchParams: Pro
                     <span className="flex items-baseline gap-1.5 text-[13px] text-ink-muted"><span className="num text-[22px] font-semibold text-ink">{n(b.workers_total)}</span>{t.dashboard.workers}</span>
                     <span className="flex items-baseline gap-1.5 text-[13px] text-ink-muted"><span className="num text-[22px] font-semibold text-ink">{n(b.open_tickets)}</span>{t.dashboard.openTickets}</span>
                   </div>
+                  {dt?.open_since && (
+                    <p className="user-text rounded-xl bg-danger-soft px-3 py-2 text-[13px] font-semibold text-danger" dir="auto">
+                      {B.downtime.because(dt.open_reason ?? "—")}
+                      <span className="block font-normal">{B.downtime.since(duration(t, Math.round((Date.now() - new Date(dt.open_since).getTime()) / 60000)))}</span>
+                    </p>
+                  )}
+                  {!dt?.open_since && dt?.minutes_month ? <p className="text-[13px] text-warning">{B.downtime.cardMonth(duration(t, dt.minutes_month))}</p> : null}
                   <div className="mt-auto flex flex-wrap gap-1.5">{flags.length ? flags : <Badge variant="success">{B.card.allGood}</Badge>}</div>
                 </Link>
               </li>
