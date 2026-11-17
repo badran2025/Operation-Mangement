@@ -14,7 +14,7 @@ export default async function NewWorkerPage({ searchParams }: { searchParams: Pr
   const { supabase } = await requireAdmin();
   const { t, locale } = await getT();
   const [{ data: branches }, { data: jobs }, { data: housings }] = await Promise.all([
-    supabase.from("branches").select("id, name_ar, name_en, cities(name_ar, name_en)").order("city_id").order("sort"),
+    supabase.from("branches").select("id, name_ar, name_en, cities(name_ar, name_en)").neq("status", "closed").order("city_id").order("sort"),
     supabase.from("job_titles").select("id, name_ar, name_en").order("sort"),
     supabase.from("housings").select("id, name").order("name"),
   ]);

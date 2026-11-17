@@ -80,7 +80,7 @@ const en = {
     },
     info: {
       edit: "Edit info", save: "Save info", saved: "Info saved", phone: "Phone", address: "Address", map: "Map link", statusLabel: "Status",
-      hoursNote: "Note on hours", notes: "Notes", openMap: "Open in maps", code: "Branch code", codeHint: "2 to 5 capital letters or numbers, used in equipment codes (e.g. AQQ)", codeTaken: "Another branch already uses this code", codeBad: "Branch code: 2 to 5 capital letters or numbers", ppmDay: "Deep cleaning & PPM day", ppmTime: "Time", none: "None", hours: "Opening hours",
+      hoursNote: "Note on hours", notes: "Notes", openMap: "Open in maps", code: "Branch code", codeHint: "2 to 5 capital letters or numbers, used in equipment codes (e.g. AQQ). Changing it does not change codes already given.", codeTaken: "Another branch already uses this code", codeBad: "Branch code: 2 to 5 capital letters or numbers", ppmDay: "Deep cleaning & PPM day", ppmTime: "Time", none: "None", hours: "Opening hours",
       open: "Open", h24: "24 hours", closedDay: "Closed", from: "From", to: "To", sameEveryDay: "Copy Sunday to every day",
       badTime: "Check the opening hours: each open day needs a start and an end",
     },
@@ -97,7 +97,7 @@ const en = {
       statuses: { working: "Working", needs_repair: "Needs repair", stopped: "Stopped", retired: "Retired" } as Record<string, string>,
       warrantyTo: (d: string) => `Warranty until ${d}`, warrantyOver: "Out of warranty", openTickets: (n: string) => `${n} open tickets`,
       history: "Repair history", noHistory: "No maintenance tickets for this machine yet.", empty: "No machines recorded yet.",
-      deleteConfirm: "Delete this machine? Its tickets stay, without the machine.", saved: "Machine saved", reportIssue: "Report an issue",
+      deleteConfirm: "Delete this machine?", hasTickets: "This machine has maintenance tickets, so it cannot be deleted. Set its status to Retired instead.", saved: "Machine saved", reportIssue: "Report an issue",
       machine: "Machine / equipment", machineNone: "Not related to listed equipment", noMachines: "No equipment recorded for this branch yet", quantity: "Quantity", notWorking: (n: string) => `${n} not working`, allWorking: "All working", kpi: "Equipment not working", code: "Code", codePh: "Filled in automatically", codeTaken: "This code is already used by another item",
       labels: "Print labels", labelsTitle: (b: string) => `Equipment labels: ${b}`, labelsSub: "Print, cut and stick each label on its machine. Branch staff report problems by this code.", reportBy: "Report a problem with this code", notInBranch: "This machine is not in the chosen branch",
     },
@@ -140,7 +140,7 @@ const en = {
     delete: "Delete item", deleteConfirm: (n: number) => (n ? `Delete this item and its ${n} sub-items?` : "Delete this item?"),
   },
   housing: { title: "Housing", sub: "Workers in each housing and which branches they work in", noHousingWarn: (n: number) => `${n} workers have no housing recorded.`, showThem: "Show them", residents: "residents", capacity: (n: number) => `Capacity ${n}`, empty: "No housing recorded yet." },
-  documents: { title: "Documents", sub: "Iqamas, passports, insurance and contracts that expire soon", expired: "Expired", within30: "Within 30 days", within90: "Within 90 days", recorded: "Recorded", none: "No documents expire in the next 90 days.", col: { worker: "Worker", doc: "Document", expiry: "Expiry", state: "Status" } },
+  documents: { branchFiles: "Branch files", branchFilesNone: "No branch files expire in the next 90 days.", title: "Documents", sub: "Workers' and branches' documents that expire soon", expired: "Expired", within30: "Within 30 days", within90: "Within 90 days", recorded: "Recorded", none: "No documents expire in the next 90 days.", col: { worker: "Worker", doc: "Document", expiry: "Expiry", state: "Status" } },
   users: {
     title: "Users & permissions", sub: "Who can sign in, their role, and which branches they see", add: "Add a user", name: "Name", email: "Email",
     tempPassword: "Temporary password", create: "Add user", needsKey: "Adding users needs the SUPABASE_SECRET_KEY setting in Netlify.",
@@ -290,7 +290,7 @@ const ar: Dict = {
     },
     info: {
       edit: "تعديل البيانات", save: "حفظ البيانات", saved: "اتحفظت البيانات", phone: "الجوال", address: "العنوان", map: "لينك الخريطة", statusLabel: "الحالة",
-      hoursNote: "ملاحظة على المواعيد", notes: "ملاحظات", openMap: "افتح على الخريطة", code: "كود الفرع", codeHint: "من 2 لـ 5 حروف إنجليزي كابيتال أو أرقام، بيتحط في أكواد المعدات (مثال: AQQ)", codeTaken: "فيه فرع تاني بنفس الكود", codeBad: "كود الفرع: من 2 لـ 5 حروف إنجليزي كابيتال أو أرقام", ppmDay: "يوم التنظيف العميق والصيانة الوقائية", ppmTime: "الساعة", none: "مفيش", hours: "ساعات العمل",
+      hoursNote: "ملاحظة على المواعيد", notes: "ملاحظات", openMap: "افتح على الخريطة", code: "كود الفرع", codeHint: "من 2 لـ 5 حروف إنجليزي كابيتال أو أرقام، بيتحط في أكواد المعدات (مثال: AQQ). تغييره مش بيغيّر الأكواد اللي اتعملت قبل كده.", codeTaken: "فيه فرع تاني بنفس الكود", codeBad: "كود الفرع: من 2 لـ 5 حروف إنجليزي كابيتال أو أرقام", ppmDay: "يوم التنظيف العميق والصيانة الوقائية", ppmTime: "الساعة", none: "مفيش", hours: "ساعات العمل",
       open: "شغال", h24: "24 ساعة", closedDay: "مقفول", from: "من", to: "إلى", sameEveryDay: "نسخ مواعيد الأحد لكل الأيام",
       badTime: "راجع ساعات العمل: كل يوم شغال لازم يكون ليه بداية ونهاية",
     },
@@ -307,7 +307,7 @@ const ar: Dict = {
       statuses: { working: "شغالة", needs_repair: "محتاجة صيانة", stopped: "متوقفة", retired: "خارج الخدمة" },
       warrantyTo: (d: string) => `ضمان لحد ${d}`, warrantyOver: "الضمان خلص", openTickets: (n: string) => `${n} بلاغ مفتوح`,
       history: "سجل الأعطال", noHistory: "مفيش بلاغات صيانة للماكينة دي لسه.", empty: "مفيش معدات متسجلة لسه.",
-      deleteConfirm: "حذف الماكينة دي؟ بلاغاتها هتفضل موجودة من غير الماكينة.", saved: "اتحفظت الماكينة", reportIssue: "بلاغ صيانة",
+      deleteConfirm: "حذف الماكينة دي؟", hasTickets: "الماكينة دي عليها بلاغات صيانة، فمينفعش تتحذف. غيّر حالتها لـ \"خارج الخدمة\" بدل كده.", saved: "اتحفظت الماكينة", reportIssue: "بلاغ صيانة",
       machine: "الماكينة / المعدة", machineNone: "مش متعلقة بمعدة من المسجلة", noMachines: "مفيش معدات متسجلة للفرع ده لسه", quantity: "العدد", notWorking: (n: string) => `${n} مش شغالة`, allWorking: "كلها شغالة", kpi: "معدات مش شغالة", code: "الكود", codePh: "بيتكتب لوحده", codeTaken: "الكود ده مستخدم لمعدة تانية",
       labels: "طباعة الملصقات", labelsTitle: (b: string) => `ملصقات معدات ${b}`, labelsSub: "اطبعها وقصّها والزق كل ملصق على المعدة بتاعته. موظفين الفرع يبلّغوا عن أي عطل بالكود ده.", reportBy: "بلّغ عن أي عطل بالكود ده", notInBranch: "الماكينة دي مش في الفرع اللي اخترته",
     },
@@ -350,7 +350,7 @@ const ar: Dict = {
     delete: "حذف البند", deleteConfirm: (n: number) => (n ? `حذف البند ده و${n} بند تحته؟` : "حذف البند ده؟"),
   },
   housing: { title: "السكن", sub: "عدد العمال في كل سكن وتوزيعهم على الفروع", noHousingWarn: (n: number) => `${n} عامل لسه مش متسجل لهم سكن.`, showThem: "اعرضهم", residents: "ساكن", capacity: (n: number) => `السعة ${n}`, empty: "مفيش سكنات متسجلة." },
-  documents: { title: "المستندات", sub: "الإقامات والجوازات والتأمين والعقود اللي قربت تنتهي", expired: "منتهية", within30: "خلال 30 يوم", within90: "خلال 90 يوم", recorded: "إجمالي المسجل", none: "مفيش مستندات هتنتهي خلال 90 يوم.", col: { worker: "العامل", doc: "المستند", expiry: "تاريخ الانتهاء", state: "الحالة" } },
+  documents: { branchFiles: "ملفات الفروع", branchFilesNone: "مفيش ملفات فروع هتنتهي خلال 90 يوم.", title: "المستندات", sub: "مستندات العمال والفروع اللي قربت تنتهي", expired: "منتهية", within30: "خلال 30 يوم", within90: "خلال 90 يوم", recorded: "إجمالي المسجل", none: "مفيش مستندات هتنتهي خلال 90 يوم.", col: { worker: "العامل", doc: "المستند", expiry: "تاريخ الانتهاء", state: "الحالة" } },
   users: {
     title: "المستخدمين والصلاحيات", sub: "مين يدخل الموقع، ودوره، وأنهي فروع يشوفها", add: "إضافة مستخدم", name: "الاسم", email: "الإيميل",
     tempPassword: "كلمة مرور مؤقتة", create: "إضافة", needsKey: "إضافة المستخدمين محتاجة مفتاح SUPABASE_SECRET_KEY في إعدادات Netlify.",

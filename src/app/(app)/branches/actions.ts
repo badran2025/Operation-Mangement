@@ -52,12 +52,16 @@ export async function updateBranchInfo(id: number, _: ActionState, fd: FormData)
   if (!row.name_ar || !row.name_en) return { error: t.branchesTab.required };
   const { error } = await supabase.from("branches").update(row).eq("id", id);
   if (error) return { error: await friendlyError(error.message) };
-  const del = await supabase.from("branch_hours").delete().eq("branch_id", id);
-  if (del.error) return { error: await friendlyError(del.error.message) };
+  // save the new hours first, then drop days that were cleared: a failure never leaves the branch without hours
   if (hours.length) {
-    const ins = await supabase.from("branch_hours").insert(hours);
-    if (ins.error) return { error: await friendlyError(ins.error.message) };
+    const up = await supabase.from("branch_hours").upsert(hours, { onConflict: "branch_id,weekday" });
+    if (up.error) return { error: await friendlyError(up.error.message) };
   }
+  const kept = hours.map((h) => h.weekday);
+  const del = kept.length
+    ? await supabase.from("branch_hours").delete().eq("branch_id", id).not("weekday", "in", `(${kept.join(",")})`)
+    : await supabase.from("branch_hours").delete().eq("branch_id", id);
+  if (del.error) return { error: await friendlyError(del.error.message) };
   refreshAll();
   return { ok: B.saved };
 }
@@ -128,6 +132,9 @@ export async function saveEquipment(id: number | null, _: ActionState, fd: FormD
 
 export async function deleteEquipment(id: number): Promise<{ error?: string }> {
   const { supabase } = await requireEquipmentEditor();
+  // a machine with tickets keeps its history: retire it instead of deleting it
+  const { count } = await supabase.from("tickets").select("id", { count: "exact", head: true }).eq("equipment_id", id);
+  if (count) return { error: (await getT()).t.branchesTab.equipment.hasTickets };
   const { error } = await supabase.from("equipment").delete().eq("id", id);
   if (error) return { error: await friendlyError(error.message) };
   refreshAll();

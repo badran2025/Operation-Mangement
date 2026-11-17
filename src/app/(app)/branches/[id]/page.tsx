@@ -54,7 +54,8 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
     supabase.from("branch_files").select("id, kind, title, number, expiry_date, notes, file_path, mime_type").eq("branch_id", id).order("created_at"),
   ]);
   if (!branch) notFound();
-  const list = (workers ?? []) as WorkerRow[];
+  // ended workers are history, not part of the branch any more
+  const list = ((workers ?? []) as WorkerRow[]).filter((w) => w.status !== "terminated");
   const openTickets = (tix ?? []) as TicketRow[];
   const equipment = (eqData ?? []) as EquipmentRow[];
   const files = (fileData ?? []) as FileRow[];
@@ -92,7 +93,7 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
       </PageHeader>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-label={name}>
-        <Kpi label={t.dashboard.workers} value={n(list.filter((w) => w.status !== "terminated").length)} highlight href={`/branches/${id}?s=workers`} />
+        <Kpi label={t.dashboard.workers} value={n(list.length)} highlight href={`/branches/${id}?s=workers`} />
         <Kpi label={t.dashboard.workingToday} value={n(active.length - offToday)} href={`/branches/${id}?s=workers`} />
         <Kpi label={t.dashboard.openTickets} value={n(openTickets.length)} href={`/branches/${id}?s=maintenance`} />
         <Kpi label={t.dashboard.overdue} value={n(overdue)} tone={overdue ? "danger" : undefined} href={`/maintenance?tab=overdue&branch=${id}`} />
@@ -198,7 +199,7 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
     const E = B.equipment;
     const [{ data: cats }, { data: allBranches }, { data: hist }] = await Promise.all([
       supabase.from("ticket_categories").select("id, name_ar, name_en").order("sort"),
-      canEdit ? supabase.from("branches").select("id, name_ar, name_en").order("city_id").order("sort") : Promise.resolve({ data: [] as { id: number; name_ar: string; name_en: string }[] }),
+      canEdit ? supabase.from("branches").select("id, name_ar, name_en").or(`status.neq.closed,id.eq.${id}`).order("city_id").order("sort") : Promise.resolve({ data: [] as { id: number; name_ar: string; name_en: string }[] }),
       supabase.from("v_tickets").select("id, title, status, created_at, equipment_id").eq("branch_id", id).not("equipment_id", "is", null).order("created_at", { ascending: false }),
     ]);
     const catName = new Map((cats ?? []).map((c) => [c.id, pick(locale, c.name_ar, c.name_en)]));
@@ -333,6 +334,7 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
                               {m.odoo_ref && <><span className="mx-1.5 text-hairline" aria-hidden>|</span><span className="num" dir="ltr">{m.odoo_ref}</span></>}
                             </span>
                             {r.notes && <span className="block truncate text-[13px] text-ink-muted" dir="auto">{r.notes}</span>}
+                            {!m.active && <Badge variant="neutral" className="mt-1">{M.notInUse}</Badge>}
                           </span>
                         </>
                       );

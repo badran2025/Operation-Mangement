@@ -22,13 +22,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const n = nf(locale);
   const isAdmin = profile.role === "admin";
 
-  const [{ data: bData }, { data: tData }, { data: dData }] = await Promise.all([
+  const [{ data: bData }, { data: tData }, { data: dData }, { data: bfData }] = await Promise.all([
     supabase.from("v_branch_summary").select("*").order("city_sort").order("sort"),
     supabase.from("v_tickets").select("*").in("status", ACTIVE_STATUSES).order("due_at").limit(6),
     isAdmin
-      ? supabase.from("worker_documents").select("id, doc_type, expiry_date, worker_id, workers(full_name)").not("expiry_date", "is", null).order("expiry_date").limit(30)
+      ? supabase.from("worker_documents").select("id, doc_type, expiry_date, worker_id, workers(full_name)").not("expiry_date", "is", null).order("expiry_date").limit(60)
       : Promise.resolve({ data: [] as never[] }),
+    isAdmin ? supabase.from("branch_files").select("expiry_date").not("expiry_date", "is", null) : Promise.resolve({ data: [] as { expiry_date: string }[] }),
   ]);
+  // branch licences and contracts count with workers' documents
+  const branchFilesDue = (bfData ?? []).filter((f) => (daysUntil(f.expiry_date) ?? 999) <= 90).length;
   const branches = (bData ?? []) as BranchSummary[];
   const tickets = (tData ?? []) as TicketRow[];
   const docs = (dData ?? []).map((d) => ({ ...d, days: daysUntil(d.expiry_date)! })).filter((d) => d.days <= 90);
@@ -58,7 +61,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <Kpi label={t.dashboard.openTickets} value={n(sum("open_tickets"))} href="/maintenance" />
         <Kpi label={t.dashboard.overdue} value={n(sum("overdue_tickets"))} tone={sum("overdue_tickets") ? "danger" : undefined} href="/maintenance?tab=overdue" />
         {isAdmin && <Kpi label={t.dashboard.incomplete} value={n(sum("incomplete"))} tone={sum("incomplete") ? "warning" : undefined} href="/workers?show=incomplete" />}
-        {isAdmin && <Kpi label={t.dashboard.docsExpiring} value={n(docs.length)} tone={docs.length ? "warning" : undefined} href="/documents" />}
+        {isAdmin && <Kpi label={t.dashboard.docsExpiring} value={n(docs.length + branchFilesDue)} tone={docs.length + branchFilesDue ? "warning" : undefined} href="/documents" />}
       </section>
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
@@ -90,7 +93,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                     <SoftRow href={`/branches/${b.id}`}>
                       <span className="min-w-0 flex-1 truncate font-semibold">{pick(locale, b.name_ar, b.name_en)}</span>
                       <span className="hidden text-[13px] text-ink-muted sm:inline">{t.dashboard.working(n(b.working_today))}</span>
-                      {b.stopped ? <Badge variant="danger">{t.dashboard.stopped}</Badge>
+                      {b.status !== "active" ? <Badge variant="danger">{t.branchesTab.status[b.status]}</Badge>
+                        : b.stopped ? <Badge variant="danger">{t.dashboard.stopped}</Badge>
                         : b.overdue_tickets > 0 ? <Badge variant="danger">{t.dashboard.overdueN(n(b.overdue_tickets))}</Badge>
                         : b.open_tickets > 0 ? <Badge variant="info">{t.dashboard.openN(n(b.open_tickets))}</Badge>
                         : <Badge variant="success">{t.dashboard.allClear}</Badge>}

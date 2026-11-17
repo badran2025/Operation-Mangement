@@ -37,7 +37,7 @@ export default async function WorkerPage({ params }: { params: Promise<{ id: str
     supabase.from("v_workers_current").select("*").eq("id", id).maybeSingle(),
     supabase.from("worker_assignments").select("id, start_date, end_date, note, branches(name_ar, name_en), job_titles(name_ar, name_en)").eq("worker_id", id).order("start_date", { ascending: false }),
     supabase.from("worker_documents").select("*").eq("worker_id", id),
-    supabase.from("branches").select("id, name_ar, name_en, cities(name_ar, name_en)").order("city_id").order("sort"),
+    supabase.from("branches").select("id, name_ar, name_en, status, cities(name_ar, name_en)").order("city_id").order("sort"),
     supabase.from("job_titles").select("id, name_ar, name_en").order("sort"),
     supabase.from("housings").select("id, name").order("name"),
   ]);
@@ -115,7 +115,7 @@ export default async function WorkerPage({ params }: { params: Promise<{ id: str
               <Field>
                 <FieldLabel htmlFor="t-branch">{t.worker.branch}</FieldLabel>
                 <NativeSelect id="t-branch" name="branch_id" defaultValue={worker.branch_id ?? ""} required className="w-full">
-                  {(branches ?? []).map((b) => {
+                  {(branches ?? []).filter((b) => b.status !== "closed" || b.id === worker.branch_id).map((b) => {
                     const c = b.cities as unknown as NameAr;
                     return <NativeSelectOption key={b.id} value={b.id}>{pick(locale, c?.name_ar, c?.name_en)}: {pick(locale, b.name_ar, b.name_en)}</NativeSelectOption>;
                   })}

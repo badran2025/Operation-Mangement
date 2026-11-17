@@ -11,7 +11,7 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
   const { t, locale } = await getT();
   const { branch, equipment } = await searchParams;
   const [{ data: branches }, { data: cats }, { data: machines }] = await Promise.all([
-    supabase.from("branches").select("id, name_ar, name_en, cities(name_ar, name_en)").order("city_id").order("sort"),
+    supabase.from("branches").select("id, name_ar, name_en, cities(name_ar, name_en)").neq("status", "closed").order("city_id").order("sort"),
     supabase.from("ticket_categories").select("id, name_ar, name_en").order("sort"),
     supabase.from("equipment").select("id, branch_id, name, code, category_id").neq("status", "retired").order("name"),
   ]);

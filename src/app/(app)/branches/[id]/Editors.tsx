@@ -224,7 +224,7 @@ export function EquipmentEditor({ item, branchId, branches, categories, onDone }
         {onDone && <Button type="button" variant="ghost" onClick={onDone}>{t.common.cancel}</Button>}
         {item && (
           <Button type="button" variant="ghost" className={cn("text-danger hover:bg-danger-soft hover:text-danger")} disabled={busy}
-            onClick={() => window.confirm(E.deleteConfirm) && start(async () => { const r = await deleteEquipment(item.id); if (!r.error) router.refresh(); })}>
+            onClick={() => window.confirm(E.deleteConfirm) && start(async () => { const r = await deleteEquipment(item.id); if (r.error) window.alert(r.error); else router.refresh(); })}>
             <Trash2Icon data-icon="inline-start" />{t.common.delete}
           </Button>
         )}
