@@ -27,7 +27,7 @@ export default async function BranchDieselPage({ params }: { params: Promise<{ i
 
   const [{ data: branch }, { data: tankData }, { data: pts }, { data: dips }, { data: refs }, { data: allDips }] = await Promise.all([
     supabase.from("branches").select("id, name_ar, name_en").eq("id", id).maybeSingle(),
-    supabase.from("v_diesel_tanks").select("*").eq("branch_id", id).order("sort"),
+    supabase.from("v_diesel_tank_info").select("*").eq("branch_id", id).order("sort"),
     supabase.from("diesel_tank_points").select("tank_id, level_cm, liters"),
     supabase.from("diesel_dips").select("id, tank_id, branch_id, read_at, liters, level_cm, kind").eq("branch_id", id).gte("read_at", new Date(Date.now() - 120 * 86400000).toISOString()),
     supabase.from("diesel_refuels").select("*, profiles(full_name), diesel_refuel_files(file_path)").eq("branch_id", id).order("refuel_date", { ascending: false }).order("id", { ascending: false }).limit(100),

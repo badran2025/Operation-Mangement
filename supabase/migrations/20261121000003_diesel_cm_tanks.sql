@@ -70,9 +70,8 @@ end $$;
 revoke execute on function public.record_diesel_refuel(bigint, date, numeric, jsonb, text, numeric, text, text) from public, anon;
 grant execute on function public.record_diesel_refuel(bigint, date, numeric, jsonb, text, numeric, text, text) to authenticated;
 
--- tanks view: say how each tank is measured
-drop view if exists public.v_diesel_tanks;
-create view public.v_diesel_tanks with (security_invoker = true) as
+-- tanks view with how each tank is measured (a new view, so nothing is dropped)
+create view public.v_diesel_tank_info with (security_invoker = true) as
 select t.*,
        public.tank_liters_known(t.id) as liters_known,
        public.tank_liters(t.id, public.tank_full_cm(t)) as capacity_l,
@@ -82,5 +81,5 @@ select t.*,
        last.level_cm as last_cm, last.liters as last_liters, last.read_at as last_read_at
 from public.diesel_tanks t
 left join lateral (select d.level_cm, d.liters, d.read_at from public.diesel_dips d where d.tank_id = t.id order by d.read_at desc, d.id desc limit 1) last on true;
-revoke all on public.v_diesel_tanks from anon;
-grant select on public.v_diesel_tanks to authenticated;
+revoke all on public.v_diesel_tank_info from anon;
+grant select on public.v_diesel_tank_info to authenticated;

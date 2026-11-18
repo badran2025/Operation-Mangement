@@ -12,7 +12,7 @@ export async function loadDieselForm() {
   const { locale } = await getT();
   const [{ data: branches }, { data: tanks }, { data: points }] = await Promise.all([
     supabase.from("branches").select("id, name_ar, name_en").neq("status", "closed").order("city_id").order("sort"),
-    supabase.from("v_diesel_tanks").select("*").eq("active", true).order("sort"),
+    supabase.from("v_diesel_tank_info").select("*").eq("active", true).order("sort"),
     supabase.from("diesel_tank_points").select("tank_id, level_cm, liters"),
   ]);
   const withTank = new Set((tanks ?? []).map((x) => x.branch_id));

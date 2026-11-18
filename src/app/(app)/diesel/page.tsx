@@ -28,7 +28,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
 
   const [{ data: branches }, { data: tankData }, { data: dipData }, { data: refuelData }] = await Promise.all([
     supabase.from("branches").select("id, name_ar, name_en").neq("status", "closed").order("city_id").order("sort"),
-    supabase.from("v_diesel_tanks").select("*").eq("active", true).order("sort"),
+    supabase.from("v_diesel_tank_info").select("*").eq("active", true).order("sort"),
     supabase.from("diesel_dips").select("id, tank_id, branch_id, read_at, liters, level_cm, kind").gte("read_at", since),
     supabase.from("diesel_refuels").select("*, profiles(full_name), diesel_refuel_files(file_path)").order("refuel_date", { ascending: false }).order("id", { ascending: false }).limit(400),
   ]);
