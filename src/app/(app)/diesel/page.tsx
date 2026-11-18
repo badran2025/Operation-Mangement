@@ -76,11 +76,11 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
 
       <Panel>
         <div className="-mx-4 overflow-x-auto md:-mx-5">
-          <table className="w-full min-w-[1180px] text-sm">
+          <table className="w-full min-w-[1040px] text-sm">
             <thead>
               <tr className="text-[12.5px] text-ink-muted">
                 {[D.table.branch, D.table.stock, D.table.weekly, D.table.monthly, D.table.lastDelivery, D.table.next, D.table.month, D.table.avgPrice, D.table.shortage].map((h, i) => (
-                  <th key={h} className={cn("h-10 px-3 text-start font-semibold", i === 0 && "ps-4 md:ps-5")}>{h}</th>
+                  <th key={h} className={cn("h-10 px-2.5 text-start font-semibold", i === 0 && "ps-4 md:ps-5")}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -93,8 +93,8 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
                     <td className="py-3 ps-4 pe-3 md:ps-5">
                       <Link href={`/diesel/${b.id}`} className="font-semibold text-primary hover:underline">{bName.get(b.id)}</Link>
                       <span className="block text-[12.5px] text-ink-muted">
-                        <span className="num">{n(st.active.length)}</span> {D.table.tanks}{st.cap && st.cmOnly.length < st.active.length ? <> · <span className="num">{L(st.cap)} L</span></> : null}
-                        {st.cmOnly.length > 0 && <span className="block text-warning">{D.cmOnly}</span>}
+                        {st.active.length > 1 && <>{D.tanksN(n(st.active.length))} · </>}{st.cap && st.active.some((x) => x.liters_known) ? <span className="num">{L(st.cap)} L</span> : null}
+                        {st.active.some((x) => !x.liters_known) && <span className="block text-warning">{D.cmOnly}</span>}
                       </span>
                     </td>
                     <td className="px-3 py-3">
@@ -121,7 +121,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
                         </>
                       ) : "—"}
                     </td>
-                    <td className="px-3 py-3">{mCount ? <span className="num">{D.monthLine(L(mLitres), L(Math.round(mCost)))}</span> : "—"}</td>
+                    <td className="px-3 py-3">{mCount ? <><span className="num block">{L(mLitres)} L</span>{mCost ? <span className="num text-[12.5px] text-ink-muted">{L(Math.round(mCost))} SAR</span> : null}</> : "—"}</td>
                     <td className="num px-3 py-3">{price(mPrice)}</td>
                     <td className="px-3 py-3">{mShort ? <Badge variant="danger">{D.shortageL(L(mShort))}</Badge> : <span className="text-ink-muted">—</span>}</td>
                   </tr>

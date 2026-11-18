@@ -63,7 +63,7 @@ export function dailyUse(dips: Dip[], days = 30, now = Date.now()): Map<number, 
   return out;
 }
 
-export type RefuelLite = { refuel_date: string; liters: number; before_liters: number | null };
+export type RefuelLite = { id?: number; refuel_date: string; liters: number; before_liters: number | null };
 
 /**
  * One branch's diesel picture from its readings and deliveries:
@@ -83,7 +83,7 @@ export function branchDiesel(tanks: Tank[], dips: Dip[], refuels: RefuelLite[], 
   const stockNow = stockAt !== null && lastAt !== null ? Math.max(0, stockAt - (rate ?? 0) * ((now - lastAt) / 86400000)) : null;
   const cap = active.reduce((s, x) => s + Number(x.capacity_l ?? 0), 0);
 
-  const sorted = [...refuels].sort((a, b) => a.refuel_date.localeCompare(b.refuel_date));
+  const sorted = [...refuels].sort((a, b) => a.refuel_date.localeCompare(b.refuel_date) || (a.id ?? 0) - (b.id ?? 0));
   const befores = sorted.map((r) => r.before_liters).filter((v): v is number => v !== null).map(Number);
   const refillAt = befores.length ? befores.reduce((a, b) => a + b, 0) / befores.length : null;
   const gaps = sorted.slice(1).map((r, i) => (new Date(r.refuel_date).getTime() - new Date(sorted[i].refuel_date).getTime()) / 86400000).filter((g) => g > 0);
@@ -94,7 +94,9 @@ export function branchDiesel(tanks: Tank[], dips: Dip[], refuels: RefuelLite[], 
   if (rate && stockNow !== null && refillAt !== null) next = now + Math.max(0, (stockNow - refillAt) / rate) * 86400000;
   else if (last && avgGap) next = new Date(last.refuel_date).getTime() + avgGap * 86400000;
 
-  const cmOnly = active.filter((x) => !x.liters_known).map((x) => ({ tank: x, lastCm: dips.filter((d) => d.tank_id === x.id && d.level_cm !== undefined)
+  // tanks whose stock can only be shown in cm: not calibrated yet, or calibrated after their last reading
+  const latestOf = (id: number) => dips.filter((d) => d.tank_id === id).sort((a, b) => new Date(b.read_at).getTime() - new Date(a.read_at).getTime() || b.id - a.id)[0];
+  const cmOnly = active.filter((x) => !x.liters_known || (latestOf(x.id) && latestOf(x.id).liters === null)).map((x) => ({ tank: x, lastCm: dips.filter((d) => d.tank_id === x.id && d.level_cm !== undefined)
     .sort((a, b) => new Date(b.read_at).getTime() - new Date(a.read_at).getTime() || b.id - a.id)[0]?.level_cm ?? null }));
 
   return { active, cap, stockAt, stockNow, lastAt, rate, weekly: rate ? rate * 7 : null, monthly: rate ? rate * 30 : null, refillAt, avgGap, last, next, cmOnly };
