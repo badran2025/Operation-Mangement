@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { requireActive, requireAdmin } from "@/lib/auth";
 import type { ActionState } from "@/components/ActionForm";
 import { getT } from "@/lib/i18n/server";
+import { calibrationFromDeliveries } from "@/lib/diesel";
 import { friendlyError } from "@/lib/server-errors";
 
 const refreshAll = () => revalidatePath("/", "layout");
@@ -49,17 +50,6 @@ export async function addRefuelFiles(refuelId: number, files: { path: string; ty
   return {};
 }
 
-export async function recordCheck(input: { branchId: number; notes: string; dips: { tank_id: number; cm: string }[] }): Promise<{ error?: string }> {
-  const { supabase } = await requireActive();
-  const { t } = await getT();
-  const dips = input.dips.map((d) => ({ tank_id: d.tank_id, cm: num(d.cm) }));
-  if (dips.some((d) => d.cm === null)) return { error: t.diesel.errors.readings };
-  const { error } = await supabase.rpc("record_diesel_check", { p_branch_id: input.branchId, p_dips: dips, p_notes: input.notes });
-  if (error) return { error: await dieselError(error.message) };
-  refreshAll();
-  return {};
-}
-
 export async function deleteRefuel(id: number): Promise<{ error?: string }> {
   const { supabase } = await requireAdmin();
   const { data: files } = await supabase.from("diesel_refuel_files").select("file_path").eq("refuel_id", id);
@@ -81,6 +71,7 @@ export async function saveTank(branchId: number, id: number | null, _: ActionSta
     height_cm: shape === "horizontal_cylinder" ? null : num(String(fd.get("height_cm") ?? "")),
     diameter_cm: shape === "box" ? null : num(String(fd.get("diameter_cm") ?? "")),
     confirmed: fd.get("confirmed") === "on", active: fd.get("active") !== null ? fd.get("active") === "on" : true,
+    measure_by: String(fd.get("measure_by") ?? "") === "cm" ? "cm" : "liters",
     notes: String(fd.get("notes") ?? "").trim() || null,
   };
   if (shape === "vertical_cylinder") row.length_cm = null;
@@ -124,4 +115,31 @@ export async function saveCalibration(tankId: number, text: string): Promise<{ e
   }
   refreshAll();
   return {};
+}
+
+/** Build a cm tank's calibration table from its deliveries (needs one delivery from empty). */
+export async function buildCalibration(tankId: number): Promise<{ error?: string; points?: number }> {
+  const { supabase } = await requireAdmin();
+  const { t } = await getT();
+  const { data: dips } = await supabase.from("diesel_dips").select("refuel_id, kind, level_cm, read_at").eq("tank_id", tankId).not("refuel_id", "is", null);
+  const ids = [...new Set((dips ?? []).map((d) => d.refuel_id as number))];
+  if (!ids.length) return { error: t.diesel.tanks.noSegments };
+  const [{ data: refs }, { data: allDips }] = await Promise.all([
+    supabase.from("diesel_refuels").select("id, refuel_date, liters").in("id", ids),
+    supabase.from("diesel_dips").select("refuel_id, tank_id").in("refuel_id", ids),
+  ]);
+  // only deliveries that went into this tank alone: the invoice litres are all this tank's
+  const alone = new Set(ids.filter((id) => new Set((allDips ?? []).filter((d) => d.refuel_id === id).map((d) => d.tank_id)).size === 1));
+  const segments = (refs ?? []).filter((r) => alone.has(r.id)).map((r) => {
+    const mine = (dips ?? []).filter((d) => d.refuel_id === r.id);
+    return { date: `${r.refuel_date}|${mine[0]?.read_at ?? ""}`, from_cm: Number(mine.find((d) => d.kind === "before")?.level_cm), to_cm: Number(mine.find((d) => d.kind === "after")?.level_cm), liters: Number(r.liters) };
+  }).filter((s) => Number.isFinite(s.from_cm) && Number.isFinite(s.to_cm));
+  const pts = calibrationFromDeliveries(segments);
+  if (!pts.length) return { error: t.diesel.tanks.needsEmpty };
+  const del = await supabase.from("diesel_tank_points").delete().eq("tank_id", tankId);
+  if (del.error) return { error: await friendlyError(del.error.message) };
+  const ins = await supabase.from("diesel_tank_points").insert(pts.map((p) => ({ tank_id: tankId, ...p })));
+  if (ins.error) return { error: await friendlyError(ins.error.message) };
+  refreshAll();
+  return { points: pts.length };
 }

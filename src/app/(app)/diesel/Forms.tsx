@@ -12,7 +12,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { addRefuelFiles, recordCheck, recordRefuel } from "./actions";
+import { addRefuelFiles, recordRefuel } from "./actions";
 
 type Opt = { id: number; name: string };
 const fmt = (n: number | null) => (n === null || !Number.isFinite(n) ? "—" : new Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format(n));
@@ -33,7 +33,8 @@ function BranchPicker({ branches, value, onChange }: { branches: Opt[]; value: s
 function CmInput({ id, label, value, onChange, tank, points }: { id: string; label: string; value: string; onChange: (v: string) => void; tank: Tank; points: Point[] }) {
   const { t } = useI18n();
   const max = fullCm(tank);
-  const l = value.trim() === "" ? null : tankLiters(tank, Number(value), points);
+  // cm-measured tanks show centimetres only: their litres are not known yet
+  const l = value.trim() === "" || !tank.liters_known ? null : tankLiters(tank, Number(value), points);
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -42,6 +43,8 @@ function CmInput({ id, label, value, onChange, tank, points }: { id: string; lab
     </Field>
   );
 }
+
+const allTanksAreCm = (list: Tank[]) => list.every((tk) => !tk.liters_known);
 
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
 
@@ -60,8 +63,11 @@ export function RefuelForm({ branches, tanks, points, defaultBranch }: { branche
   const [total, setTotal] = useState("");
   const sumOf = (k: "b" | "a") => mine.reduce((s, tk) => s + (read[tk.id]?.[k] ? tankLiters(tk, Number(read[tk.id][k]), points) ?? 0 : 0), 0);
   const complete = mine.length > 0 && mine.every((tk) => read[tk.id]?.b && read[tk.id]?.a);
+  const allLitres = mine.every((tk) => tk.liters_known);
+  const cmTanks = mine.filter((tk) => !tk.liters_known);
+  const rise = (tk: Tank) => (read[tk.id]?.b && read[tk.id]?.a ? Number(read[tk.id].a) - Number(read[tk.id].b) : null);
   const before = sumOf("b"), after = sumOf("a"), received = after - before;
-  const diff = complete && ordered ? Math.round((received - Number(ordered)) * 10) / 10 : null;
+  const diff = complete && allLitres && ordered ? Math.round((received - Number(ordered)) * 10) / 10 : null;
   const perL = ordered && total && Number(ordered) > 0 ? Number(total) / Number(ordered) : null;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -100,7 +106,8 @@ export function RefuelForm({ branches, tanks, points, defaultBranch }: { branche
           {mine.length === 0 ? <p className="rounded-[14px] bg-warning-soft px-4 py-3 text-sm font-medium text-warning">{t.diesel.noTanks}</p> : mine.map((tk) => (
             <fieldset key={tk.id} className="grid grid-cols-2 gap-3 rounded-[14px] bg-canvas p-3.5">
               <legend className="sr-only">{tk.label}</legend>
-              <p className="col-span-2 text-sm font-semibold">{tk.label} <span className="font-normal text-ink-muted">· {t.diesel.tanks.shapes[tk.shape]} · {fmt(tk.capacity_l)} L</span></p>
+              <p className="col-span-2 text-sm font-semibold">{tk.label} <span className="font-normal text-ink-muted">· {t.diesel.tanks.shapes[tk.shape]}{tk.liters_known && <> · {fmt(tk.capacity_l)} L</>}</span></p>
+              {!tk.liters_known && <p className="col-span-2 -mt-1 text-[13px] text-warning">{F.cmTank}</p>}
               <CmInput id={`b-${tk.id}`} label={F.before} tank={tk} points={points} value={read[tk.id]?.b ?? ""} onChange={(v) => setRead((r) => ({ ...r, [tk.id]: { b: v, a: r[tk.id]?.a ?? "" } }))} />
               <CmInput id={`a-${tk.id}`} label={F.after} tank={tk} points={points} value={read[tk.id]?.a ?? ""} onChange={(v) => setRead((r) => ({ ...r, [tk.id]: { b: r[tk.id]?.b ?? "", a: v } }))} />
             </fieldset>
@@ -108,7 +115,20 @@ export function RefuelForm({ branches, tanks, points, defaultBranch }: { branche
         </div>
       )}
 
-      {complete && (
+      {complete && cmTanks.length > 0 && (
+        <div className="flex flex-col gap-1 rounded-[14px] bg-surface-tint p-3.5 text-sm sm:col-span-2" aria-live="polite">
+          {cmTanks.map((tk) => {
+            const r = rise(tk);
+            return (
+              <p key={tk.id}>
+                <b className="font-semibold" dir="auto">{tk.label}:</b> {F.rise(fmt(r))}
+                {cmTanks.length === 1 && allTanksAreCm(mine) && ordered && r ? <span className="num ms-2 font-semibold text-primary">{F.perCmHere(fmt(Number(ordered) / r))}</span> : null}
+              </p>
+            );
+          })}
+        </div>
+      )}
+      {complete && allLitres && (
         <dl className="grid grid-cols-3 gap-2 rounded-[14px] bg-surface-tint p-3.5 text-center sm:col-span-2" aria-live="polite">
           <div><dt className="text-[12.5px] text-ink-muted">{F.beforeL}</dt><dd className="num m-0 text-[20px] font-semibold">{fmt(before)} L</dd></div>
           <div><dt className="text-[12.5px] text-ink-muted">{F.filledL}</dt><dd className="num m-0 text-[20px] font-semibold text-primary">+{fmt(received)} L</dd></div>
@@ -132,49 +152,6 @@ export function RefuelForm({ branches, tanks, points, defaultBranch }: { branche
       <div className="flex flex-col gap-1.5 sm:col-span-2"><span className="text-sm font-medium">{F.photos}</span><FilePicker files={files} onChange={setFiles} /></div>
       {error && <p role="alert" className="text-sm font-semibold text-danger sm:col-span-2">{error}</p>}
       <div className="sm:col-span-2"><Button type="submit" size="lg" disabled={busy || !branch || mine.length === 0}>{busy && <Spinner data-icon="inline-start" />}{busy ? t.common.saving : F.save}</Button></div>
-    </form>
-  );
-}
-
-export function CheckForm({ branches, tanks, points, defaultBranch }: { branches: Opt[]; tanks: Tank[]; points: Point[]; defaultBranch?: number }) {
-  const { t } = useI18n();
-  const F = t.diesel.form;
-  const router = useRouter();
-  const [branch, setBranch] = useState(String(defaultBranch ?? (branches.length === 1 ? branches[0].id : "")));
-  const mine = useMemo(() => tanks.filter((x) => String(x.branch_id) === branch && x.active), [tanks, branch]);
-  const [cm, setCm] = useState<Record<number, string>>({});
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const total = mine.reduce((s, tk) => s + (cm[tk.id] ? tankLiters(tk, Number(cm[tk.id]), points) ?? 0 : 0), 0);
-
-  async function submit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    setBusy(true); setError(null);
-    const r = await recordCheck({ branchId: Number(branch), notes: String(fd.get("notes") ?? ""), dips: mine.map((tk) => ({ tank_id: tk.id, cm: cm[tk.id] ?? "" })) });
-    setBusy(false);
-    if (r.error) { setError(r.error); return; }
-    router.push("/diesel?saved=check");
-  }
-
-  return (
-    <form method="post" onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
-      <div className="sm:col-span-2"><BranchPicker branches={branches} value={branch} onChange={(v) => { setBranch(v); setCm({}); }} /></div>
-      {branch && (
-        <div className="flex flex-col gap-3 sm:col-span-2">
-          <p className="text-sm text-ink-muted">{F.checkHowTo}</p>
-          {mine.length === 0 ? <p className="rounded-[14px] bg-warning-soft px-4 py-3 text-sm font-medium text-warning">{t.diesel.noTanks}</p> : mine.map((tk) => (
-            <div key={tk.id} className="grid grid-cols-2 items-end gap-3 rounded-[14px] bg-canvas p-3.5">
-              <p className="text-sm font-semibold">{tk.label} <span className="block font-normal text-ink-muted">{t.diesel.tanks.shapes[tk.shape]} · {fmt(tk.capacity_l)} L</span></p>
-              <CmInput id={`c-${tk.id}`} label={F.level} tank={tk} points={points} value={cm[tk.id] ?? ""} onChange={(v) => setCm((c) => ({ ...c, [tk.id]: v }))} />
-            </div>
-          ))}
-          {mine.length > 1 && <p className="num text-sm font-semibold">{t.diesel.table.stock}: {fmt(total)} L</p>}
-        </div>
-      )}
-      <Field className="sm:col-span-2"><FieldLabel htmlFor="dc-notes">{F.notes}</FieldLabel><Textarea id="dc-notes" name="notes" rows={2} dir="auto" /></Field>
-      {error && <p role="alert" className="text-sm font-semibold text-danger sm:col-span-2">{error}</p>}
-      <div className="sm:col-span-2"><Button type="submit" size="lg" disabled={busy || !branch || mine.length === 0}>{busy && <Spinner data-icon="inline-start" />}{busy ? t.common.saving : F.saveCheck}</Button></div>
     </form>
   );
 }

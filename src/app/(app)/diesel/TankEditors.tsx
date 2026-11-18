@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { deleteTank, saveCalibration, saveTank } from "./actions";
+import { buildCalibration, deleteTank, saveCalibration, saveTank } from "./actions";
 
 export function TankForm({ branchId, tank, onDone }: { branchId: number; tank?: Tank; onDone?: () => void }) {
   const { t } = useI18n();
@@ -37,6 +37,12 @@ export function TankForm({ branchId, tank, onDone }: { branchId: number; tank?: 
       {shape === "box" && <>{dim("length_cm", T.length)}{dim("width_cm", T.width)}{dim("height_cm", T.height)}</>}
       {shape === "vertical_cylinder" && <>{dim("diameter_cm", T.diameter)}{dim("height_cm", T.height)}</>}
       {shape === "horizontal_cylinder" && <>{dim("diameter_cm", T.diameter)}{dim("length_cm", T.length)}</>}
+      <Field className="sm:col-span-3">
+        <FieldLabel htmlFor={`${p}-mb`}>{T.measureBy}</FieldLabel>
+        <NativeSelect id={`${p}-mb`} name="measure_by" defaultValue={tank?.measure_by ?? (shape === "box" ? "liters" : "cm")} key={tank ? undefined : shape} className="w-full">
+          {["liters", "cm"].map((m) => <NativeSelectOption key={m} value={m}>{T.measure[m]}</NativeSelectOption>)}
+        </NativeSelect>
+      </Field>
       <Field className="sm:col-span-3"><FieldLabel htmlFor={`${p}-notes`}>{T.notes}</FieldLabel><Input id={`${p}-notes`} name="notes" defaultValue={tank?.notes ?? ""} dir="auto" /></Field>
       <div className="flex flex-wrap items-center gap-4 sm:col-span-3">
         <label className="flex min-h-10 items-center gap-2 text-sm font-medium"><input type="checkbox" name="confirmed" defaultChecked={tank?.confirmed ?? false} className="size-4 accent-primary" />{T.confirmed}</label>
@@ -83,6 +89,23 @@ export function CalibrationEditor({ tankId, points }: { tankId: number; points: 
           {busy && <Spinner data-icon="inline-start" />}{T.saveCalibration}
         </Button>
       )}
+    </div>
+  );
+}
+
+export function BuildCalibration({ tankId }: { tankId: number }) {
+  const { t } = useI18n();
+  const router = useRouter();
+  const [busy, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok?: string; error?: string } | null>(null);
+  return (
+    <div className="flex flex-col gap-2">
+      <Button variant="outline" className="self-start" disabled={busy}
+        onClick={() => start(async () => { const r = await buildCalibration(tankId); setMsg(r.error ? { error: r.error } : { ok: t.diesel.tanks.built(String(r.points)) }); if (!r.error) router.refresh(); })}>
+        {busy && <Spinner data-icon="inline-start" />}{t.diesel.tanks.build}
+      </Button>
+      {msg?.error && <p role="alert" className="text-sm font-semibold text-danger">{msg.error}</p>}
+      {msg?.ok && <p role="status" className="text-sm font-semibold text-success">✓ {msg.ok}</p>}
     </div>
   );
 }
