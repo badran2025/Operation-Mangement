@@ -1,5 +1,5 @@
 "use server";
-import { latinDigits, parseNum } from "@/lib/numbers";
+import { latinDigits } from "@/lib/numbers";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";

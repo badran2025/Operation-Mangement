@@ -179,7 +179,52 @@ export function FileEditor({ branchId, kinds, file, defaultKind }: {
 export type EquipmentRow = {
   id: number; branch_id: number; category_id: number | null; name: string; brand: string | null; model: string | null; serial_no: string | null;
   capacity: string | null; installed_on: string | null; warranty_until: string | null; status: string; notes: string | null; quantity: number; code: string;
+  steam_type: "dryer" | "press" | "other" | null; steam_kg_h: number | null; cycle_minutes: number | null;
 };
+
+/** Does this machine take steam from the central (diesel) boiler, and how much? */
+function SteamFields({ p, item }: { p: string; item?: EquipmentRow }) {
+  const { t } = useI18n();
+  const S = t.branchesTab.equipment.steam;
+  const [type, setType] = useState<string>(item?.steam_type ?? "");
+  const [kg, setKg] = useState(item?.steam_kg_h ? String(item.steam_kg_h) : "");
+  const [btu, setBtu] = useState("");
+  return (
+    <fieldset className="grid gap-3 rounded-[14px] bg-surface-tint/60 p-3 sm:col-span-3 sm:grid-cols-3">
+      <legend className="sr-only">{S.title}</legend>
+      <Field className="sm:col-span-3">
+        <FieldLabel htmlFor={`${p}-stt`}>{S.title}</FieldLabel>
+        <NativeSelect id={`${p}-stt`} name="steam_type" value={type} onChange={(e) => setType(e.target.value)} className="w-full">
+          <NativeSelectOption value="">{S.types.none}</NativeSelectOption>
+          {(["dryer", "press", "other"] as const).map((k) => <NativeSelectOption key={k} value={k}>{S.types[k]}</NativeSelectOption>)}
+        </NativeSelect>
+        <span className="text-[12.5px] text-ink-muted">{S.hint}</span>
+      </Field>
+      {type && (
+        <>
+          <Field>
+            <FieldLabel htmlFor={`${p}-kg`}>{S.kgH}{type === "other" && " *"}</FieldLabel>
+            <NumberInput id={`${p}-kg`} name="steam_kg_h" value={kg} onChange={(e) => setKg(e.target.value)} required={type === "other"}
+              placeholder={type === "dryer" ? "60" : type === "press" ? "17.5" : ""} />
+            <span className="text-[12.5px] text-ink-muted">{type === "other" ? S.kgOther : S.kgDefault}</span>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${p}-btu`}>{S.btu}</FieldLabel>
+            <NumberInput id={`${p}-btu`} value={btu} onChange={(e) => { setBtu(e.target.value); const n = Number(e.target.value); if (n > 0) setKg(String(Math.round((n / 2230) * 10) / 10)); }} />
+            <span className="text-[12.5px] text-ink-muted">{S.btuHint}</span>
+          </Field>
+          {type === "dryer" && (
+            <Field>
+              <FieldLabel htmlFor={`${p}-cm`}>{S.cycleMin}</FieldLabel>
+              <NumberInput id={`${p}-cm`} name="cycle_minutes" defaultValue={item?.cycle_minutes ?? ""} placeholder="20" />
+              <span className="text-[12.5px] text-ink-muted">{S.cycleHint}</span>
+            </Field>
+          )}
+        </>
+      )}
+    </fieldset>
+  );
+}
 
 export function EquipmentEditor({ item, branchId, branches, categories, onDone }: {
   item?: EquipmentRow; branchId: number; branches: Opt[]; categories: Opt[]; onDone?: () => void;
@@ -220,6 +265,7 @@ export function EquipmentEditor({ item, branchId, branches, categories, onDone }
         </NativeSelect>
       </Field>
       <Field className="sm:col-span-2"><FieldLabel htmlFor={`${p}-no`}>{E.notes}</FieldLabel><Input id={`${p}-no`} name="notes" defaultValue={item?.notes ?? ""} dir="auto" /></Field>
+      <SteamFields p={p} item={item} />
       <div className="flex flex-wrap gap-2 sm:col-span-3">
         <SubmitButton>{item ? t.common.save : E.add}</SubmitButton>
         {onDone && <Button type="button" variant="ghost" onClick={onDone}>{t.common.cancel}</Button>}

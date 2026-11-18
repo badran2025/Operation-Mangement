@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CylinderIcon, FuelIcon } from "lucide-react";
+import { ClipboardListIcon, CylinderIcon, FuelIcon } from "lucide-react";
+import { loadSteamMonth, monthOf } from "./load";
 import { TankShape } from "./TankShape";
 import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
@@ -54,6 +55,8 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
     return { b, mine, st, mLitres, mCost, mPrice: mInvoiceL ? mCost / mInvoiceL : null, mShort: m.reduce((s, r) => s + Number(r.shortage_liters ?? 0), 0), mCount: m.length };
   });
   const withTanks = rows.filter((r) => r.mine.some((x) => x.active));
+  const steam = await loadSteamMonth(supabase, withTanks.map((r) => r.b.id), monthOf(null));
+  const sar = (v: number | null) => (v === null ? "—" : `${new Intl.NumberFormat("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)} SAR`);
   const withoutTanks = rows.filter((r) => !r.mine.some((x) => x.active));
   const price = (v: number | null) => (v === null ? "—" : new Intl.NumberFormat("en", { maximumFractionDigits: 3 }).format(v));
 
@@ -126,11 +129,18 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
                 {stat(D.table.next, st.next !== null ? formatDate(locale, new Date(st.next).toISOString()) : "—")}
                 {stat(D.table.month, mCount ? `${L(mLitres)} L` : "—", mCost ? `${L(Math.round(mCost))} SAR` : null)}
               </dl>
+              {(steam.get(b.id)?.machines.length ?? 0) > 0 && (
+                <dl className="m-0 grid grid-cols-2 gap-1.5">
+                  {stat(D.steam.card.dryerCycle, sar(steam.get(b.id)!.dryerUnitCost))}
+                  {stat(D.steam.card.pressPiece, sar(steam.get(b.id)!.pressUnitCost))}
+                </dl>
+              )}
               {mShort ? <Badge variant="danger" className="self-start">{D.table.shortage}: {D.shortageL(L(mShort))}</Badge> : null}
 
               <footer className="mt-auto flex flex-wrap gap-2 border-t border-hairline pt-3">
                 <Button size="sm" render={<Link href={`/diesel/refuel?branch=${b.id}`} />} nativeButton={false}><FuelIcon data-icon="inline-start" />{D.recordRefuel}</Button>
                 <Button size="sm" variant="outline" render={<Link href={`/diesel/${b.id}`} />} nativeButton={false}><CylinderIcon data-icon="inline-start" />{D.card.open}</Button>
+                {(steam.get(b.id)?.machines.length ?? 0) > 0 && <Button size="sm" variant="outline" render={<Link href={`/diesel/counts?branch=${b.id}`} />} nativeButton={false}><ClipboardListIcon data-icon="inline-start" />{D.steam.card.counts}</Button>}
               </footer>
             </article>
           );

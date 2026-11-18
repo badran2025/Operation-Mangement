@@ -150,3 +150,39 @@ export async function buildCalibration(tankId: number): Promise<{ error?: string
   refreshAll();
   return { points: pts.length };
 }
+
+// ---------- diesel by machine ----------
+/** One day's counts for a branch: cycles / pieces / hours per steam machine (empty clears it). */
+export async function saveSteamCounts(branchId: number, day: string, rows: { equipment_id: number; units: string }[]): Promise<{ error?: string; saved?: number }> {
+  const { supabase } = await requireActive();
+  const { t } = await getT();
+  const clean = rows.map((r) => ({ equipment_id: r.equipment_id, units: parseNum(r.units) }));
+  if (clean.some((r) => r.units !== null && r.units < 0)) return { error: t.diesel.steam.errors.bad };
+  const { data, error } = await supabase.rpc("save_steam_counts", { p_branch_id: branchId, p_day: day, p_rows: clean });
+  if (error) {
+    const m = error.message.toLowerCase();
+    if (m.includes("steam bad date")) return { error: t.diesel.steam.errors.date };
+    if (m.includes("steam bad count")) return { error: t.diesel.steam.errors.bad };
+    if (m.includes("steam machine not in branch")) return { error: t.diesel.steam.errors.machine };
+    return { error: await friendlyError(error.message) };
+  }
+  refreshAll();
+  return { saved: data as number };
+}
+
+const STEAM_KEYS = ["dryer_kg_h", "press_kg_h", "dryer_cycle_min", "dryer_valve_factor", "presses_per_item", "seconds_per_press"] as const;
+export async function saveSteamSettings(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+  const { t } = await getT();
+  const row: Record<string, number> = {};
+  for (const k of STEAM_KEYS) {
+    let v = parseNum(String(fd.get(k) ?? ""));
+    if (k === "dryer_valve_factor" && v !== null && v > 1) v = v / 100; // typed as a percentage
+    if (v === null || v <= 0 || (k === "dryer_valve_factor" && v > 1)) return { error: t.diesel.steam.errors.settings };
+    row[k] = v;
+  }
+  const { error } = await supabase.from("steam_settings").update(row).eq("id", 1);
+  if (error) return { error: await friendlyError(error.message) };
+  refreshAll();
+  return { ok: t.diesel.form.saved };
+}

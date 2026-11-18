@@ -13,12 +13,16 @@ import { DeliveriesTable, type Refuel } from "../DeliveriesTable";
 import { AddTank, BuildCalibration, CalibrationEditor, TankForm } from "../TankEditors";
 import { TankShape } from "../TankShape";
 import { TankCalculator } from "../TankCalculator";
+import { SteamPanel } from "../SteamPanel";
+import { loadSteamMonth, monthOf } from "../load";
 
 export const dynamic = "force-dynamic";
 
 /** Everything about one branch's diesel: tanks and their measurements, stock and use, every delivery, every level check. */
-export default async function BranchDieselPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BranchDieselPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ m?: string }> }) {
   const id = Number((await params).id);
+  const month = monthOf((await searchParams).m);
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
   const { supabase, profile } = await requireActive();
   if (!["admin", "supervisor"].includes(profile.role)) redirect("/");
   const { t, locale } = await getT();
@@ -36,6 +40,7 @@ export default async function BranchDieselPage({ params }: { params: Promise<{ i
     supabase.from("diesel_dips").select("tank_id, refuel_id, kind, level_cm").eq("branch_id", id).not("refuel_id", "is", null),
   ]);
   if (!branch) notFound();
+  const steam = (await loadSteamMonth(supabase, [id], month)).get(id)!;
   const name = pick(locale, branch.name_ar, branch.name_en);
   const tanks = (tankData ?? []) as Tank[];
   const active = tanks.filter((x) => x.active);
@@ -114,6 +119,8 @@ export default async function BranchDieselPage({ params }: { params: Promise<{ i
         )}
         <TankCalculator tanks={active} />
       </Panel>
+
+      <SteamPanel t={t} locale={locale} branchId={id} month={month} data={steam} isAdmin={isAdmin} today={today} />
 
       <Panel title={D.recent}>
         {refuels.length === 0 ? <EmptyNote>{D.noDeliveries}</EmptyNote>
