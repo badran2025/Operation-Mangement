@@ -14,7 +14,7 @@ import { AddTank, BuildCalibration, CalibrationEditor, TankForm } from "../TankE
 import { TankShape } from "../TankShape";
 import { TankCalculator } from "../TankCalculator";
 import { SteamPanel } from "../SteamPanel";
-import { loadSteamMonth, monthOf } from "../load";
+import { loadSteam, monthOf } from "../load";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +40,7 @@ export default async function BranchDieselPage({ params, searchParams }: { param
     supabase.from("diesel_dips").select("tank_id, refuel_id, kind, level_cm").eq("branch_id", id).not("refuel_id", "is", null),
   ]);
   if (!branch) notFound();
-  const steam = (await loadSteamMonth(supabase, [id], month)).get(id)!;
+  const steam = (await loadSteam(supabase, [id], month, 5)).get(id)!;
   const name = pick(locale, branch.name_ar, branch.name_en);
   const tanks = (tankData ?? []) as Tank[];
   const active = tanks.filter((x) => x.active);

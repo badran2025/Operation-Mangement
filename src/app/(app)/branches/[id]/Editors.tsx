@@ -179,7 +179,7 @@ export function FileEditor({ branchId, kinds, file, defaultKind }: {
 export type EquipmentRow = {
   id: number; branch_id: number; category_id: number | null; name: string; brand: string | null; model: string | null; serial_no: string | null;
   capacity: string | null; installed_on: string | null; warranty_until: string | null; status: string; notes: string | null; quantity: number; code: string;
-  steam_type: "dryer" | "press" | "other" | null; steam_kg_h: number | null; cycle_minutes: number | null;
+  steam_type: "dryer" | "press" | "other" | null; steam_kg_h: number | null; cycle_minutes: number | null; steam_count_by: "count" | "meter";
 };
 
 /** Does this machine take steam from the central (diesel) boiler, and how much? */
@@ -212,6 +212,14 @@ function SteamFields({ p, item }: { p: string; item?: EquipmentRow }) {
             <FieldLabel htmlFor={`${p}-btu`}>{S.btu}</FieldLabel>
             <NumberInput id={`${p}-btu`} value={btu} onChange={(e) => { setBtu(e.target.value); const n = Number(e.target.value); if (n > 0) setKg(String(Math.round((n / 2230) * 10) / 10)); }} />
             <span className="text-[12.5px] text-ink-muted">{S.btuHint}</span>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${p}-cb`}>{S.countBy}</FieldLabel>
+            <NativeSelect id={`${p}-cb`} name="steam_count_by" defaultValue={item?.steam_count_by ?? "count"} className="w-full">
+              <NativeSelectOption value="count">{S.countByCount[type] ?? S.countByCount.other}</NativeSelectOption>
+              <NativeSelectOption value="meter">{S.countByMeter}</NativeSelectOption>
+            </NativeSelect>
+            <span className="text-[12.5px] text-ink-muted">{S.countByHint}</span>
           </Field>
           {type === "dryer" && (
             <Field>

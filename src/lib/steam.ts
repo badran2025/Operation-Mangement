@@ -13,10 +13,25 @@ export type SteamType = "dryer" | "press" | "other";
 export type SteamSettings = {
   dryer_kg_h: number; press_kg_h: number; dryer_cycle_min: number;
   dryer_valve_factor: number; presses_per_item: number; seconds_per_press: number;
+  /** kg of steam the boiler makes from one litre of diesel */
+  steam_per_liter: number;
+  /** a steam test this much (%) above the catalogue is flagged */
+  test_alert_pct: number;
+  /** a machine is due for a new steam test after this many days */
+  test_every_days: number;
+  /** unexplained diesel rising this many points above its usual level is flagged */
+  unexplained_jump_pct: number;
 };
-export const DEFAULT_STEAM: SteamSettings = { dryer_kg_h: 60, press_kg_h: 17.5, dryer_cycle_min: 20, dryer_valve_factor: 0.68, presses_per_item: 12, seconds_per_press: 3.5 };
+export const DEFAULT_STEAM: SteamSettings = {
+  dryer_kg_h: 60, press_kg_h: 17.5, dryer_cycle_min: 20, dryer_valve_factor: 0.68, presses_per_item: 12, seconds_per_press: 3.5,
+  steam_per_liter: 11, test_alert_pct: 20, test_every_days: 90, unexplained_jump_pct: 15,
+};
 
-export type SteamMachine = { id: number; type: SteamType; units: number; kgH?: number | null; cycleMin?: number | null };
+/**
+ * units: cycles / pieces / hours counted that period.
+ * meterHours: hours the steam valve was really open (hour meter) — when given it replaces the counting assumptions.
+ */
+export type SteamMachine = { id: number; type: SteamType; units: number; kgH?: number | null; cycleMin?: number | null; meterHours?: number | null };
 export type SteamShare = {
   id: number; type: SteamType; units: number; kgH: number; steamHours: number; steamKg: number;
   pct: number; liters: number; cost: number | null; unitLiters: number | null; unitCost: number | null;
@@ -31,6 +46,7 @@ export function ratedKgH(m: Pick<SteamMachine, "type" | "kgH">, s: SteamSettings
 }
 
 export function steamHours(m: SteamMachine, s: SteamSettings): number {
+  if (m.meterHours !== null && m.meterHours !== undefined) return Math.max(Number(m.meterHours) || 0, 0);
   const u = Math.max(Number(m.units) || 0, 0);
   if (m.type === "dryer") return u * ((Number(m.cycleMin) || s.dryer_cycle_min) / 60) * s.dryer_valve_factor;
   if (m.type === "press") return u * ((s.presses_per_item * s.seconds_per_press) / 3600);
@@ -55,8 +71,12 @@ export function allocateDiesel(machines: SteamMachine[], totalLiters: number, pr
       unitCost: units > 0 && pricePerL !== null ? (liters / units) * pricePerL : null,
     };
   });
+  // the diesel the machines' steam accounts for, and what is left over
+  const expectedLiters = totalKg / s.steam_per_liter;
+  const unexplained = totalLiters - expectedLiters;
   return {
-    rows, totalKg,
+    rows, totalKg, expectedLiters, unexplained,
+    unexplainedPct: totalLiters > 0 ? (unexplained / totalLiters) * 100 : null,
     totalPct: rows.reduce((a, r) => a + r.pct, 0),
     totalLiters: rows.reduce((a, r) => a + r.liters, 0),
     totalCost: pricePerL === null ? null : rows.reduce((a, r) => a + (r.cost ?? 0), 0),
@@ -82,4 +102,16 @@ export function litersUsedBetween(dips: DipLite[], from: number, to: number): { 
     }
   }
   return { liters: Math.round(liters * 10) / 10, readings };
+}
+
+/** Sum of increases between consecutive hour-meter readings whose later reading falls in [from, to] (days, "YYYY-MM-DD"). */
+export function meterHoursBetween(readings: { day: string; meter_reading: number | null }[], from: string, toExclusive: string): number | null {
+  const list = readings.filter((r) => r.meter_reading !== null).sort((a, b) => a.day.localeCompare(b.day));
+  let h = 0, any = false;
+  for (let i = 1; i < list.length; i++) {
+    if (list[i].day < from || list[i].day >= toExclusive) continue;
+    h += Math.max(Number(list[i].meter_reading) - Number(list[i - 1].meter_reading), 0);
+    any = true;
+  }
+  return any ? Math.round(h * 100) / 100 : null;
 }

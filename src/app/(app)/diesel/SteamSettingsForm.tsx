@@ -7,7 +7,7 @@ import { NumberInput } from "@/components/NumberInput";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { saveSteamSettings } from "./actions";
 
-const KEYS = ["dryer_kg_h", "press_kg_h", "dryer_cycle_min", "dryer_valve_factor", "presses_per_item", "seconds_per_press"] as const;
+const KEYS = ["dryer_kg_h", "press_kg_h", "dryer_cycle_min", "dryer_valve_factor", "presses_per_item", "seconds_per_press", "steam_per_liter", "test_alert_pct", "test_every_days", "unexplained_jump_pct"] as const;
 
 export function SteamSettingsForm({ settings }: { settings: SteamSettings }) {
   const { t } = useI18n();

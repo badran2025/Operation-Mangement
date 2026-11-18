@@ -10,19 +10,23 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { parseNum } from "@/lib/numbers";
 import { saveSteamCounts } from "../actions";
 import type { SteamMachineRow } from "../load";
 
-type Count = { equipment_id: number; day: string; units: number };
+type Count = { equipment_id: number; day: string; units: number | null; meter_reading: number | null };
 
-export function CountsForm({ branches, branchId, day, today, machines, counts, start }: {
+export function CountsForm({ branches, branchId, day, today, machines, counts, start, prev }: {
   branches: { id: number; name: string }[]; branchId: number | null; day: string; today: string; machines: SteamMachineRow[]; counts: Count[]; start: string;
+  prev: Record<number, { day: string; reading: number } | null>;
 }) {
   const { t, locale } = useI18n();
   const S = t.diesel.steam;
   const router = useRouter();
   const go = (b: number | null, d: string) => router.push(`/diesel/counts?${b ? `branch=${b}&` : ""}date=${d}`);
-  const initial = Object.fromEntries(machines.map((m) => [m.id, String(counts.find((c) => c.equipment_id === m.id && c.day === day)?.units ?? "")]));
+  const isMeter = (m: SteamMachineRow) => m.steam_count_by === "meter";
+  const valueOf = (c: Count | undefined, m: SteamMachineRow) => (c ? (isMeter(m) ? c.meter_reading : c.units) : null);
+  const initial = Object.fromEntries(machines.map((m) => [m.id, String(valueOf(counts.find((c) => c.equipment_id === m.id && c.day === day), m) ?? "")]));
   const [vals, setVals] = useState<Record<number, string>>(initial);
   const [busy, start_] = useTransition();
   const [msg, setMsg] = useState<{ ok?: string; error?: string } | null>(null);
@@ -52,7 +56,7 @@ export function CountsForm({ branches, branchId, day, today, machines, counts, s
           e.preventDefault();
           start_(async () => {
             setMsg(null);
-            const r = await saveSteamCounts(branchId, day, machines.map((m) => ({ equipment_id: m.id, units: vals[m.id] ?? "" })));
+            const r = await saveSteamCounts(branchId, day, machines.map((m) => isMeter(m) ? { equipment_id: m.id, units: "", meter: vals[m.id] ?? "" } : { equipment_id: m.id, units: vals[m.id] ?? "" }));
             if (r.error) setMsg({ error: r.error }); else { setMsg({ ok: S.savedDay(formatDate(locale, day)) }); router.refresh(); }
           });
         }}>
@@ -62,7 +66,9 @@ export function CountsForm({ branches, branchId, day, today, machines, counts, s
               <label key={m.id} htmlFor={`sc-${m.id}`} className="flex items-center gap-3 rounded-[14px] bg-canvas p-3">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold" dir="auto"><span className="num text-ink-muted" dir="ltr">{m.code}</span> · {m.name}</span>
-                  <span className="block text-[12.5px] text-ink-muted">{S.unitLabel[m.steam_type]}</span>
+                  <span className="block text-[12.5px] text-ink-muted">{isMeter(m) ? S.meterLabel : S.unitLabel[m.steam_type]}</span>
+                  {isMeter(m) && <span className="num block text-[12px] text-ink-muted">{prev[m.id] ? S.meterPrev(new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(prev[m.id]!.reading), formatDate(locale, prev[m.id]!.day)) : S.meterFirst}</span>}
+                  {isMeter(m) && prev[m.id] && parseNum(vals[m.id]) !== null && <span className={cn("num block text-[12px] font-semibold", parseNum(vals[m.id])! < prev[m.id]!.reading ? "text-danger" : "text-primary")}>{parseNum(vals[m.id])! < prev[m.id]!.reading ? S.meterLower : S.meterHours(new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(parseNum(vals[m.id])! - prev[m.id]!.reading))}</span>}
                 </span>
                 <NumberInput id={`sc-${m.id}`} className="w-28" value={vals[m.id] ?? ""} onChange={(e) => setVals((v) => ({ ...v, [m.id]: e.target.value }))} placeholder="0" />
               </label>
@@ -95,7 +101,8 @@ export function CountsForm({ branches, branchId, day, today, machines, counts, s
                     <td className="py-1.5 pe-2"><span className="num font-medium" dir="ltr">{m.code}</span></td>
                     {days.map((d) => {
                       const c = counts.find((x) => x.equipment_id === m.id && x.day === d);
-                      return <td key={d} className={cn("num px-0.5 text-center", c ? "font-semibold" : "text-danger/70")}>{c ? new Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format(c.units) : "·"}</td>;
+                      const v = valueOf(c, m);
+                      return <td key={d} className={cn("num px-0.5 text-center", v !== null ? "font-semibold" : "text-danger/70")}>{v !== null ? new Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format(v) : "·"}</td>;
                     })}
                   </tr>
                 ))}
