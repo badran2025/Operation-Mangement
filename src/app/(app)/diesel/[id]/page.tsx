@@ -5,12 +5,14 @@ import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
 import { formatDate, timeAgo } from "@/lib/i18n/format";
-import { branchDiesel, type Dip, type Tank } from "@/lib/diesel";
+import { branchDiesel, dimsText, STRAIGHT_SIDED, type Dip, type Tank } from "@/lib/diesel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyNote, Kpi, PageHeader, Panel } from "@/components/app/blocks";
 import { DeliveriesTable, type Refuel } from "../DeliveriesTable";
 import { AddTank, BuildCalibration, CalibrationEditor, TankForm } from "../TankEditors";
+import { TankShape } from "../TankShape";
+import { TankCalculator } from "../TankCalculator";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +49,7 @@ export default async function BranchDieselPage({ params }: { params: Promise<{ i
     const b = rd.find((d) => d.kind === "before"), a = rd.find((d) => d.kind === "after");
     return b && a ? [{ id: r.id, date: r.refuel_date, from: Number(b.level_cm), to: Number(a.level_cm), liters: Number(r.liters) }] : [];
   });
-  const cmTanks = tanks.filter((x) => x.shape !== "box" && (!x.liters_known || Number(x.calibration_points) > 0));
+  const cmTanks = tanks.filter((x) => x.active && (!STRAIGHT_SIDED.includes(x.shape) || !x.liters_known || Number(x.calibration_points) > 0));
   const paths = refuels.flatMap((r) => r.diesel_refuel_files.map((f) => f.file_path));
   const signed = paths.length ? (await supabase.storage.from("diesel-files").createSignedUrls(paths, 3600)).data ?? [] : [];
   const url = new Map(signed.map((x) => [x.path, x.signedUrl]));
@@ -71,9 +73,10 @@ export default async function BranchDieselPage({ params }: { params: Promise<{ i
         {tanks.length === 0 ? <EmptyNote>{D.noTanks}</EmptyNote> : (
           <ul className="flex flex-col gap-2">
             {tanks.map((tk) => {
-              const dims = tk.shape === "horizontal_cylinder" ? `⌀${L(tk.diameter_cm)} × ${L(tk.length_cm)}` : tk.shape === "box" ? `${L(tk.length_cm)} × ${L(tk.width_cm)} × ${L(tk.height_cm)}` : `⌀${L(tk.diameter_cm)} × ${L(tk.height_cm)}`;
+              const dims = dimsText(tk, L);
               const head = (
                 <>
+                  <TankShape shape={tk.shape} labels={false} className="h-12 w-16 shrink-0" />
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold" dir="auto">{tk.label}</span>
                     <span className="block text-[13px] text-ink-muted">{D.tanks.shapes[tk.shape]} · <span className="num">{dims}</span> cm</span>
@@ -109,6 +112,7 @@ export default async function BranchDieselPage({ params }: { params: Promise<{ i
             })}
           </ul>
         )}
+        {isAdmin && <TankCalculator />}
       </Panel>
 
       <Panel title={D.recent}>

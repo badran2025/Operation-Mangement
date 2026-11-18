@@ -2,8 +2,24 @@
  * Diesel maths shared by the pages. The database (tank_liters) is the source of
  * truth for what gets saved; this mirrors it so forms can show litres while typing.
  */
+export const SHAPES = ["box", "vertical_cylinder", "horizontal_cylinder", "horizontal_oval", "vertical_oval", "horizontal_capsule", "vertical_capsule"] as const;
+export type Shape = (typeof SHAPES)[number];
+export type Dim = "length_cm" | "width_cm" | "height_cm" | "diameter_cm";
+/** The dimensions each shape needs, in the order they are asked for. */
+export const DIMS: Record<Shape, Dim[]> = {
+  box: ["length_cm", "width_cm", "height_cm"],
+  vertical_cylinder: ["diameter_cm", "height_cm"],
+  horizontal_cylinder: ["diameter_cm", "length_cm"],
+  horizontal_oval: ["width_cm", "height_cm", "length_cm"],
+  vertical_oval: ["width_cm", "height_cm", "length_cm"],
+  horizontal_capsule: ["diameter_cm", "length_cm"],
+  vertical_capsule: ["diameter_cm", "height_cm"],
+};
+/** Litres per cm is the same at every depth only for these. */
+export const STRAIGHT_SIDED: Shape[] = ["box", "vertical_cylinder"];
+
 export type Tank = {
-  id: number; branch_id: number; label: string; shape: "box" | "vertical_cylinder" | "horizontal_cylinder";
+  id: number; branch_id: number; label: string; shape: Shape;
   length_cm: number | null; width_cm: number | null; height_cm: number | null; diameter_cm: number | null;
   confirmed: boolean; notes: string | null; active: boolean; sort: number; measure_by: "liters" | "cm"; liters_known: boolean;
   capacity_l: number | null; liters_per_cm: number | null; calibration_points: number;
@@ -12,31 +28,82 @@ export type Tank = {
 export type Point = { tank_id: number; level_cm: number; liters: number };
 export type Dip = { tank_id: number; branch_id: number; read_at: string; id: number; liters: number | null; level_cm?: number; kind: "check" | "before" | "after"; refuel_id?: number | null };
 
-export const SHAPES = ["box", "vertical_cylinder", "horizontal_cylinder"] as const;
+type Dims = Pick<Tank, "shape" | Dim>;
 
+/** Dipstick reading when the tank is full. */
 export function fullCm(t: Pick<Tank, "shape" | "height_cm" | "diameter_cm">): number | null {
-  return t.shape === "horizontal_cylinder" ? t.diameter_cm : t.height_cm;
-}
-
-export function tankLiters(t: Tank, cm: number, points: Point[] = []): number | null {
-  if (!Number.isFinite(cm)) return null;
-  const pts = points.filter((p) => p.tank_id === t.id).sort((a, b) => a.level_cm - b.level_cm);
-  if (pts.length) {
-    const lo = [...pts].reverse().find((p) => p.level_cm <= cm) ?? { level_cm: 0, liters: 0 };
-    const hi = pts.find((p) => p.level_cm >= cm);
-    if (!hi) return round1(lo.liters);
-    if (hi.level_cm === lo.level_cm) return round1(hi.liters);
-    return round1(lo.liters + ((hi.liters - lo.liters) * (cm - lo.level_cm)) / (hi.level_cm - lo.level_cm));
-  }
-  const L = Number(t.length_cm), W = Number(t.width_cm), H = Number(t.height_cm), D = Number(t.diameter_cm);
-  if (t.shape === "box") return round1((clamp(cm, 0, H || cm) * L * W) / 1000);
-  if (t.shape === "vertical_cylinder") return round1((clamp(cm, 0, H || cm) * Math.PI * (D / 2) ** 2) / 1000);
-  const r = D / 2, h = clamp(cm, 0, D);
-  return round1((L * (r * r * Math.acos((r - h) / r) - (r - h) * Math.sqrt(Math.max(2 * r * h - h * h, 0)))) / 1000);
+  if (t.shape === "horizontal_cylinder" || t.shape === "horizontal_capsule") return t.diameter_cm === null ? null : Number(t.diameter_cm);
+  if (t.shape === "vertical_capsule") return t.height_cm === null || t.diameter_cm === null ? null : Number(t.height_cm) + Number(t.diameter_cm);
+  return t.height_cm === null ? null : Number(t.height_cm);
 }
 
 const clamp = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b);
 const round1 = (v: number) => Math.round(v * 10) / 10;
+/** Area (cm²) of a circle segment of height h, circle radius r. */
+const segment = (r: number, h: number) => { h = clamp(h, 0, 2 * r); return r * r * Math.acos(clamp((r - h) / r, -1, 1)) - (r - h) * Math.sqrt(Math.max(2 * r * h - h * h, 0)); };
+/** Volume (cm³) of a sphere cap of height h, sphere radius r. */
+const cap = (r: number, h: number) => { h = clamp(h, 0, 2 * r); return (Math.PI * h * h * (3 * r - h)) / 3; };
+
+/**
+ * Litres from the dimensions alone (same formulas as the CalculatorSoup tank calculator).
+ * Mirrors public.tank_geo_liters. Null when a dimension is missing.
+ */
+export function geoLiters(t: Dims, cm: number): number | null {
+  const full = fullCm(t);
+  if (full === null || !Number.isFinite(cm) || DIMS[t.shape].some((d) => !(Number(t[d]) > 0))) return null;
+  const f = clamp(cm, 0, full);
+  const L = Number(t.length_cm), W = Number(t.width_cm), H = Number(t.height_cm), D = Number(t.diameter_cm);
+  let v: number;
+  switch (t.shape) {
+    case "box": v = f * L * W; break;
+    case "vertical_cylinder": v = Math.PI * (D / 2) ** 2 * f; break;
+    case "horizontal_cylinder": v = L * segment(D / 2, f); break;
+    case "horizontal_oval": { const r = H / 2, a = Math.max(W - H, 0); v = L * (segment(r, f) + a * f); break; }
+    case "vertical_oval": {
+      const r = W / 2, a = Math.max(H - W, 0);
+      v = L * (f <= r ? segment(r, f) : f <= r + a ? (Math.PI * r * r) / 2 + W * (f - r) : Math.PI * r * r + W * a - segment(r, H - f));
+      break;
+    }
+    case "horizontal_capsule": { const r = D / 2; v = L * segment(r, f) + cap(r, f); break; }
+    case "vertical_capsule": {
+      const r = D / 2, a = H;
+      v = f <= r ? cap(r, f) : f <= r + a ? (2 * Math.PI * r ** 3) / 3 + Math.PI * r * r * (f - r) : (4 * Math.PI * r ** 3) / 3 + Math.PI * r * r * a - cap(r, full - f);
+      break;
+    }
+    default: return null;
+  }
+  return v / 1000;
+}
+
+/**
+ * Interpolate inside a calibration table. Between two points the litres follow the
+ * tank's own shape (so a lying cylinder fills slowly at the bottom and top, fast in
+ * the middle); straight lines are used only when the dimensions are unknown.
+ */
+export function interpolate(pts: { level_cm: number; liters: number }[], cm: number, geo?: (cm: number) => number | null): number | null {
+  const sorted = [...pts].sort((a, b) => a.level_cm - b.level_cm);
+  const lo = [...sorted].reverse().find((p) => p.level_cm <= cm) ?? { level_cm: 0, liters: 0 };
+  const hi = sorted.find((p) => p.level_cm >= cm);
+  const g = geo?.(cm) ?? null, glo = geo?.(lo.level_cm) ?? null;
+  if (!hi) return g === null || glo === null ? lo.liters : lo.liters + (g - glo) * (glo > 0 ? lo.liters / glo : 1);
+  if (hi.level_cm === lo.level_cm) return hi.liters;
+  const ghi = geo?.(hi.level_cm) ?? null;
+  if (g !== null && glo !== null && ghi !== null && ghi - glo > 0) return lo.liters + ((hi.liters - lo.liters) * (g - glo)) / (ghi - glo);
+  return lo.liters + ((hi.liters - lo.liters) * (cm - lo.level_cm)) / (hi.level_cm - lo.level_cm);
+}
+
+/** Litres at a dipstick reading. Mirrors public.tank_liters. */
+export function tankLiters(t: Tank, cm: number, points: Point[] = []): number | null {
+  if (!Number.isFinite(cm)) return null;
+  const pts = points.filter((p) => p.tank_id === t.id).map((p) => ({ level_cm: Number(p.level_cm), liters: Number(p.liters) }));
+  const v = pts.length ? interpolate(pts, cm, (c) => geoLiters(t, c)) : geoLiters(t, cm);
+  return v === null ? null : round1(v);
+}
+
+/** "⌀100 × 200" style text of a tank's dimensions in cm. */
+export function dimsText(t: Dims, f: (v: number | null) => string): string {
+  return DIMS[t.shape].map((d) => (d === "diameter_cm" ? `⌀${f(t[d])}` : f(t[d]))).join(" × ");
+}
 
 /**
  * Average litres used per day over the last `days`, per branch.
@@ -109,18 +176,14 @@ export function branchDiesel(tanks: Tank[], dips: Dip[], refuels: RefuelLite[], 
  * as long as its "before" falls inside the part of the tank already known.
  */
 export type Segment = { date: string; from_cm: number; to_cm: number; liters: number };
-export function calibrationFromDeliveries(segments: Segment[]): { level_cm: number; liters: number }[] {
+export function calibrationFromDeliveries(segments: Segment[], geo?: (cm: number) => number | null): { level_cm: number; liters: number }[] {
   const pts: { level_cm: number; liters: number }[] = [];
   const sorted = [...segments].sort((a, b) => a.date.localeCompare(b.date));
   const start = sorted.findIndex((s) => s.from_cm === 0);
   if (start < 0) return [];
   pts.push({ level_cm: 0, liters: 0 });
-  const at = (cm: number) => {
-    const lo = [...pts].reverse().find((p) => p.level_cm <= cm)!;
-    const hi = pts.find((p) => p.level_cm >= cm);
-    if (!hi) return null;
-    return hi.level_cm === lo.level_cm ? lo.liters : lo.liters + ((hi.liters - lo.liters) * (cm - lo.level_cm)) / (hi.level_cm - lo.level_cm);
-  };
+  // only inside the part already known; between points follow the tank's shape
+  const at = (cm: number) => (cm > pts[pts.length - 1].level_cm ? null : interpolate(pts, cm, geo));
   for (const s of sorted.slice(start)) {
     const max = pts[pts.length - 1].level_cm;
     if (s.to_cm <= max) continue;
