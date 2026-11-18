@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FuelIcon } from "lucide-react";
+import { CylinderIcon, FuelIcon } from "lucide-react";
+import { TankShape } from "./TankShape";
 import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
@@ -74,68 +75,75 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
         <Kpi label={D.kpi.deliveries} value={n(month.length)} />
       </section>
 
-      <Panel>
-        <div className="-mx-4 overflow-x-auto md:-mx-5">
-          <table className="w-full min-w-[1040px] text-sm">
-            <thead>
-              <tr className="text-[12.5px] text-ink-muted">
-                {[D.table.branch, D.table.stock, D.table.weekly, D.table.monthly, D.table.lastDelivery, D.table.next, D.table.month, D.table.avgPrice, D.table.shortage].map((h, i) => (
-                  <th key={h} className={cn("h-10 px-2.5 text-start font-semibold", i === 0 && "ps-4 md:ps-5")}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {withTanks.map(({ b, st, mLitres, mCost, mPrice, mShort, mCount }) => {
-                const pct = st.stockNow !== null && st.cap ? Math.round((st.stockNow / st.cap) * 100) : null;
-                const nextIn = st.next !== null ? Math.round((st.next - now) / dayMs) : null;
-                return (
-                  <tr key={b.id} className="border-t border-hairline align-top">
-                    <td className="py-3 ps-4 pe-3 md:ps-5">
-                      <Link href={`/diesel/${b.id}`} className="font-semibold text-primary hover:underline">{bName.get(b.id)}</Link>
-                      <span className="block text-[12.5px] text-ink-muted">
-                        {st.active.length > 1 && <>{D.tanksN(n(st.active.length))} · </>}{st.cap && st.active.some((x) => x.liters_known) ? <span className="num">{L(st.cap)} L</span> : null}
-                        {st.active.some((x) => !x.liters_known) && <span className="block text-warning">{D.cmOnly}</span>}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3">
-                      {st.stockNow !== null ? (
-                        <div className="flex min-w-[140px] flex-col gap-1" title={D.estimate}>
-                          <span className="num font-semibold">≈ {L(st.stockNow)} L <span className="font-normal text-ink-muted">({pct}%)</span></span>
-                          <span className="h-1.5 overflow-hidden rounded-full bg-surface-sunken"><span className={cn("block h-full rounded-full", (pct ?? 0) < 25 ? "bg-danger" : (pct ?? 0) < 50 ? "bg-warning" : "bg-success")} style={{ width: `${Math.min(pct ?? 0, 100)}%` }} /></span>
-                          {st.lastAt && <span className="text-[12px] text-ink-muted">{D.readAgo(timeAgo(t, new Date(st.lastAt).toISOString()))}</span>}
-                        </div>
-                      ) : st.cmOnly.some((c) => c.lastCm !== null) ? (
-                        <span className="text-[13px]">{st.cmOnly.map((c) => <span key={c.tank.id} className="block">{D.lastCm(L(c.lastCm))}</span>)}</span>
-                      ) : <span className="text-ink-muted">{D.noReading}</span>}
-                    </td>
-                    <td className="num px-3 py-3 font-semibold">{st.weekly ? `${L(st.weekly)} L` : "—"}</td>
-                    <td className="num px-3 py-3 font-semibold">{st.monthly ? `${L(st.monthly)} L` : "—"}</td>
-                    <td className="px-3 py-3">{st.last ? <><span className="num block">{formatDate(locale, st.last.refuel_date)}</span><span className="num text-[12.5px] text-ink-muted">{L(st.last.liters)} L</span></> : "—"}</td>
-                    <td className="px-3 py-3">
-                      {st.next !== null && nextIn !== null ? (
-                        <>
-                          <span className="num block">{formatDate(locale, new Date(st.next).toISOString())}</span>
-                          <span className={cn("text-[12.5px] font-semibold", nextIn < 0 ? "text-danger" : nextIn <= 2 ? "text-warning" : "text-ink-muted")}>
-                            {nextIn < 0 ? D.overdueBy(n(-nextIn)) : nextIn === 0 ? D.today : D.inDays(n(nextIn))}
-                          </span>
-                        </>
-                      ) : "—"}
-                    </td>
-                    <td className="px-3 py-3">{mCount ? <><span className="num block">{L(mLitres)} L</span>{mCost ? <span className="num text-[12.5px] text-ink-muted">{L(Math.round(mCost))} SAR</span> : null}</> : "—"}</td>
-                    <td className="num px-3 py-3">{price(mPrice)}</td>
-                    <td className="px-3 py-3">{mShort ? <Badge variant="danger">{D.shortageL(L(mShort))}</Badge> : <span className="text-ink-muted">—</span>}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {withoutTanks.length > 0 && (
-          <p className="mt-4 text-[13px] text-ink-muted">
-            {D.noTanks}: {withoutTanks.map((r) => <Link key={r.b.id} href={`/diesel/${r.b.id}`} className="me-2 hover:text-primary hover:underline">{bName.get(r.b.id)}</Link>)}
-          </p>
-        )}
-      </Panel>
+      <section aria-label={D.table.branch} className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {withTanks.map(({ b, st, mLitres, mCost, mPrice, mShort, mCount }) => {
+          const pct = st.stockNow !== null && st.cap ? Math.round((st.stockNow / st.cap) * 100) : null;
+          const nextIn = st.next !== null ? Math.round((st.next - now) / dayMs) : null;
+          const stat = (label: string, value: React.ReactNode, sub?: React.ReactNode) => (
+            <div className="min-w-0 rounded-xl bg-canvas px-2.5 py-2">
+              <dt className="text-[12px] leading-4 text-ink-muted">{label}</dt>
+              <dd className="num m-0 truncate text-[14px] font-semibold">{value}</dd>
+              {sub ? <dd className="num m-0 truncate text-[12px] text-ink-muted">{sub}</dd> : null}
+            </div>
+          );
+          return (
+            <article key={b.id} className="flex flex-col gap-3 rounded-2xl border border-hairline bg-surface p-4 shadow-[0_1px_2px_rgba(27,34,53,0.04)]">
+              <header className="flex items-center gap-3">
+                <Link href={`/diesel/${b.id}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl hover:text-primary">
+                  <span className="flex shrink-0 -space-x-3 rtl:space-x-reverse">
+                    {st.active.slice(0, 2).map((x) => <TankShape key={x.id} shape={x.shape} className="h-11 w-14 rounded-lg bg-canvas" />)}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[16px] font-semibold">{bName.get(b.id)}</span>
+                    <span className="block text-[12.5px] text-ink-muted">
+                      {D.tanksN(n(st.active.length))}{st.cap ? <> · <span className="num">{L(st.cap)} L</span></> : null}
+                    </span>
+                  </span>
+                </Link>
+                {nextIn !== null && nextIn <= 2 && <Badge variant={nextIn < 0 ? "danger" : "warning"}>{nextIn < 0 ? D.overdueBy(n(-nextIn)) : nextIn === 0 ? D.today : D.inDays(n(nextIn))}</Badge>}
+              </header>
+
+              <div title={D.estimate}>
+                {st.stockNow !== null ? (
+                  <>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[12.5px] text-ink-muted">{D.table.stock}</span>
+                      <span className="num text-[20px] font-semibold">≈ {L(st.stockNow)} L <span className="text-sm font-normal text-ink-muted">({pct}%)</span></span>
+                    </div>
+                    <span className="mt-1.5 block h-2 overflow-hidden rounded-full bg-surface-sunken"><span className={cn("block h-full rounded-full", (pct ?? 0) < 25 ? "bg-danger" : (pct ?? 0) < 50 ? "bg-warning" : "bg-success")} style={{ width: `${Math.min(pct ?? 0, 100)}%` }} /></span>
+                    {st.lastAt && <span className="mt-1 block text-[12px] text-ink-muted">{D.readAgo(timeAgo(t, new Date(st.lastAt).toISOString()))}</span>}
+                  </>
+                ) : st.cmOnly.some((c) => c.lastCm !== null) ? (
+                  <span className="text-[13px]">{st.cmOnly.map((c) => <span key={c.tank.id} className="block">{D.lastCm(L(c.lastCm))}</span>)}</span>
+                ) : <span className="text-[13px] text-ink-muted">{D.table.stock}: {D.noReading}</span>}
+              </div>
+
+              <dl className="m-0 grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-2 2xl:grid-cols-3">
+                {stat(D.table.weekly, st.weekly ? `${L(st.weekly)} L` : "—")}
+                {stat(D.table.monthly, st.monthly ? `${L(st.monthly)} L` : "—")}
+                {stat(D.table.avgPrice, price(mPrice))}
+                {stat(D.table.lastDelivery, st.last ? formatDate(locale, st.last.refuel_date) : "—", st.last ? `${L(st.last.liters)} L` : null)}
+                {stat(D.table.next, st.next !== null ? formatDate(locale, new Date(st.next).toISOString()) : "—")}
+                {stat(D.table.month, mCount ? `${L(mLitres)} L` : "—", mCost ? `${L(Math.round(mCost))} SAR` : null)}
+              </dl>
+              {mShort ? <Badge variant="danger" className="self-start">{D.table.shortage}: {D.shortageL(L(mShort))}</Badge> : null}
+
+              <footer className="mt-auto flex flex-wrap gap-2 border-t border-hairline pt-3">
+                <Button size="sm" render={<Link href={`/diesel/refuel?branch=${b.id}`} />} nativeButton={false}><FuelIcon data-icon="inline-start" />{D.recordRefuel}</Button>
+                <Button size="sm" variant="outline" render={<Link href={`/diesel/${b.id}`} />} nativeButton={false}><CylinderIcon data-icon="inline-start" />{D.card.open}</Button>
+              </footer>
+            </article>
+          );
+        })}
+      </section>
+      {withoutTanks.length > 0 && (
+        <Panel title={D.card.noTanksTitle}>
+          <p className="-mt-1 mb-3 text-sm text-ink-muted">{D.card.noTanksHint}</p>
+          <div className="flex flex-wrap gap-2">
+            {withoutTanks.map((r) => <Button key={r.b.id} size="sm" variant="outline" render={<Link href={`/diesel/${r.b.id}`} />} nativeButton={false}>{bName.get(r.b.id)}</Button>)}
+          </div>
+        </Panel>
+      )}
 
       <Panel title={D.recent}>
         {refuels.length === 0 ? <EmptyNote>{D.noDeliveries}</EmptyNote> : (

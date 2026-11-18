@@ -76,7 +76,7 @@ export default async function BranchDieselPage({ params }: { params: Promise<{ i
               const dims = dimsText(tk, L);
               const head = (
                 <>
-                  <TankShape shape={tk.shape} labels={false} className="h-12 w-16 shrink-0" />
+                  <TankShape shape={tk.shape} className="h-12 w-16 shrink-0" />
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold" dir="auto">{tk.label}</span>
                     <span className="block text-[13px] text-ink-muted">{D.tanks.shapes[tk.shape]} · <span className="num">{dims}</span> cm</span>
@@ -112,7 +112,7 @@ export default async function BranchDieselPage({ params }: { params: Promise<{ i
             })}
           </ul>
         )}
-        {isAdmin && <TankCalculator />}
+        <TankCalculator tanks={active} />
       </Panel>
 
       <Panel title={D.recent}>

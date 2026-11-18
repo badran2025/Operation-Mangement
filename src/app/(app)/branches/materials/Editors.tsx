@@ -8,6 +8,7 @@ import { MATERIAL_CATEGORIES } from "@/lib/branch";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/NumberInput";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -136,8 +137,8 @@ export function BranchMaterialEditor({ branchId, materialId, min, max, notes }: 
       onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); start(async () => {
         setError(null); const r = await saveBranchMaterial(branchId, materialId, String(fd.get("min") ?? ""), String(fd.get("max") ?? ""), String(fd.get("notes") ?? ""));
         if (r.error) setError(r.error); else router.refresh(); }); }}>
-      <Field><FieldLabel htmlFor={`${p}-mi`}>{M.min}</FieldLabel><Input id={`${p}-mi`} name="min" type="number" min={0} step="any" inputMode="decimal" defaultValue={min ?? ""} /></Field>
-      <Field><FieldLabel htmlFor={`${p}-ma`}>{M.max}</FieldLabel><Input id={`${p}-ma`} name="max" type="number" min={0} step="any" inputMode="decimal" defaultValue={max ?? ""} /></Field>
+      <Field><FieldLabel htmlFor={`${p}-mi`}>{M.min}</FieldLabel><NumberInput id={`${p}-mi`} name="min" min={0} step="any" defaultValue={min ?? ""} /></Field>
+      <Field><FieldLabel htmlFor={`${p}-ma`}>{M.max}</FieldLabel><NumberInput id={`${p}-ma`} name="max" min={0} step="any" defaultValue={max ?? ""} /></Field>
       <Field className="col-span-2 sm:col-span-1"><FieldLabel htmlFor={`${p}-no`}>{M.notes}</FieldLabel><Input id={`${p}-no`} name="notes" defaultValue={notes ?? ""} dir="auto" /></Field>
       <div className="col-span-2 flex gap-2 sm:col-span-1">
         <Button type="submit" variant="outline" disabled={busy}>{busy && <Spinner data-icon="inline-start" />}{t.common.save}</Button>
@@ -170,8 +171,8 @@ export function AddBranchMaterial({ branchId, options }: { branchId: number; opt
           {options.map((o) => <NativeSelectOption key={o.id} value={o.id}>{o.name}</NativeSelectOption>)}
         </NativeSelect>
       </Field>
-      <Field><FieldLabel htmlFor="abm-mi">{M.min}</FieldLabel><Input id="abm-mi" name="min" type="number" min={0} step="any" inputMode="decimal" /></Field>
-      <Field><FieldLabel htmlFor="abm-ma">{M.max}</FieldLabel><Input id="abm-ma" name="max" type="number" min={0} step="any" inputMode="decimal" /></Field>
+      <Field><FieldLabel htmlFor="abm-mi">{M.min}</FieldLabel><NumberInput id="abm-mi" name="min" min={0} step="any" /></Field>
+      <Field><FieldLabel htmlFor="abm-ma">{M.max}</FieldLabel><NumberInput id="abm-ma" name="max" min={0} step="any" /></Field>
       <Button type="submit" className="col-span-2 sm:col-span-1" disabled={busy || !pick}>{busy && <Spinner data-icon="inline-start" />}{M.assign}</Button>
       {error && <p role="alert" className="col-span-full text-sm font-semibold text-danger">{error}</p>}
     </form>

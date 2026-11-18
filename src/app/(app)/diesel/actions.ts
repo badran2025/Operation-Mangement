@@ -1,4 +1,5 @@
 "use server";
+import { parseNum } from "@/lib/numbers";
 import { revalidatePath } from "next/cache";
 import { requireActive, requireAdmin } from "@/lib/auth";
 import type { ActionState } from "@/components/ActionForm";
@@ -7,7 +8,7 @@ import { DIMS, SHAPES, calibrationFromDeliveries, geoLiters, type Dim, type Shap
 import { friendlyError } from "@/lib/server-errors";
 
 const refreshAll = () => revalidatePath("/", "layout");
-const num = (v: string | null | undefined) => (v === null || v === undefined || String(v).trim() === "" ? null : Number(v));
+const num = (v: string | null | undefined) => parseNum(v);
 
 async function dieselError(message: string) {
   const { t } = await getT();

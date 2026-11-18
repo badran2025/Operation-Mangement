@@ -1,4 +1,5 @@
 "use server";
+import { latinDigits, parseNum } from "@/lib/numbers";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
@@ -7,7 +8,7 @@ import { friendlyError } from "@/lib/server-errors";
 const CATS = ["chemicals", "packaging", "consumables", "tools", "other"];
 const TEXT_KEYS = ["materials_how_to_order", "materials_policy"] as const;
 const refreshAll = () => revalidatePath("/", "layout");
-const num = (v: string) => (v.trim() === "" ? null : Number(v));
+const num = (v: string) => (latinDigits(v).trim() === "" ? null : Number(latinDigits(v)));
 
 export async function saveMaterial(input: {
   id?: number | null; name: string; category: string; unit: string; odooRef: string; notes: string; active: boolean;

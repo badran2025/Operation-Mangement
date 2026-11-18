@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/NumberInput";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -208,7 +209,7 @@ export function EquipmentEditor({ item, branchId, branches, categories, onDone }
       <Field><FieldLabel htmlFor={`${p}-br`}>{E.brand}</FieldLabel><Input id={`${p}-br`} name="brand" defaultValue={item?.brand ?? ""} dir="auto" /></Field>
       <Field><FieldLabel htmlFor={`${p}-mo`}>{E.model}</FieldLabel><Input id={`${p}-mo`} name="model" defaultValue={item?.model ?? ""} dir="auto" /></Field>
       <Field><FieldLabel htmlFor={`${p}-sn`}>{E.serial}</FieldLabel><Input id={`${p}-sn`} name="serial_no" defaultValue={item?.serial_no ?? ""} dir="ltr" /></Field>
-      <Field><FieldLabel htmlFor={`${p}-q`}>{E.quantity}</FieldLabel><Input id={`${p}-q`} name="quantity" type="number" min={1} step={1} inputMode="numeric" defaultValue={item?.quantity ?? 1} /></Field>
+      <Field><FieldLabel htmlFor={`${p}-q`}>{E.quantity}</FieldLabel><NumberInput id={`${p}-q`} name="quantity" min={1} step={1} defaultValue={item?.quantity ?? 1} /></Field>
       <Field><FieldLabel htmlFor={`${p}-cap`}>{E.capacity}</FieldLabel><Input id={`${p}-cap`} name="capacity" defaultValue={item?.capacity ?? ""} dir="auto" /></Field>
       <Field><FieldLabel htmlFor={`${p}-in`}>{E.installed}</FieldLabel><Input id={`${p}-in`} name="installed_on" type="date" defaultValue={item?.installed_on ?? ""} /></Field>
       <Field><FieldLabel htmlFor={`${p}-wa`}>{E.warranty}</FieldLabel><Input id={`${p}-wa`} name="warranty_until" type="date" defaultValue={item?.warranty_until ?? ""} /></Field>

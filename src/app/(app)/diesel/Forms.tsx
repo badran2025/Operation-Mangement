@@ -3,11 +3,13 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/client";
 import { removeUploaded, uploadFile } from "@/lib/upload";
+import { parseNum } from "@/lib/numbers";
 import { fullCm, tankLiters, type Point, type Tank } from "@/lib/diesel";
 import { FilePicker } from "@/components/FilePicker";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/NumberInput";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,11 +36,11 @@ function CmInput({ id, label, value, onChange, tank, points }: { id: string; lab
   const { t } = useI18n();
   const max = fullCm(tank);
   // cm-measured tanks show centimetres only: their litres are not known yet
-  const l = value.trim() === "" || !tank.liters_known ? null : tankLiters(tank, Number(value), points);
+  const l = value.trim() === "" || !tank.liters_known ? null : tankLiters(tank, parseNum(value) ?? NaN, points);
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input id={id} type="number" inputMode="decimal" min={0} max={max ?? undefined} step="0.1" value={value} onChange={(e) => onChange(e.target.value)} required />
+      <NumberInput id={id} value={value} onChange={(e) => onChange(e.target.value)} required />
       <span className="num text-[13px] font-semibold text-primary">{l === null ? (max ? t.diesel.form.maxCm(fmt(max)) : " ") : t.diesel.form.liters(fmt(l))}</span>
     </Field>
   );
@@ -61,7 +63,7 @@ export function RefuelForm({ branches, tanks, points, defaultBranch }: { branche
   const [error, setError] = useState<string | null>(null);
 
   const [total, setTotal] = useState("");
-  const sumOf = (k: "b" | "a") => mine.reduce((s, tk) => s + (read[tk.id]?.[k] ? tankLiters(tk, Number(read[tk.id][k]), points) ?? 0 : 0), 0);
+  const sumOf = (k: "b" | "a") => mine.reduce((s, tk) => s + (read[tk.id]?.[k] ? tankLiters(tk, parseNum(read[tk.id][k]) ?? NaN, points) ?? 0 : 0), 0);
   const complete = mine.length > 0 && mine.every((tk) => read[tk.id]?.b && read[tk.id]?.a);
   const allLitres = mine.every((tk) => tk.liters_known);
   const cmTanks = mine.filter((tk) => !tk.liters_known);
@@ -135,10 +137,10 @@ export function RefuelForm({ branches, tanks, points, defaultBranch }: { branche
           <div><dt className="text-[12.5px] text-ink-muted">{F.afterL}</dt><dd className="num m-0 text-[20px] font-semibold">{fmt(after)} L</dd></div>
         </dl>
       )}
-      <Field><FieldLabel htmlFor="dz-ord">{F.ordered} *</FieldLabel><Input id="dz-ord" type="number" inputMode="decimal" min={1} step="0.1" required value={ordered} onChange={(e) => setOrdered(e.target.value)} /></Field>
+      <Field><FieldLabel htmlFor="dz-ord">{F.ordered} *</FieldLabel><NumberInput id="dz-ord" required value={ordered} onChange={(e) => setOrdered(e.target.value)} /></Field>
       <Field>
         <FieldLabel htmlFor="dz-total">{F.price}</FieldLabel>
-        <Input id="dz-total" type="number" inputMode="decimal" min={0} step="0.01" value={total} onChange={(e) => setTotal(e.target.value)} />
+        <NumberInput id="dz-total" value={total} onChange={(e) => setTotal(e.target.value)} />
         {perL !== null && <span className="num text-[13px] font-semibold text-primary">{F.pricePerL(new Intl.NumberFormat("en", { maximumFractionDigits: 3 }).format(perL))}</span>}
       </Field>
       {diff !== null && (
