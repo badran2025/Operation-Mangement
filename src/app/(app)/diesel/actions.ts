@@ -12,6 +12,7 @@ async function dieselError(message: string) {
   const { t } = await getT();
   const E = t.diesel.errors;
   const m = message.toLowerCase();
+  if (m.includes("diesel bad total")) return E.badTotal;
   if (m.includes("diesel bad date")) return E.badDate;
   if (m.includes("diesel ordered required")) return E.ordered;
   if (m.includes("diesel readings required")) return E.readings;
@@ -22,7 +23,7 @@ async function dieselError(message: string) {
 }
 
 export async function recordRefuel(input: {
-  branchId: number; date: string; ordered: string; supplier: string; price: string; invoice: string; notes: string;
+  branchId: number; date: string; invoiceLiters: string; supplier: string; total: string; invoice: string; notes: string;
   dips: { tank_id: number; before_cm: string; after_cm: string }[];
 }): Promise<{ id?: number; error?: string }> {
   const { supabase } = await requireActive();
@@ -30,8 +31,8 @@ export async function recordRefuel(input: {
   const dips = input.dips.map((d) => ({ tank_id: d.tank_id, before_cm: num(d.before_cm), after_cm: num(d.after_cm) }));
   if (dips.some((d) => d.before_cm === null || d.after_cm === null)) return { error: t.diesel.errors.readings };
   const { data, error } = await supabase.rpc("record_diesel_refuel", {
-    p_branch_id: input.branchId, p_date: input.date, p_ordered: num(input.ordered) as number, p_dips: dips,
-    p_supplier: input.supplier, p_price: num(input.price) as number, p_invoice: input.invoice, p_notes: input.notes,
+    p_branch_id: input.branchId, p_date: input.date, p_invoice_liters: num(input.invoiceLiters) as number, p_dips: dips,
+    p_supplier: input.supplier, p_total: num(input.total) as number, p_invoice: input.invoice, p_notes: input.notes,
   });
   if (error) return { error: await dieselError(error.message) };
   refreshAll();

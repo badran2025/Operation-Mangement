@@ -57,21 +57,20 @@ export function RefuelForm({ branches, tanks, points, defaultBranch }: { branche
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const received = mine.reduce((s, tk) => {
-    const r = read[tk.id];
-    if (!r || r.b === "" || r.a === "") return s;
-    return s + ((tankLiters(tk, Number(r.a), points) ?? 0) - (tankLiters(tk, Number(r.b), points) ?? 0));
-  }, 0);
+  const [total, setTotal] = useState("");
+  const sumOf = (k: "b" | "a") => mine.reduce((s, tk) => s + (read[tk.id]?.[k] ? tankLiters(tk, Number(read[tk.id][k]), points) ?? 0 : 0), 0);
   const complete = mine.length > 0 && mine.every((tk) => read[tk.id]?.b && read[tk.id]?.a);
+  const before = sumOf("b"), after = sumOf("a"), received = after - before;
   const diff = complete && ordered ? Math.round((received - Number(ordered)) * 10) / 10 : null;
+  const perL = ordered && total && Number(ordered) > 0 ? Number(total) / Number(ordered) : null;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     setBusy(true); setError(null);
     const res = await recordRefuel({
-      branchId: Number(branch), date: String(fd.get("date") ?? ""), ordered, supplier: String(fd.get("supplier") ?? ""),
-      price: String(fd.get("price") ?? ""), invoice: String(fd.get("invoice") ?? ""), notes: String(fd.get("notes") ?? ""),
+      branchId: Number(branch), date: String(fd.get("date") ?? ""), invoiceLiters: ordered, supplier: String(fd.get("supplier") ?? ""),
+      total, invoice: String(fd.get("invoice") ?? ""), notes: String(fd.get("notes") ?? ""),
       dips: mine.map((tk) => ({ tank_id: tk.id, before_cm: read[tk.id]?.b ?? "", after_cm: read[tk.id]?.a ?? "" })),
     });
     if (res.error || !res.id) { setBusy(false); setError(res.error ?? ""); return; }
@@ -109,21 +108,26 @@ export function RefuelForm({ branches, tanks, points, defaultBranch }: { branche
         </div>
       )}
 
+      {complete && (
+        <dl className="grid grid-cols-3 gap-2 rounded-[14px] bg-surface-tint p-3.5 text-center sm:col-span-2" aria-live="polite">
+          <div><dt className="text-[12.5px] text-ink-muted">{F.beforeL}</dt><dd className="num m-0 text-[20px] font-semibold">{fmt(before)} L</dd></div>
+          <div><dt className="text-[12.5px] text-ink-muted">{F.filledL}</dt><dd className="num m-0 text-[20px] font-semibold text-primary">+{fmt(received)} L</dd></div>
+          <div><dt className="text-[12.5px] text-ink-muted">{F.afterL}</dt><dd className="num m-0 text-[20px] font-semibold">{fmt(after)} L</dd></div>
+        </dl>
+      )}
       <Field><FieldLabel htmlFor="dz-ord">{F.ordered} *</FieldLabel><Input id="dz-ord" type="number" inputMode="decimal" min={1} step="0.1" required value={ordered} onChange={(e) => setOrdered(e.target.value)} /></Field>
-      <div className="flex flex-col justify-end gap-1 rounded-[14px] bg-surface-tint px-4 py-3" aria-live="polite">
-        <span className="text-[13px] text-ink-muted">{F.received}</span>
-        <span className="num text-[22px] font-semibold">{complete ? `${fmt(received)} L` : "—"}</span>
-        {diff !== null && (
-          <span className={cn("text-sm font-semibold", diff < 0 ? "text-danger" : "text-success")}>
-            {diff < 0 ? F.short(fmt(-diff)) : diff > 0 ? F.extra(fmt(diff)) : F.exact}
-          </span>
-        )}
-      </div>
+      <Field>
+        <FieldLabel htmlFor="dz-total">{F.price}</FieldLabel>
+        <Input id="dz-total" type="number" inputMode="decimal" min={0} step="0.01" value={total} onChange={(e) => setTotal(e.target.value)} />
+        {perL !== null && <span className="num text-[13px] font-semibold text-primary">{F.pricePerL(new Intl.NumberFormat("en", { maximumFractionDigits: 3 }).format(perL))}</span>}
+      </Field>
+      {diff !== null && (
+        <p className={cn("rounded-[14px] px-4 py-3 text-sm font-semibold sm:col-span-2", diff < 0 ? "bg-danger-soft text-danger" : "bg-success-soft text-success")} aria-live="polite">
+          {F.difference}: {diff < 0 ? F.short(fmt(-diff)) : diff > 0 ? F.extra(fmt(diff)) : F.exact}
+        </p>
+      )}
       <Field><FieldLabel htmlFor="dz-sup">{F.supplier}</FieldLabel><Input id="dz-sup" name="supplier" dir="auto" /></Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field><FieldLabel htmlFor="dz-price">{F.price}</FieldLabel><Input id="dz-price" name="price" type="number" inputMode="decimal" min={0} step="0.01" /></Field>
-        <Field><FieldLabel htmlFor="dz-inv">{F.invoice}</FieldLabel><Input id="dz-inv" name="invoice" dir="ltr" /></Field>
-      </div>
+      <Field><FieldLabel htmlFor="dz-inv">{F.invoice}</FieldLabel><Input id="dz-inv" name="invoice" dir="ltr" /></Field>
       <Field className="sm:col-span-2"><FieldLabel htmlFor="dz-notes">{F.notes}</FieldLabel><Textarea id="dz-notes" name="notes" rows={2} dir="auto" /></Field>
       <div className="flex flex-col gap-1.5 sm:col-span-2"><span className="text-sm font-medium">{F.photos}</span><FilePicker files={files} onChange={setFiles} /></div>
       {error && <p role="alert" className="text-sm font-semibold text-danger sm:col-span-2">{error}</p>}

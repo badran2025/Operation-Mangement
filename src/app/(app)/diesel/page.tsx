@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FuelIcon, GaugeIcon, ImageIcon } from "lucide-react";
+import { FuelIcon, GaugeIcon } from "lucide-react";
 import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
@@ -10,15 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyNote, Kpi, PageHeader, Panel } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
-import { DeleteRefuel } from "./DeleteRefuel";
+import { DeliveriesTable, type Refuel } from "./DeliveriesTable";
 
 export const dynamic = "force-dynamic";
-
-type Refuel = {
-  id: number; branch_id: number; refuel_date: string; liters: number; received_liters: number | null; shortage_liters: number | null;
-  supplier: string | null; price_per_liter: number | null; invoice_no: string | null; notes: string | null;
-  profiles: { full_name: string } | null; diesel_refuel_files: { file_path: string }[];
-};
 
 export default async function DieselPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
   const { supabase, profile } = await requireActive();
@@ -43,7 +37,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
   const use = dailyUse((dipData ?? []) as Dip[]);
   const bName = new Map((branches ?? []).map((b) => [b.id, pick(locale, b.name_ar, b.name_en)]));
   const month = refuels.filter((r) => r.refuel_date >= monthStart);
-  const cost = month.reduce((s, r) => s + (r.price_per_liter ? Number(r.liters) * Number(r.price_per_liter) : 0), 0);
+  const cost = month.reduce((s, r) => s + Number(r.total_amount ?? 0), 0);
   const shortage = month.reduce((s, r) => s + Number(r.shortage_liters ?? 0), 0);
 
   const rows = (branches ?? []).map((b) => {
@@ -81,7 +75,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
 
       <Panel>
         <div className="-mx-4 overflow-x-auto md:-mx-5">
-          <table className="w-full min-w-[860px] text-sm">
+          <table className="w-full min-w-[1000px] text-sm">
             <thead>
               <tr className="text-start text-[12.5px] text-ink-muted">
                 {[D.table.branch, D.table.tanks, D.table.stock, D.table.use, D.table.daysLeft, D.table.lastDelivery, D.table.shortage].map((h, i) => (
@@ -94,8 +88,15 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
                 const pct = r.stock !== null && r.cap ? Math.round((r.stock / r.cap) * 100) : null;
                 return (
                   <tr key={r.b.id} className="border-t border-hairline">
-                    <td className="py-3 ps-4 pe-3 md:ps-5"><Link href={`/branches/${r.b.id}?s=diesel`} className="font-semibold text-primary hover:underline">{bName.get(r.b.id)}</Link></td>
-                    <td className="px-3 text-ink-muted"><span className="num">{n(r.mine.length)}</span> · <span className="num">{L(r.cap)} L</span></td>
+                    <td className="py-3 ps-4 pe-3 md:ps-5"><Link href={`/diesel/${r.b.id}`} className="font-semibold text-primary hover:underline">{bName.get(r.b.id)}</Link></td>
+                    <td className="px-3 text-[13px]">
+                      {r.mine.map((x) => (
+                        <span key={x.id} className="block whitespace-nowrap">
+                          <span className="font-medium" dir="auto">{x.label}</span>
+                          <span className="text-ink-muted"> · {D.tanks.shapes[x.shape]} · <span className="num">{L(x.capacity_l)} L</span>{x.liters_per_cm ? <> · <span className="num">{L(x.liters_per_cm)}</span> {D.tanks.perCm}</> : null}</span>
+                        </span>
+                      ))}
+                    </td>
                     <td className="px-3">
                       {r.stock === null ? <span className="text-ink-muted">{D.noReading}</span> : (
                         <div className="flex min-w-[150px] flex-col gap-1">
@@ -117,51 +118,14 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
         </div>
         {withoutTanks.length > 0 && (
           <p className="mt-4 text-[13px] text-ink-muted">
-            {D.noTanks}: {withoutTanks.map((r) => <Link key={r.b.id} href={`/branches/${r.b.id}?s=diesel`} className="me-2 hover:text-primary hover:underline">{bName.get(r.b.id)}</Link>)}
+            {D.noTanks}: {withoutTanks.map((r) => <Link key={r.b.id} href={`/diesel/${r.b.id}`} className="me-2 hover:text-primary hover:underline">{bName.get(r.b.id)}</Link>)}
           </p>
         )}
       </Panel>
 
       <Panel title={D.recent}>
         {refuels.length === 0 ? <EmptyNote>{D.noDeliveries}</EmptyNote> : (
-          <div className="-mx-4 overflow-x-auto md:-mx-5">
-            <table className="w-full min-w-[900px] text-sm">
-              <thead>
-                <tr className="text-[12.5px] text-ink-muted">
-                  {[D.col.date, D.table.branch, D.col.ordered, D.col.received, D.col.diff, D.col.supplier, D.col.cost, D.col.by, D.files, ""].map((h, i) => (
-                    <th key={i} className={cn("h-10 px-3 text-start font-semibold", i === 0 && "ps-4 md:ps-5")}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {refuels.slice(0, 30).map((r) => {
-                  const diff = r.received_liters !== null ? Number(r.received_liters) - Number(r.liters) : null;
-                  return (
-                    <tr key={r.id} className="border-t border-hairline align-top">
-                      <td className="num py-3 ps-4 pe-3 md:ps-5">{formatDate(locale, r.refuel_date)}</td>
-                      <td className="px-3 py-3 font-medium">{bName.get(r.branch_id) ?? "—"}</td>
-                      <td className="num px-3 py-3">{L(r.liters)}</td>
-                      <td className="num px-3 py-3">{L(r.received_liters)}</td>
-                      <td className="px-3 py-3">{diff === null ? "—" : diff < 0 ? <Badge variant="danger">{D.shortageL(L(-diff))}</Badge> : <Badge variant="success">{diff > 0 ? `+${L(diff)}` : D.ok}</Badge>}</td>
-                      <td className="px-3 py-3" dir="auto">{r.supplier ?? "—"}{r.invoice_no && <span className="num block text-[12px] text-ink-muted" dir="ltr">{r.invoice_no}</span>}</td>
-                      <td className="num px-3 py-3">{r.price_per_liter ? L(Math.round(Number(r.liters) * Number(r.price_per_liter) * 100) / 100) : "—"}</td>
-                      <td className="px-3 py-3" dir="auto">{r.profiles?.full_name ?? "—"}</td>
-                      <td className="px-3 py-3">
-                        <span className="flex gap-1.5">
-                          {r.diesel_refuel_files.map((f, i) => url.get(f.file_path) && (
-                            <a key={i} href={url.get(f.file_path) ?? undefined} target="_blank" rel="noreferrer" className="inline-flex size-8 items-center justify-center rounded-lg bg-canvas text-primary hover:bg-surface-sunken" aria-label={`${D.files} ${i + 1}`}>
-                              <ImageIcon className="size-4" aria-hidden />
-                            </a>
-                          ))}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3">{profile.role === "admin" && <DeleteRefuel id={r.id} />}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DeliveriesTable t={t} locale={locale} refuels={refuels.slice(0, 30)} branchName={(id) => bName.get(id)} photoUrl={(p) => url.get(p) ?? undefined} canDelete={profile.role === "admin"} />
         )}
       </Panel>
     </>

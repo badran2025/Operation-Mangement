@@ -72,18 +72,19 @@ const en = {
   diesel: {
     title: "Diesel", sub: "Tank stock, deliveries checked against the invoice, and daily use per branch",
     recordRefuel: "Record a delivery", recordCheck: "Record a level check", branch: "Branch", chooseBranch: "Choose a branch",
-    kpi: { received: "Litres received this month", cost: "Cost this month (SAR)", shortage: "Shortage this month (L)", deliveries: "Deliveries this month" },
+    kpi: { received: "Litres filled this month", cost: "Invoices this month (SAR)", shortage: "Shortage this month (L)", deliveries: "Deliveries this month" },
     table: { branch: "Branch", tanks: "Tanks", stock: "In stock now", use: "Use per day", daysLeft: "Days left", lastDelivery: "Last delivery", shortage: "Shortage this month" },
     days: (n: string) => `${n} days`, perDay: (n: string) => `${n} L/day`, noTanks: "No tank recorded", noReading: "No reading yet", readAgo: (d: string) => `read ${d}`,
-    recent: "Recent deliveries", noDeliveries: "No deliveries recorded yet.",
-    col: { date: "Date", ordered: "Ordered", received: "Received", diff: "Difference", supplier: "Supplier", cost: "Cost", by: "Recorded by" },
+    recent: "Recent deliveries", noDeliveries: "No deliveries recorded yet.", readings: "Level checks", noReadings: "No level checks yet.", open: "Open", allBranches: "All branches",
+    col: { date: "Date", ordered: "Invoice litres", received: "Filled", before: "Before", after: "After", diff: "Difference", supplier: "Supplier", cost: "Invoice total", perL: "Price / L", by: "Recorded by" },
     shortageL: (n: string) => `${n} L short`, ok: "Matches", files: "Photos",
     form: {
-      date: "Delivery date", ordered: "Litres ordered (on the invoice)", supplier: "Supplier", price: "Price per litre (SAR)", invoice: "Invoice no.",
+      date: "Delivery date", ordered: "Litres on the invoice", supplier: "Supplier", price: "Invoice total (SAR)", invoice: "Invoice no.", pricePerL: (v: string) => `Price per litre: ${v} SAR`,
+      beforeL: "In the tank before", filledL: "Filled", afterL: "In the tank after", invoiceL: "On the invoice",
       before: "Before (cm)", after: "After (cm)", level: "Level (cm)", liters: (n: string) => `= ${n} L`, notes: "Notes", photos: "Invoice / tank photos",
       howTo: "Dip each tank with the measuring stick before the supplier fills it and again after, and write the centimetres.",
       checkHowTo: "Dip each tank and write the centimetres. Regular checks show stock and daily use.",
-      received: "Received (from the readings)", difference: "Difference from the invoice", short: (n: string) => `Short by ${n} L`, extra: (n: string) => `${n} L more than ordered`, exact: "Matches the invoice",
+      received: "Filled (from the readings)", difference: "Difference from the invoice", short: (n: string) => `Short by ${n} L`, extra: (n: string) => `${n} L more than ordered`, exact: "Matches the invoice",
       save: "Save delivery", saveCheck: "Save reading", saved: "Saved", photoFailed: (m: string) => `The delivery was saved, but ${m}`, maxCm: (n: string) => `max ${n} cm`, tankFull: "full",
     },
     tanks: {
@@ -94,7 +95,7 @@ const en = {
       calibrationN: (n: string) => `Calibration table: ${n} points`, saveCalibration: "Save table", deleteConfirm: "Delete this tank?", hasReadings: "This tank has readings; it was set to not in use instead.",
       varies: "Varies with depth", byTable: "From the calibration table",
     },
-    errors: { badDate: "The date cannot be in the future", ordered: "Write the litres ordered", readings: "Write the readings of every tank", badReading: "A reading is more than the tank height", afterBelow: "The after reading cannot be less than the before reading", tank: "This tank is not in the chosen branch", calibration: "Each line needs centimetres then litres" },
+    errors: { badTotal: "The invoice total cannot be negative", badDate: "The date cannot be in the future", ordered: "Write the litres ordered", readings: "Write the readings of every tank", badReading: "A reading is more than the tank height", afterBelow: "The after reading cannot be less than the before reading", tank: "This tank is not in the chosen branch", calibration: "Each line needs centimetres then litres" },
   },
   branchesTab: {
     downtime: {
@@ -105,7 +106,7 @@ const en = {
     },
     title: "Branches", sub: (n: string) => `${n} branches: info, workers, equipment, materials and files`,
     add: "Add branch", required: "Fill in the required fields", materialsList: "Materials list", nameAr: "Name in Arabic", nameEn: "Name in English", city: "City", create: "Add branch",
-    sections: { info: "Info", workers: "Workers", equipment: "Equipment", materials: "Materials", diesel: "Diesel", files: "Files", maintenance: "Maintenance" } as Record<string, string>,
+    sections: { info: "Info", workers: "Workers", equipment: "Equipment", materials: "Materials", files: "Files", maintenance: "Maintenance" } as Record<string, string>,
     status: { active: "Open", stopped: "Stopped", closed: "Closed" } as Record<string, string>,
     card: {
       broken: (n: string) => `${n} machines need repair`, filesExpired: (n: string) => `${n} files expired`, filesDue: (n: string) => `${n} files expire soon`,
@@ -316,18 +317,19 @@ const ar: Dict = {
   diesel: {
     title: "الديزل", sub: "رصيد الخزانات، والتعبئة متراجعة على الفاتورة، والاستهلاك اليومي لكل فرع",
     recordRefuel: "تسجيل تعبئة", recordCheck: "تسجيل قراءة مستوى", branch: "الفرع", chooseBranch: "اختار الفرع",
-    kpi: { received: "لترات وصلت الشهر ده", cost: "التكلفة الشهر ده (ريال)", shortage: "العجز الشهر ده (لتر)", deliveries: "تعبئات الشهر ده" },
+    kpi: { received: "لترات اتملت الشهر ده", cost: "فواتير الشهر ده (ريال)", shortage: "العجز الشهر ده (لتر)", deliveries: "تعبئات الشهر ده" },
     table: { branch: "الفرع", tanks: "الخزانات", stock: "الرصيد دلوقتي", use: "الاستهلاك اليومي", daysLeft: "يكفي", lastDelivery: "آخر تعبئة", shortage: "عجز الشهر" },
     days: (n: string) => `${n} يوم`, perDay: (n: string) => `${n} لتر/يوم`, noTanks: "مفيش خزان متسجل", noReading: "مفيش قراءة لسه", readAgo: (d: string) => `القراءة ${d}`,
-    recent: "آخر التعبئات", noDeliveries: "مفيش تعبئات متسجلة لسه.",
-    col: { date: "التاريخ", ordered: "المطلوب", received: "اللي وصل", diff: "الفرق", supplier: "المورد", cost: "التكلفة", by: "سجّلها" },
+    recent: "آخر التعبئات", noDeliveries: "مفيش تعبئات متسجلة لسه.", readings: "قراءات المستوى", noReadings: "مفيش قراءات لسه.", open: "فتح", allBranches: "كل الفروع",
+    col: { date: "التاريخ", ordered: "لترات الفاتورة", received: "اتملى", before: "قبل", after: "بعد", diff: "الفرق", supplier: "المورد", cost: "إجمالي الفاتورة", perL: "سعر اللتر", by: "سجّلها" },
     shortageL: (n: string) => `عجز ${n} لتر`, ok: "مطابق", files: "الصور",
     form: {
-      date: "تاريخ التعبئة", ordered: "اللترات المطلوبة (اللي في الفاتورة)", supplier: "المورد", price: "سعر اللتر (ريال)", invoice: "رقم الفاتورة",
+      date: "تاريخ التعبئة", ordered: "لترات الفاتورة", supplier: "المورد", price: "إجمالي الفاتورة (ريال)", invoice: "رقم الفاتورة", pricePerL: (v: string) => `سعر اللتر: ${v} ريال`,
+      beforeL: "اللي كان في الخزان", filledL: "اللي اتملى", afterL: "اللي في الخزان بعد التعبئة", invoiceL: "في الفاتورة",
       before: "قبل (سم)", after: "بعد (سم)", level: "المستوى (سم)", liters: (n: string) => `= ${n} لتر`, notes: "ملاحظات", photos: "صور الفاتورة / الخزان",
       howTo: "انزل بالخشبة المدرجة في كل خزان قبل ما المورد يعبّي، وتاني بعد ما يخلص، واكتب السنتيمترات.",
       checkHowTo: "انزل بالخشبة في كل خزان واكتب السنتيمترات. القراءات المنتظمة بتوضح الرصيد والاستهلاك اليومي.",
-      received: "اللي وصل فعلاً (من القراءات)", difference: "الفرق عن الفاتورة", short: (n: string) => `ناقص ${n} لتر`, extra: (n: string) => `زيادة ${n} لتر عن المطلوب`, exact: "مطابق للفاتورة",
+      received: "اللي اتملى فعلاً (من القراءات)", difference: "الفرق عن الفاتورة", short: (n: string) => `ناقص ${n} لتر`, extra: (n: string) => `زيادة ${n} لتر عن المطلوب`, exact: "مطابق للفاتورة",
       save: "حفظ التعبئة", saveCheck: "حفظ القراءة", saved: "اتحفظ", photoFailed: (m: string) => `التعبئة اتسجلت، بس ${m}`, maxCm: (n: string) => `أقصى ${n} سم`, tankFull: "مليان",
     },
     tanks: {
@@ -338,7 +340,7 @@ const ar: Dict = {
       calibrationN: (n: string) => `جدول معايرة: ${n} قياس`, saveCalibration: "حفظ الجدول", deleteConfirm: "حذف الخزان ده؟", hasReadings: "الخزان ده عليه قراءات، فاتعلّم إنه مش مستخدم بدل الحذف.",
       varies: "بيختلف حسب العمق", byTable: "من جدول المعايرة",
     },
-    errors: { badDate: "مينفعش التاريخ يكون في المستقبل", ordered: "اكتب اللترات المطلوبة", readings: "اكتب قراءات كل الخزانات", badReading: "قراءة أكبر من ارتفاع الخزان", afterBelow: "قراءة بعد مينفعش تكون أقل من قبل", tank: "الخزان ده مش في الفرع اللي اخترته", calibration: "كل سطر لازم فيه سنتيمترات وبعدها لترات" },
+    errors: { badTotal: "إجمالي الفاتورة مينفعش يكون بالسالب", badDate: "مينفعش التاريخ يكون في المستقبل", ordered: "اكتب اللترات المطلوبة", readings: "اكتب قراءات كل الخزانات", badReading: "قراءة أكبر من ارتفاع الخزان", afterBelow: "قراءة بعد مينفعش تكون أقل من قبل", tank: "الخزان ده مش في الفرع اللي اخترته", calibration: "كل سطر لازم فيه سنتيمترات وبعدها لترات" },
   },
   branchesTab: {
     downtime: {
@@ -349,7 +351,7 @@ const ar: Dict = {
     },
     title: "الفروع", sub: (n: string) => `${n} فرع: البيانات والعمال والمعدات والمواد والملفات`,
     add: "إضافة فرع", required: "املا الخانات المطلوبة", materialsList: "قائمة المواد", nameAr: "الاسم بالعربي", nameEn: "الاسم بالإنجليزي", city: "المدينة", create: "إضافة الفرع",
-    sections: { info: "البيانات", workers: "العمال", equipment: "المعدات", materials: "المواد", diesel: "الديزل", files: "الملفات", maintenance: "الصيانة" },
+    sections: { info: "البيانات", workers: "العمال", equipment: "المعدات", materials: "المواد", files: "الملفات", maintenance: "الصيانة" },
     status: { active: "شغال", stopped: "متوقف", closed: "مقفول" },
     card: {
       broken: (n: string) => `${n} ماكينة محتاجة صيانة`, filesExpired: (n: string) => `${n} ملف منتهي`, filesDue: (n: string) => `${n} ملف قرب ينتهي`,

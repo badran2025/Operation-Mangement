@@ -5,7 +5,7 @@ import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
 import type { Dict } from "@/lib/i18n/dictionaries";
-import { ACTIVE_STATUSES, daysUntil, dueInfo, duration, formatDate, formatDateTime, formatDay, formatTime, nf, timeAgo } from "@/lib/i18n/format";
+import { ACTIVE_STATUSES, daysUntil, dueInfo, duration, formatDate, formatDateTime, formatDay, formatTime, nf } from "@/lib/i18n/format";
 import { CORE_FILE_KINDS, EQUIPMENT_TONE, FILE_KINDS, fileState, MATERIAL_CATEGORIES } from "@/lib/branch";
 import type { WorkerRow } from "@/lib/types";
 import { PRIORITY_TONE, STATUS_TONE, type TicketRow } from "@/lib/tickets";
@@ -16,12 +16,10 @@ import { EmptyNote, Kpi, PageHeader, Panel, RowChevron, SoftRow } from "@/compon
 import { cn } from "@/lib/utils";
 import { AddEquipment, EquipmentEditor, FileEditor, InfoEditor, type EquipmentRow } from "./Editors";
 import { AddBranchMaterial, BranchMaterialEditor } from "../materials/Editors";
-import { AddTank, CalibrationEditor, TankForm } from "../../diesel/TankEditors";
-import { dailyUse, type Dip, type Tank as DieselTank } from "@/lib/diesel";
 
 export const dynamic = "force-dynamic";
 
-const SECTIONS = ["info", "workers", "equipment", "materials", "diesel", "files", "maintenance"] as const;
+const SECTIONS = ["info", "workers", "equipment", "materials", "files", "maintenance"] as const;
 type Hours = { weekday: number; open_time: string | null; close_time: string | null; is_24h: boolean; is_closed: boolean };
 type FileRow = { id: number; kind: string; title: string; number: string | null; expiry_date: string | null; notes: string | null; file_path: string | null; mime_type: string | null };
 type Material = { id: number; name: string; category: string; unit: string | null; odoo_ref: string | null; photo_path: string | null; active: boolean };
@@ -177,7 +175,6 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
 
       {section === "equipment" && <EquipmentSection id={id} equipment={equipment} canEdit={canEditEquipment} />}
       {section === "materials" && <MaterialsSection isAdmin={isAdmin} />}
-      {section === "diesel" && <DieselSection />}
       {section === "files" && <FilesSection id={id} files={files} isAdmin={isAdmin} />}
 
       {section === "maintenance" && (
@@ -414,98 +411,6 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
             {text("materials_policy") ? <p className="user-text whitespace-pre-line" dir="auto">{text("materials_policy")}</p> : <p className="text-ink-muted">{M.noGuide}</p>}
           </Panel>
         </div>
-      </>
-    );
-  }
-
-  async function DieselSection() {
-    const DZ = t.diesel;
-    const one = new Intl.NumberFormat(locale === "ar" ? "ar-u-nu-latn" : "en", { maximumFractionDigits: 1 });
-    const L = (v: number | null | undefined) => (v === null || v === undefined ? "—" : one.format(Number(v)));
-    const [{ data: tankData }, { data: pts }, { data: dips }, { data: refs }] = await Promise.all([
-      supabase.from("v_diesel_tanks").select("*").eq("branch_id", id).order("sort"),
-      supabase.from("diesel_tank_points").select("tank_id, level_cm, liters"),
-      supabase.from("diesel_dips").select("id, tank_id, branch_id, read_at, liters, kind").eq("branch_id", id).gte("read_at", new Date(Date.now() - 31 * 86400000).toISOString()),
-      supabase.from("diesel_refuels").select("id, refuel_date, liters, received_liters, supplier").eq("branch_id", id).order("refuel_date", { ascending: false }).limit(10),
-    ]);
-    const tanks = (tankData ?? []) as DieselTank[];
-    const active = tanks.filter((x) => x.active);
-    const stock = active.length && active.every((x) => x.last_liters !== null) ? active.reduce((s, x) => s + Number(x.last_liters), 0) : null;
-    const cap = active.reduce((s, x) => s + Number(x.capacity_l ?? 0), 0);
-    const use = dailyUse((dips ?? []) as Dip[]).get(id) ?? null;
-    const canRecord = role === "admin" || role === "supervisor";
-    return (
-      <>
-        <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Kpi label={DZ.table.stock} value={stock === null ? "—" : `${L(stock)} L`} highlight />
-          <Kpi label={DZ.tanks.capacity} value={`${L(cap)} L`} />
-          <Kpi label={DZ.table.use} value={use ? DZ.perDay(L(use)) : "—"} />
-          <Kpi label={DZ.table.daysLeft} value={stock !== null && use ? DZ.days(n(Math.floor(stock / use))) : "—"} tone={stock !== null && use && stock / use <= 3 ? "danger" : undefined} />
-        </section>
-        <Panel title={DZ.tanks.title} action={
-          <div className="flex flex-wrap gap-2">
-            {canRecord && active.length > 0 && <Button variant="outline" render={<Link href={`/diesel/check?branch=${id}`} />} nativeButton={false}>{DZ.recordCheck}</Button>}
-            {canRecord && active.length > 0 && <Button variant="outline" render={<Link href={`/diesel/refuel?branch=${id}`} />} nativeButton={false}>{DZ.recordRefuel}</Button>}
-            {isAdmin && <AddTank branchId={id} />}
-          </div>
-        }>
-          {tanks.length === 0 ? <EmptyNote>{DZ.noTanks}</EmptyNote> : (
-            <ul className="flex flex-col gap-2">
-              {tanks.map((tk) => {
-                const head = (
-                  <>
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-semibold" dir="auto">{tk.label}</span>
-                      <span className="block text-[13px] text-ink-muted">
-                        {DZ.tanks.shapes[tk.shape]} · {tk.shape === "horizontal_cylinder" ? `⌀${L(tk.diameter_cm)} × ${L(tk.length_cm)}` : tk.shape === "box" ? `${L(tk.length_cm)} × ${L(tk.width_cm)} × ${L(tk.height_cm)}` : `⌀${L(tk.diameter_cm)} × ${L(tk.height_cm)}`} cm
-                      </span>
-                    </span>
-                    <span className="text-[13px]">
-                      <b className="num font-semibold">{L(tk.capacity_l)} L</b>
-                      <span className="block text-ink-muted">{Number(tk.calibration_points) ? DZ.tanks.byTable : tk.liters_per_cm ? `${L(tk.liters_per_cm)} ${DZ.tanks.perCm}` : DZ.tanks.varies}</span>
-                    </span>
-                    <span className="text-[13px]">
-                      {tk.last_liters !== null ? <><b className="num font-semibold">{L(tk.last_liters)} L</b><span className="block text-ink-muted">{L(tk.last_cm)} cm · {timeAgo(t, tk.last_read_at)}</span></> : <span className="text-ink-muted">{DZ.noReading}</span>}
-                    </span>
-                    {!tk.active ? <Badge variant="neutral">{B.materials.notInUse}</Badge> : tk.confirmed ? <Badge variant="success">{DZ.tanks.confirmed}</Badge> : null}
-                  </>
-                );
-                return (
-                  <li key={tk.id}>
-                    {isAdmin ? (
-                      <details className="group rounded-[14px] bg-canvas">
-                        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-5 gap-y-2 px-3.5 py-3 [&::-webkit-details-marker]:hidden">
-                          {head}<ChevronDownIcon className="size-4 text-ink-muted transition-transform duration-150 group-open:rotate-180" aria-hidden />
-                        </summary>
-                        <div className="flex flex-col gap-5 border-t border-hairline px-3.5 py-4">
-                          <TankForm branchId={id} tank={tk} />
-                          <CalibrationEditor tankId={tk.id} points={(pts ?? []).filter((p) => p.tank_id === tk.id)} />
-                        </div>
-                      </details>
-                    ) : <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[14px] bg-canvas px-3.5 py-3">{head}</div>}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Panel>
-        <Panel title={DZ.recent} action={<Link href="/diesel" className="text-sm font-medium text-primary hover:underline">{DZ.title}</Link>}>
-          {(refs ?? []).length === 0 ? <EmptyNote>{DZ.noDeliveries}</EmptyNote> : (
-            <ul className="flex flex-col gap-1.5">
-              {(refs ?? []).map((r) => {
-                const diff = r.received_liters !== null ? Number(r.received_liters) - Number(r.liters) : null;
-                return (
-                  <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[14px] bg-canvas px-3.5 py-3 text-sm">
-                    <span className="num font-medium">{formatDate(locale, r.refuel_date)}</span>
-                    <span className="text-ink-muted">{DZ.col.ordered} <b className="num text-ink">{L(r.liters)}</b> · {DZ.col.received} <b className="num text-ink">{L(r.received_liters)}</b></span>
-                    {r.supplier && <span className="text-ink-muted" dir="auto">{r.supplier}</span>}
-                    <span className="ms-auto">{diff === null ? null : diff < 0 ? <Badge variant="danger">{DZ.shortageL(L(-diff))}</Badge> : <Badge variant="success">{DZ.ok}</Badge>}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Panel>
       </>
     );
   }
