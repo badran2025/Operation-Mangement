@@ -23,7 +23,7 @@ const hhmm = (v: string | null) => (v ? (v.startsWith("24:") ? "00:00" : v.slice
 
 // ---------- branch info + opening hours ----------
 export function InfoEditor({ branch, hours, startOpen }: {
-  branch: { id: number; name_ar: string; name_en: string; code: string | null; status: string; phone: string | null; address: string | null; map_url: string | null;
+  branch: { id: number; name_ar: string; name_en: string; code: string | null; status: string; power_source?: string; phone: string | null; address: string | null; map_url: string | null;
     hours_note: string | null; ppm_weekday: number | null; ppm_time: string | null; notes: string | null };
   hours: Hour[]; startOpen?: boolean;
 }) {
@@ -52,6 +52,12 @@ export function InfoEditor({ branch, hours, startOpen }: {
         <FieldLabel htmlFor="bi-st">{I.statusLabel}</FieldLabel>
         <NativeSelect id="bi-st" name="status" defaultValue={branch.status} className="w-full">
           {["active", "stopped", "closed"].map((s) => <NativeSelectOption key={s} value={s}>{B.status[s]}</NativeSelectOption>)}
+        </NativeSelect>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="bi-pw">{I.power}</FieldLabel>
+        <NativeSelect id="bi-pw" name="power_source" defaultValue={branch.power_source ?? "diesel"} className="w-full">
+          {["diesel", "electric"].map((s) => <NativeSelectOption key={s} value={s}>{I.powerOpts[s]}</NativeSelectOption>)}
         </NativeSelect>
       </Field>
       <Field><FieldLabel htmlFor="bi-ph">{I.phone}</FieldLabel><Input id="bi-ph" name="phone" type="tel" defaultValue={branch.phone ?? ""} dir="ltr" /></Field>

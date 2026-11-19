@@ -46,7 +46,7 @@ export async function updateBranchInfo(id: number, _: ActionState, fd: FormData)
   }
   const ppmDay = s(fd, "ppm_weekday");
   const row = {
-    name_ar: s(fd, "name_ar"), name_en: s(fd, "name_en"), code: s(fd, "code").toUpperCase() || null, status: s(fd, "status") || "active",
+    name_ar: s(fd, "name_ar"), name_en: s(fd, "name_en"), code: s(fd, "code").toUpperCase() || null, status: s(fd, "status") || "active", power_source: s(fd, "power_source") === "electric" ? "electric" : "diesel",
     phone: opt(fd, "phone"), address: opt(fd, "address"), map_url: safeUrl(opt(fd, "map_url")), hours_note: opt(fd, "hours_note"),
     ppm_weekday: ppmDay === "" ? null : Number(ppmDay), ppm_time: ppmDay === "" ? null : opt(fd, "ppm_time"), notes: opt(fd, "notes"),
   };

@@ -150,3 +150,43 @@ export async function buildCalibration(tankId: number): Promise<{ error?: string
   refreshAll();
   return { points: pts.length };
 }
+
+// ---------- monthly figures (admin) ----------
+export type MonthRow = { branch_id: number; pieces: string; blankets: string; liters: string; cost: string; estimated: boolean };
+/** Save one month's figures for every branch; a branch left completely empty is removed for that month. */
+export async function saveMonthFigures(month: string, rows: MonthRow[]): Promise<{ error?: string }> {
+  const { supabase } = await requireAdmin();
+  const { t } = await getT();
+  const E = t.diesel.perf.errors;
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return { error: E.bad };
+  const keep: Record<string, unknown>[] = [], drop: number[] = [];
+  for (const r of rows) {
+    const v = { pieces: parseNum(r.pieces), blankets: parseNum(r.blankets), liters: parseNum(r.liters), cost: parseNum(r.cost) };
+    if (Object.values(v).some((x) => x !== null && x < 0)) return { error: E.bad };
+    if (v.pieces !== null && v.blankets !== null && v.blankets > v.pieces) return { error: E.blankets };
+    if (Object.values(v).every((x) => x === null)) { drop.push(r.branch_id); continue; }
+    keep.push({ branch_id: r.branch_id, month: `${month}-01`, pieces: v.pieces === null ? null : Math.round(v.pieces), blankets: v.blankets === null ? null : Math.round(v.blankets), liters: v.liters, cost: v.cost, estimated: r.estimated });
+  }
+  if (keep.length) {
+    const { error } = await supabase.from("branch_months").upsert(keep, { onConflict: "branch_id,month" });
+    if (error) return { error: await friendlyError(error.message) };
+  }
+  if (drop.length) {
+    const { error } = await supabase.from("branch_months").delete().eq("month", `${month}-01`).in("branch_id", drop);
+    if (error) return { error: await friendlyError(error.message) };
+  }
+  refreshAll();
+  return {};
+}
+
+/** A level reading of every tank of a branch, without a delivery. */
+export async function recordReading(branchId: number, readings: { tank_id: number; cm: string }[], notes: string): Promise<{ error?: string }> {
+  const { supabase } = await requireActive();
+  const { t } = await getT();
+  const dips = readings.map((r) => ({ tank_id: r.tank_id, cm: parseNum(r.cm) }));
+  if (!dips.length || dips.some((d) => d.cm === null)) return { error: t.diesel.errors.readings };
+  const { error } = await supabase.rpc("record_diesel_check", { p_branch_id: branchId, p_dips: dips, p_notes: notes });
+  if (error) return { error: await dieselError(error.message) };
+  refreshAll();
+  return {};
+}
