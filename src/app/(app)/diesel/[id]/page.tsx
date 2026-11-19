@@ -45,6 +45,8 @@ export default async function BranchDieselPage({ params, searchParams }: { param
   if (!branch) notFound();
   const month = sm ? monthOf(sm) : await defaultMonth(supabase);
   const perf = await loadPerformance(supabase, month, 5);
+  const { data: allBranches } = await supabase.from("branches").select("id, name_ar, name_en");
+  const names = new Map((allBranches ?? []).map((b) => [b.id, pick(locale, b.name_ar, b.name_en)]));
   const name = pick(locale, branch.name_ar, branch.name_en);
   const tanks = (tankData ?? []) as Tank[];
   const active = tanks.filter((x) => x.active);
@@ -70,10 +72,10 @@ export default async function BranchDieselPage({ params, searchParams }: { param
         {active.length > 0 && <Button render={<Link href={`/diesel/refuel?branch=${id}`} />} nativeButton={false}><FuelIcon data-icon="inline-start" />{D.recordRefuel}</Button>}
       </PageHeader>
 
-      <DieselTabs t={t} base={`/diesel/${id}`} tab={tab} query={sm ? `m=${sm}` : ""} branch />
+      <DieselTabs t={t} base={`/diesel/${id}`} tab={tab} query={sm ? `m=${sm}` : ""} />
 
       {tab === "perf" && (perf.branches.some((b) => b.id === id)
-        ? <BranchPerf t={t} locale={locale} perf={perf} branchId={id} month={month} today={today.slice(0, 7)} isAdmin={isAdmin} />
+        ? <BranchPerf t={t} locale={locale} perf={perf} branchId={id} month={month} today={today.slice(0, 7)} isAdmin={isAdmin} names={names} />
         : <EmptyNote>{D.perf.electric}</EmptyNote>)}
 
       {tab === "tanks" && <>

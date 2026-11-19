@@ -27,7 +27,7 @@ export default async function MonthsPage({ searchParams }: { searchParams: Promi
             const auto = perf.at(b.id, month);
             return {
               id: b.id, name: pick(locale, b.name_ar, b.name_en),
-              pieces: r?.pieces ?? null, orders: r?.orders ?? null, blankets: r?.blankets ?? null, liters: r?.liters ?? null, cost: r?.cost ?? null, estimated: !!r?.estimated,
+              pieces: r?.pieces ?? null, blankets: r?.blankets ?? null, liters: r?.liters ?? null, cost: r?.cost ?? null, estimated: !!r?.estimated,
               autoLiters: auto.source === "readings" || auto.source === "partial" ? auto.liters : null, autoComplete: auto.source === "readings", hasTanks: auto.hasTanks,
             };
           })} />

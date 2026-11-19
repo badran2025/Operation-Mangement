@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CylinderIcon, FuelIcon, GaugeIcon } from "lucide-react";
-import { PerfSection } from "./PerfSection";
+import { Overview } from "./Overview";
 import { DieselTabs, type DieselTab } from "./DieselTabs";
-import { ReviewSection } from "./ReviewSection";
-import { AnalysisSection } from "./AnalysisSection";
 import { defaultMonth, loadPerformance, monthOf } from "./perf";
 import { TankShape } from "./TankShape";
 import { requireActive } from "@/lib/auth";
@@ -48,9 +46,9 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
   const now = Date.now();
   const dayMs = 86400000;
   const today = monthOf(null);
-  const tab: DieselTab = (["perf", "review", "analysis", "tanks"] as const).find((x) => x === sp.tab) ?? "perf";
+  const tab: DieselTab = sp.tab === "tanks" ? "tanks" : "perf";
   const perfMonth = sp.m ? monthOf(sp.m) : await defaultMonth(supabase);
-  const perf = await loadPerformance(supabase, perfMonth, tab === "analysis" ? 5 : 2);
+  const perf = await loadPerformance(supabase, perfMonth, 2);
   const reviewCount = perf.branches.filter((b) => ["risk", "watch"].includes(perf.at(b.id, perfMonth).status)).length;
 
   const rows = (branches ?? []).map((b) => {
@@ -81,9 +79,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
 
       <DieselTabs t={t} base="/diesel" tab={tab} query={sp.m ? `m=${sp.m}` : ""} reviewCount={reviewCount} />
 
-      {tab === "perf" && <PerfSection t={t} locale={locale} perf={perf} month={perfMonth} today={today} names={bName} isAdmin={profile.role === "admin"} />}
-      {tab === "review" && <ReviewSection t={t} locale={locale} perf={perf} month={perfMonth} today={today} names={bName} isAdmin={profile.role === "admin"} />}
-      {tab === "analysis" && <AnalysisSection t={t} locale={locale} perf={perf} month={perfMonth} today={today} names={bName} focus={sp.b ? Number(sp.b) : null} />}
+      {tab === "perf" && <Overview t={t} locale={locale} perf={perf} month={perfMonth} today={today} names={bName} isAdmin={profile.role === "admin"} />}
 
       {tab === "tanks" && <>
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">

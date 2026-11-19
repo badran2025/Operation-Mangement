@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { AlertTriangleIcon, BarChart3Icon, CylinderIcon, LineChartIcon } from "lucide-react";
+import { BarChart3Icon, CylinderIcon } from "lucide-react";
 import type { Dict } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
 
-export type DieselTab = "perf" | "review" | "analysis" | "tanks";
+export type DieselTab = "perf" | "tanks";
 /** The parts of the diesel tab. `branch` pages have performance and tanks only. */
-export function DieselTabs({ t, base, tab, query = "", reviewCount, branch = false }: { t: Dict; base: string; tab: DieselTab; query?: string; reviewCount?: number; branch?: boolean }) {
-  const items = (branch ? [["perf", BarChart3Icon], ["tanks", CylinderIcon]] : [["perf", BarChart3Icon], ["review", AlertTriangleIcon], ["analysis", LineChartIcon], ["tanks", CylinderIcon]]) as [DieselTab, typeof BarChart3Icon][];
+export function DieselTabs({ t, base, tab, query = "", reviewCount }: { t: Dict; base: string; tab: DieselTab; query?: string; reviewCount?: number; branch?: boolean }) {
+  const items = [["perf", BarChart3Icon], ["tanks", CylinderIcon]] as [DieselTab, typeof BarChart3Icon][];
   return (
     <nav aria-label={t.diesel.title} className="-mx-1 flex gap-1 overflow-x-auto border-b border-hairline px-1">
       {items.map(([key, Icon]) => (
@@ -14,7 +14,7 @@ export function DieselTabs({ t, base, tab, query = "", reviewCount, branch = fal
           className={cn("-mb-px flex h-11 shrink-0 items-center gap-2 border-b-2 px-4 text-sm font-semibold whitespace-nowrap transition-colors duration-150",
             tab === key ? "border-primary text-primary" : "border-transparent text-ink-muted hover:text-ink")}>
           <Icon className="size-4" aria-hidden />{t.diesel.tabs[key]}
-          {key === "review" && reviewCount ? <span className="num grid h-5 min-w-5 place-items-center rounded-full bg-danger px-1.5 text-[11px] font-bold text-white">{reviewCount}</span> : null}
+          {key === "perf" && reviewCount ? <span className="num grid h-5 min-w-5 place-items-center rounded-full bg-danger px-1.5 text-[11px] font-bold text-white" title={t.diesel.ov.kProblems}>{reviewCount}</span> : null}
         </Link>
       ))}
     </nav>

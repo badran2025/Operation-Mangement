@@ -152,7 +152,7 @@ export async function buildCalibration(tankId: number): Promise<{ error?: string
 }
 
 // ---------- monthly figures (admin) ----------
-export type MonthRow = { branch_id: number; pieces: string; orders: string; blankets: string; liters: string; cost: string; estimated: boolean };
+export type MonthRow = { branch_id: number; pieces: string; blankets: string; liters: string; cost: string; estimated: boolean };
 /** Save one month's figures for every branch; a branch left completely empty is removed for that month. */
 export async function saveMonthFigures(month: string, rows: MonthRow[]): Promise<{ error?: string }> {
   const { supabase } = await requireAdmin();
@@ -161,11 +161,11 @@ export async function saveMonthFigures(month: string, rows: MonthRow[]): Promise
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return { error: E.bad };
   const keep: Record<string, unknown>[] = [], drop: number[] = [];
   for (const r of rows) {
-    const v = { pieces: parseNum(r.pieces), orders: parseNum(r.orders), blankets: parseNum(r.blankets), liters: parseNum(r.liters), cost: parseNum(r.cost) };
+    const v = { pieces: parseNum(r.pieces), blankets: parseNum(r.blankets), liters: parseNum(r.liters), cost: parseNum(r.cost) };
     if (Object.values(v).some((x) => x !== null && x < 0)) return { error: E.bad };
     if (v.pieces !== null && v.blankets !== null && v.blankets > v.pieces) return { error: E.blankets };
     if (Object.values(v).every((x) => x === null)) { drop.push(r.branch_id); continue; }
-    keep.push({ branch_id: r.branch_id, month: `${month}-01`, pieces: v.pieces === null ? null : Math.round(v.pieces), orders: v.orders === null ? null : Math.round(v.orders), blankets: v.blankets === null ? null : Math.round(v.blankets), liters: v.liters, cost: v.cost, estimated: r.estimated });
+    keep.push({ branch_id: r.branch_id, month: `${month}-01`, pieces: v.pieces === null ? null : Math.round(v.pieces), blankets: v.blankets === null ? null : Math.round(v.blankets), liters: v.liters, cost: v.cost, estimated: r.estimated });
   }
   if (keep.length) {
     const { error } = await supabase.from("branch_months").upsert(keep, { onConflict: "branch_id,month" });
