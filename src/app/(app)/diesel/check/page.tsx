@@ -13,7 +13,7 @@ export default async function CheckPage({ searchParams }: { searchParams: Promis
   return (
     <div className="mx-auto w-full max-w-3xl">
       <PageHeader back={{ href: "/diesel", label: t.diesel.title }} title={t.diesel.perf.readingTitle} sub={t.diesel.perf.readingSub} />
-      <Panel className="mt-6"><ReadingForm {...data} defaultBranch={branch ? Number(branch) : undefined} /></Panel>
+      <Panel className="mt-6"><ReadingForm branches={data.branches} tanks={data.tanks} points={data.points} defaultBranch={branch ? Number(branch) : undefined} /></Panel>
     </div>
   );
 }

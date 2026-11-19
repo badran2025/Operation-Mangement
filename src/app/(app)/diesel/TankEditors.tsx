@@ -37,6 +37,12 @@ export function TankForm({ branchId, tank, onDone }: { branchId: number; tank?: 
           below={<p className="num rounded-xl bg-surface-tint px-3 py-2 text-sm font-semibold text-primary" aria-live="polite">{cap !== null && full !== null ? T.preview(fmt(cap), fmt(full)) : T.previewEmpty}</p>} />
       </div>
       <Field className="sm:col-span-3">
+        <FieldLabel htmlFor={`${p}-eu`}>{T.entryUnit}</FieldLabel>
+        <NativeSelect id={`${p}-eu`} name="entry_unit" defaultValue={tank?.entry_unit ?? (shape === "box" ? "liters" : "cm")} key={tank ? undefined : `eu-${shape}`} className="w-full">
+          {["cm", "liters"].map((m) => <NativeSelectOption key={m} value={m}>{T.entryUnits[m]}</NativeSelectOption>)}
+        </NativeSelect>
+      </Field>
+      <Field className="sm:col-span-3">
         <FieldLabel htmlFor={`${p}-mb`}>{T.measureBy}</FieldLabel>
         <NativeSelect id={`${p}-mb`} name="measure_by" defaultValue={tank?.measure_by ?? "liters"} className="w-full">
           {["liters", "cm"].map((m) => <NativeSelectOption key={m} value={m}>{T.measure[m]}</NativeSelectOption>)}

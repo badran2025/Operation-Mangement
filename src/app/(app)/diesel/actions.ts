@@ -24,16 +24,38 @@ async function dieselError(message: string) {
   return friendlyError(message);
 }
 
-export async function recordRefuel(input: {
-  branchId: number; date: string; invoiceLiters: string; supplier: string; total: string; invoice: string; notes: string;
-  dips: { tank_id: number; before_cm: string; after_cm: string }[];
-}): Promise<{ id?: number; error?: string }> {
+type DipIn = { tank_id: number; before_cm?: string; after_cm?: string; before_l?: string; after_l?: string };
+type RefuelIn = { branchId: number; date: string; invoiceLiters: string; supplier: string; total: string; invoice: string; notes: string; dips: DipIn[] };
+/** readings as typed (cm or litres) → numbers for the database; null when a value is missing */
+function cleanDips(dips: DipIn[]) {
+  const out = dips.map((d) => d.before_l !== undefined || d.after_l !== undefined
+    ? { tank_id: d.tank_id, before_l: parseNum(d.before_l), after_l: parseNum(d.after_l) }
+    : { tank_id: d.tank_id, before_cm: parseNum(d.before_cm), after_cm: parseNum(d.after_cm) });
+  return out.some((d) => Object.values(d).some((v) => v === null)) ? null : out;
+}
+
+export async function recordRefuel(input: RefuelIn): Promise<{ id?: number; error?: string }> {
   const { supabase } = await requireActive();
   const { t } = await getT();
-  const dips = input.dips.map((d) => ({ tank_id: d.tank_id, before_cm: num(d.before_cm), after_cm: num(d.after_cm) }));
-  if (dips.some((d) => d.before_cm === null || d.after_cm === null)) return { error: t.diesel.errors.readings };
+  const dips = cleanDips(input.dips);
+  if (!dips) return { error: t.diesel.errors.readings };
   const { data, error } = await supabase.rpc("record_diesel_refuel", {
     p_branch_id: input.branchId, p_date: input.date, p_invoice_liters: num(input.invoiceLiters) as number, p_dips: dips,
+    p_supplier: input.supplier, p_total: num(input.total) as number, p_invoice: input.invoice, p_notes: input.notes,
+  });
+  if (error) return { error: await dieselError(error.message) };
+  refreshAll();
+  return { id: data as number };
+}
+
+/** Change a recorded delivery: its figures and its readings. */
+export async function updateRefuel(id: number, input: RefuelIn): Promise<{ id?: number; error?: string }> {
+  const { supabase } = await requireActive();
+  const { t } = await getT();
+  const dips = cleanDips(input.dips);
+  if (!dips) return { error: t.diesel.errors.readings };
+  const { data, error } = await supabase.rpc("update_diesel_refuel", {
+    p_refuel_id: id, p_date: input.date, p_invoice_liters: num(input.invoiceLiters) as number, p_dips: dips,
     p_supplier: input.supplier, p_total: num(input.total) as number, p_invoice: input.invoice, p_notes: input.notes,
   });
   if (error) return { error: await dieselError(error.message) };
@@ -76,6 +98,7 @@ export async function saveTank(branchId: number, id: number | null, _: ActionSta
     length_cm: dim("length_cm"), width_cm: dim("width_cm"), height_cm: dim("height_cm"), diameter_cm: dim("diameter_cm"),
     confirmed: fd.get("confirmed") === "on", active: fd.get("active") !== null ? fd.get("active") === "on" : true,
     measure_by: String(fd.get("measure_by") ?? "") === "cm" ? "cm" : "liters",
+    entry_unit: String(fd.get("entry_unit") ?? "") === "liters" ? "liters" : "cm",
     notes: String(fd.get("notes") ?? "").trim() || null,
   };
   if (need.some((d) => !(Number(row[d]) > 0))) return { error: E.dims };
@@ -180,11 +203,11 @@ export async function saveMonthFigures(month: string, rows: MonthRow[]): Promise
 }
 
 /** A level reading of every tank of a branch, without a delivery. */
-export async function recordReading(branchId: number, readings: { tank_id: number; cm: string }[], notes: string): Promise<{ error?: string }> {
+export async function recordReading(branchId: number, readings: { tank_id: number; cm?: string; liters?: string }[], notes: string): Promise<{ error?: string }> {
   const { supabase } = await requireActive();
   const { t } = await getT();
-  const dips = readings.map((r) => ({ tank_id: r.tank_id, cm: parseNum(r.cm) }));
-  if (!dips.length || dips.some((d) => d.cm === null)) return { error: t.diesel.errors.readings };
+  const dips = readings.map((r) => (r.liters !== undefined ? { tank_id: r.tank_id, liters: parseNum(r.liters) } : { tank_id: r.tank_id, cm: parseNum(r.cm) }));
+  if (!dips.length || dips.some((d) => ("liters" in d ? d.liters : d.cm) === null)) return { error: t.diesel.errors.readings };
   const { error } = await supabase.rpc("record_diesel_check", { p_branch_id: branchId, p_dips: dips, p_notes: notes });
   if (error) return { error: await dieselError(error.message) };
   refreshAll();

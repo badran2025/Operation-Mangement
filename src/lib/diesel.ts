@@ -21,7 +21,7 @@ export const STRAIGHT_SIDED: Shape[] = ["box", "vertical_cylinder"];
 export type Tank = {
   id: number; branch_id: number; label: string; shape: Shape;
   length_cm: number | null; width_cm: number | null; height_cm: number | null; diameter_cm: number | null;
-  confirmed: boolean; notes: string | null; active: boolean; sort: number; measure_by: "liters" | "cm"; liters_known: boolean;
+  confirmed: boolean; notes: string | null; active: boolean; sort: number; measure_by: "liters" | "cm"; liters_known: boolean; entry_unit?: "cm" | "liters";
   capacity_l: number | null; liters_per_cm: number | null; calibration_points: number;
   last_cm: number | null; last_liters: number | null; last_read_at: string | null;
 };
@@ -193,4 +193,15 @@ export function calibrationFromDeliveries(segments: Segment[], geo?: (cm: number
     pts.sort((a, b) => a.level_cm - b.level_cm);
   }
   return pts;
+}
+
+/** The dipstick height (cm) that holds `liters`, found by halves on the tank's own curve. Null if more than the tank holds. */
+export function cmForLiters(t: Tank, liters: number, points: Point[] = []): number | null {
+  const full = fullCm(t);
+  if (full === null || !Number.isFinite(liters) || liters < 0) return null;
+  const cap = tankLiters(t, full, points);
+  if (cap === null || liters > cap + 0.05) return null;
+  let lo = 0, hi = full;
+  for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if ((tankLiters(t, mid, points) ?? 0) < liters) lo = mid; else hi = mid; }
+  return Math.round(((lo + hi) / 2) * 10) / 10;
 }

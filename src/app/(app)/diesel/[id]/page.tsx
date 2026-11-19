@@ -48,7 +48,9 @@ export default async function BranchDieselPage({ params, searchParams }: { param
   const { data: allBranches } = await supabase.from("branches").select("id, name_ar, name_en");
   const names = new Map((allBranches ?? []).map((b) => [b.id, pick(locale, b.name_ar, b.name_en)]));
   const name = pick(locale, branch.name_ar, branch.name_en);
-  const tanks = (tankData ?? []) as Tank[];
+  const { data: units } = await supabase.from("diesel_tanks").select("id, entry_unit").eq("branch_id", id);
+  const unitOf = new Map((units ?? []).map((u) => [u.id, u.entry_unit]));
+  const tanks = (tankData ?? []).map((x) => ({ ...x, entry_unit: unitOf.get(x.id) ?? "cm" })) as Tank[];
   const active = tanks.filter((x) => x.active);
   const refuels = (refs ?? []) as unknown as Refuel[];
   const st = branchDiesel(tanks, (dips ?? []) as Dip[], refuels, id);

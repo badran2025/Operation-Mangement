@@ -1,4 +1,5 @@
-import { ImageIcon } from "lucide-react";
+import Link from "next/link";
+import { ImageIcon, PencilIcon } from "lucide-react";
 import type { Dict } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import { formatDate } from "@/lib/i18n/format";
@@ -14,9 +15,9 @@ export type Refuel = {
 };
 
 /** Every delivery with the full picture: before, filled, after, invoice litres, difference, total, price per litre. */
-export function DeliveriesTable({ t, locale, refuels, branchName, photoUrl, canDelete }: {
+export function DeliveriesTable({ t, locale, refuels, branchName, photoUrl, canDelete, canEdit = true }: {
   t: Dict; locale: Locale; refuels: Refuel[]; branchName?: (id: number) => string | undefined;
-  photoUrl: (path: string) => string | undefined; canDelete: boolean;
+  photoUrl: (path: string) => string | undefined; canDelete: boolean; canEdit?: boolean;
 }) {
   const D = t.diesel;
   const one = new Intl.NumberFormat(locale === "ar" ? "ar-u-nu-latn" : "en", { maximumFractionDigits: 1 });
@@ -58,7 +59,10 @@ export function DeliveriesTable({ t, locale, refuels, branchName, photoUrl, canD
                     })}
                   </span>
                 </td>
-                <td className="px-3 py-3">{canDelete && <DeleteRefuel id={r.id} />}</td>
+                <td className="px-3 py-3"><span className="flex gap-1">
+                  {canEdit && <Link href={`/diesel/refuel/${r.id}`} aria-label={D.form.edit} title={D.form.edit} className="inline-flex size-8 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-tint hover:text-primary"><PencilIcon className="size-4" aria-hidden /></Link>}
+                  {canDelete && <DeleteRefuel id={r.id} />}
+                </span></td>
               </tr>
             );
           })}
