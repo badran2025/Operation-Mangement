@@ -121,15 +121,8 @@ export async function saveEquipment(id: number | null, _: ActionState, fd: FormD
     quantity: Math.max(1, Math.floor(Number(s(fd, "quantity")) || 1)),
     code: s(fd, "code").toUpperCase() || null,
     installed_on: opt(fd, "installed_on"), warranty_until: opt(fd, "warranty_until"), status: s(fd, "status") || "working", notes: opt(fd, "notes"),
-    steam_type: (["dryer", "press", "other"].includes(s(fd, "steam_type")) ? s(fd, "steam_type") : null) as string | null,
-    steam_kg_h: parseNum(s(fd, "steam_kg_h")), cycle_minutes: parseNum(s(fd, "cycle_minutes")),
-    steam_count_by: s(fd, "steam_count_by") === "meter" ? "meter" : "count",
   };
   if (!row.name) return { error: t.branchesTab.required };
-  if (!row.steam_type) { row.steam_kg_h = null; row.cycle_minutes = null; row.steam_count_by = "count"; }
-  if (row.steam_type !== "dryer") row.cycle_minutes = null;
-  if ((row.steam_kg_h !== null && row.steam_kg_h <= 0) || (row.cycle_minutes !== null && row.cycle_minutes <= 0)) return { error: t.branchesTab.equipment.steam.bad };
-  if (row.steam_type === "other" && row.steam_kg_h === null) return { error: t.branchesTab.equipment.steam.needKg };
   const { error } = id
     ? await supabase.from("equipment").update(row).eq("id", id)
     : await supabase.from("equipment").insert(row);
@@ -143,8 +136,6 @@ export async function deleteEquipment(id: number): Promise<{ error?: string }> {
   // a machine with tickets keeps its history: retire it instead of deleting it
   const { count } = await supabase.from("tickets").select("id", { count: "exact", head: true }).eq("equipment_id", id);
   if (count) return { error: (await getT()).t.branchesTab.equipment.hasTickets };
-  const { count: counts } = await supabase.from("steam_counts").select("day", { count: "exact", head: true }).eq("equipment_id", id);
-  if (counts) return { error: (await getT()).t.branchesTab.equipment.steam.hasCounts };
   const { error } = await supabase.from("equipment").delete().eq("id", id);
   if (error) return { error: await friendlyError(error.message) };
   refreshAll();

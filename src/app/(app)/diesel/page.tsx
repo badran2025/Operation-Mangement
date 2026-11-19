@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertTriangleIcon, ClipboardListIcon, CylinderIcon, FuelIcon } from "lucide-react";
-import { loadSteam, monthOf } from "./load";
 import { TankShape } from "./TankShape";
 import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
@@ -55,7 +54,6 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
     return { b, mine, st, mLitres, mCost, mPrice: mInvoiceL ? mCost / mInvoiceL : null, mShort: m.reduce((s, r) => s + Number(r.shortage_liters ?? 0), 0), mCount: m.length };
   });
   const withTanks = rows.filter((r) => r.mine.some((x) => x.active));
-  const steam = await loadSteam(supabase, withTanks.map((r) => r.b.id), monthOf(null), 3);
   const sar = (v: number | null) => (v === null ? "—" : `${new Intl.NumberFormat("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)} SAR`);
   const withoutTanks = rows.filter((r) => !r.mine.some((x) => x.active));
   const price = (v: number | null) => (v === null ? "—" : new Intl.NumberFormat("en", { maximumFractionDigits: 3 }).format(v));
@@ -82,8 +80,6 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
         {withTanks.map(({ b, st, mLitres, mCost, mPrice, mShort, mCount }) => {
           const pct = st.stockNow !== null && st.cap ? Math.round((st.stockNow / st.cap) * 100) : null;
           const nextIn = st.next !== null ? Math.round((st.next - now) / dayMs) : null;
-          const sb = steam.get(b.id);
-          const highTests = sb ? [...sb.info.values()].filter((x) => x.high).length : 0;
           const stat = (label: string, value: React.ReactNode, sub?: React.ReactNode) => (
             <div className="min-w-0 rounded-xl bg-canvas px-2.5 py-2">
               <dt className="text-[12px] leading-4 text-ink-muted">{label}</dt>
@@ -131,27 +127,11 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
                 {stat(D.table.next, st.next !== null ? formatDate(locale, new Date(st.next).toISOString()) : "—")}
                 {stat(D.table.month, mCount ? `${L(mLitres)} L` : "—", mCost ? `${L(Math.round(mCost))} SAR` : null)}
               </dl>
-              {sb && sb.machines.length > 0 && (
-                <>
-                  <dl className="m-0 grid grid-cols-3 gap-1.5">
-                    {stat(D.steam.card.dryerCycle, sar(sb.dryerUnitCost))}
-                    {stat(D.steam.card.pressPiece, sar(sb.pressUnitCost))}
-                    {stat(D.steam.check.unexplained, sb.reliable && sb.result.unexplainedPct !== null ? `${Math.round(sb.result.unexplainedPct)}%` : "—", sb.usual !== null ? D.steam.check.usual(String(Math.round(sb.usual))) : null)}
-                  </dl>
-                  {(sb.jump || highTests > 0) && (
-                    <Link href={`/diesel/${b.id}#steam`} className="flex items-start gap-2 rounded-xl bg-danger-soft px-3 py-2 text-[13px] font-semibold text-danger hover:underline">
-                      <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                      {sb.jump ? D.steam.card.jump : D.steam.card.testHigh(String(highTests))}
-                    </Link>
-                  )}
-                </>
-              )}
               {mShort ? <Badge variant="danger" className="self-start">{D.table.shortage}: {D.shortageL(L(mShort))}</Badge> : null}
 
               <footer className="mt-auto flex flex-wrap gap-2 border-t border-hairline pt-3">
                 <Button size="sm" render={<Link href={`/diesel/refuel?branch=${b.id}`} />} nativeButton={false}><FuelIcon data-icon="inline-start" />{D.recordRefuel}</Button>
                 <Button size="sm" variant="outline" render={<Link href={`/diesel/${b.id}`} />} nativeButton={false}><CylinderIcon data-icon="inline-start" />{D.card.open}</Button>
-                {sb && sb.machines.length > 0 && <Button size="sm" variant="outline" render={<Link href={`/diesel/counts?branch=${b.id}`} />} nativeButton={false}><ClipboardListIcon data-icon="inline-start" />{D.steam.card.counts}</Button>}
               </footer>
             </article>
           );

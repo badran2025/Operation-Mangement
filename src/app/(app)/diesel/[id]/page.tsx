@@ -13,8 +13,7 @@ import { DeliveriesTable, type Refuel } from "../DeliveriesTable";
 import { AddTank, BuildCalibration, CalibrationEditor, TankForm } from "../TankEditors";
 import { TankShape } from "../TankShape";
 import { TankCalculator } from "../TankCalculator";
-import { SteamPanel } from "../SteamPanel";
-import { loadSteam, monthOf } from "../load";
+import { monthOf } from "../perf";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +39,6 @@ export default async function BranchDieselPage({ params, searchParams }: { param
     supabase.from("diesel_dips").select("tank_id, refuel_id, kind, level_cm").eq("branch_id", id).not("refuel_id", "is", null),
   ]);
   if (!branch) notFound();
-  const steam = (await loadSteam(supabase, [id], month, 5)).get(id)!;
   const name = pick(locale, branch.name_ar, branch.name_en);
   const tanks = (tankData ?? []) as Tank[];
   const active = tanks.filter((x) => x.active);
@@ -119,8 +117,6 @@ export default async function BranchDieselPage({ params, searchParams }: { param
         )}
         <TankCalculator tanks={active} />
       </Panel>
-
-      <SteamPanel t={t} locale={locale} branchId={id} month={month} data={steam} isAdmin={isAdmin} today={today} />
 
       <Panel title={D.recent}>
         {refuels.length === 0 ? <EmptyNote>{D.noDeliveries}</EmptyNote>
