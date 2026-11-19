@@ -25,7 +25,7 @@ export function BranchPerf({ t, locale, perf, branchId, month, today, isAdmin }:
       {cur.bridge && <div className="mb-4"><WhyChanged t={t} b={cur.bridge} /></div>}
       {!any ? <EmptyNote>{P.noData}</EmptyNote> : (
         <PerfTable storageKey="diesel-branch-cols" firstHeader={P.month}
-          rows={rows.map(({ m, r }) => ({ key: m, label: monthLabel(locale, m), sub: P.source[r.source], estimated: r.estimated, highlight: m === month, data: r }))} />
+          rows={rows.map(({ m, r }) => ({ key: m, label: monthLabel(locale, m), sub: P.source[r.source], estimated: r.estimated, highlight: m === month, status: r.status, data: r }))} />
       )}
     </Panel>
   );

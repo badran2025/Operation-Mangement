@@ -24,6 +24,9 @@ export type BranchMonth = MonthFigures & {
   index: number | null; regionIndex: number | null; shareGap: number | null; priceVsRegion: number | null;
   change: number | null; litersChange: number | null; costChange: number | null; piecesChange: number | null;
   bridge: ReturnType<typeof bridge> | null; flags: string[];
+  /** risk: well above the network and getting worse; watch: above the network or getting worse; good: well below */
+  status: "risk" | "watch" | "good" | "normal" | "none"; trend: "improving" | "worsening" | "stable" | null;
+  vsOwnAvg: number | null; peers: number[]; peerLp: number | null; peerGap: number | null; savingL: number | null; savingSAR: number | null;
 };
 export type Network = {
   liters: number; cost: number; pieces: number; orders: number; hours: number; price: number | null;
@@ -88,6 +91,7 @@ export async function loadPerformance(supabase: SupabaseClient, month: string, h
       blanketShare: pieces && blankets !== null ? (blankets / pieces) * 100 : null,
       turnover: full && cap ? liters! / cap : null, coverDays: full && cap && liters ? cap / (liters / days) : null,
       index: null, regionIndex: null, shareGap: null, priceVsRegion: null, change: null, litersChange: null, costChange: null, piecesChange: null, bridge: null, flags: [],
+      status: "none", trend: null, vsOwnAvg: null, peers: [], peerLp: null, peerGap: null, savingL: null, savingSAR: null,
     };
   };
 
@@ -138,9 +142,38 @@ export async function loadPerformance(supabase: SupabaseClient, month: string, h
         if (prev?.valid && p2?.valid && r.lp1000! > prev.lp1000! && prev.lp1000! > p2.lp1000!) r.flags.push("rising");
         if (r.priceVsRegion !== null && Math.abs(r.priceVsRegion) > 5) r.flags.push("price");
       }
+      // direction: this month against the branch's own average of the up-to-3 months before
+      const before = [1, 2, 3].map((k) => grid.get(`${b.id}|${shiftMonth(mo, -k)}`)).filter((x): x is BranchMonth => !!x?.valid && !x.estimated);
+      if (r.valid && before.length) {
+        const own = before.reduce((s2, x) => s2 + x.liters!, 0) / before.reduce((s2, x) => s2 + x.pieces!, 0) * 1000;
+        r.vsOwnAvg = pctChange(r.lp1000, own);
+        r.trend = r.vsOwnAvg! > 5 ? "worsening" : r.vsOwnAvg! < -5 ? "improving" : "stable";
+      }
+      // what it would save at the network average
+      if (r.valid && !r.estimated && net.lp1000) {
+        r.savingL = Math.max(r.liters! - (r.pieces! * net.lp1000) / 1000, 0);
+        r.savingSAR = r.price !== null ? r.savingL * r.price : null;
+      }
+      if (r.valid && !r.estimated) {
+        const worse = r.trend === "worsening" || r.flags.includes("rising");
+        r.status = (r.index ?? 0) > 150 || ((r.index ?? 0) > 120 && worse) ? "risk"
+          : (r.index ?? 0) > 120 || worse || r.flags.includes("price") ? "watch"
+          : (r.index ?? 100) < 80 ? "good" : "normal";
+      }
       if (!r.pieces) r.flags.push("noPieces");
       if (r.source === "partial") r.flags.push("partial");
       if (r.source === "none") r.flags.push("noLiters");
+    }
+  }
+  // peers: branches that did a similar amount of work the same month (pieces within ±25%)
+  for (const mo of allMonths) {
+    const ok = diesel.map((b) => grid.get(`${b.id}|${mo}`)!).filter((r) => r.valid && !r.estimated);
+    for (const r of ok) {
+      const ps = ok.filter((x) => x.branchId !== r.branchId && Math.abs(x.pieces! / r.pieces! - 1) <= 0.25);
+      if (!ps.length) continue;
+      r.peers = ps.map((x) => x.branchId);
+      r.peerLp = (ps.reduce((s2, x) => s2 + x.liters!, 0) / ps.reduce((s2, x) => s2 + x.pieces!, 0)) * 1000;
+      r.peerGap = pctChange(r.lp1000, r.peerLp);
     }
   }
   // the network's change = the branches' changes added up (branches with figures in both months)

@@ -70,7 +70,7 @@ export default async function BranchDieselPage({ params, searchParams }: { param
         {active.length > 0 && <Button render={<Link href={`/diesel/refuel?branch=${id}`} />} nativeButton={false}><FuelIcon data-icon="inline-start" />{D.recordRefuel}</Button>}
       </PageHeader>
 
-      <DieselTabs t={t} base={`/diesel/${id}`} tab={tab} query={sm ? `m=${sm}` : ""} />
+      <DieselTabs t={t} base={`/diesel/${id}`} tab={tab} query={sm ? `m=${sm}` : ""} branch />
 
       {tab === "perf" && (perf.branches.some((b) => b.id === id)
         ? <BranchPerf t={t} locale={locale} perf={perf} branchId={id} month={month} today={today.slice(0, 7)} isAdmin={isAdmin} />

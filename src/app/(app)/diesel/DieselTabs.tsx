@@ -1,18 +1,20 @@
 import Link from "next/link";
-import { BarChart3Icon, CylinderIcon } from "lucide-react";
+import { AlertTriangleIcon, BarChart3Icon, CylinderIcon, LineChartIcon } from "lucide-react";
 import type { Dict } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
 
-/** The two parts of the diesel tab: performance, and tanks & deliveries. */
-export function DieselTabs({ t, base, tab, query = "" }: { t: Dict; base: string; tab: "perf" | "tanks"; query?: string }) {
-  const items = [{ key: "perf", Icon: BarChart3Icon }, { key: "tanks", Icon: CylinderIcon }] as const;
+export type DieselTab = "perf" | "review" | "analysis" | "tanks";
+/** The parts of the diesel tab. `branch` pages have performance and tanks only. */
+export function DieselTabs({ t, base, tab, query = "", reviewCount, branch = false }: { t: Dict; base: string; tab: DieselTab; query?: string; reviewCount?: number; branch?: boolean }) {
+  const items = (branch ? [["perf", BarChart3Icon], ["tanks", CylinderIcon]] : [["perf", BarChart3Icon], ["review", AlertTriangleIcon], ["analysis", LineChartIcon], ["tanks", CylinderIcon]]) as [DieselTab, typeof BarChart3Icon][];
   return (
-    <nav aria-label={t.diesel.title} className="flex gap-1 border-b border-hairline">
-      {items.map(({ key, Icon }) => (
+    <nav aria-label={t.diesel.title} className="-mx-1 flex gap-1 overflow-x-auto border-b border-hairline px-1">
+      {items.map(([key, Icon]) => (
         <Link key={key} href={`${base}?tab=${key}${query ? `&${query}` : ""}`} aria-current={tab === key ? "page" : undefined}
-          className={cn("-mb-px flex h-11 items-center gap-2 border-b-2 px-4 text-sm font-semibold transition-colors duration-150",
+          className={cn("-mb-px flex h-11 shrink-0 items-center gap-2 border-b-2 px-4 text-sm font-semibold whitespace-nowrap transition-colors duration-150",
             tab === key ? "border-primary text-primary" : "border-transparent text-ink-muted hover:text-ink")}>
           <Icon className="size-4" aria-hidden />{t.diesel.tabs[key]}
+          {key === "review" && reviewCount ? <span className="num grid h-5 min-w-5 place-items-center rounded-full bg-danger px-1.5 text-[11px] font-bold text-white">{reviewCount}</span> : null}
         </Link>
       ))}
     </nav>

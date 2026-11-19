@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangleIcon, ChevronLeftIcon, ChevronRightIcon, InfoIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { Dict } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Kpi, Panel } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
 import { shiftMonth, type loadPerformance } from "./perf";
 import { PerfTable } from "./PerfTable";
+import { StatusBadge } from "./StatusBadge";
 
 type Perf = Awaited<ReturnType<typeof loadPerformance>>;
 const f0 = new Intl.NumberFormat("en", { maximumFractionDigits: 0 });
@@ -54,15 +55,8 @@ export function PerfSection({ t, locale, perf, month, today, names, isAdmin }: {
   const rows = perf.branches.map((b) => perf.at(b.id, month));
   const ranked = rows.filter((r) => r.lp1000 !== null).sort((a, b) => a.lp1000! - b.lp1000!);
   const unranked = rows.filter((r) => r.lp1000 === null);
-  const review = rows.filter((r) => r.flags.some((f) => ["high", "rising", "price"].includes(f))).sort((a, b) => (b.index ?? 0) - (a.index ?? 0));
-  const gaps = rows.filter((r) => r.flags.some((f) => ["noPieces", "partial", "noLiters"].includes(f)));
   const pct = (a: number | null | undefined, b: number | null | undefined) => (a && b ? `${signed(((a / b) - 1) * 100)}%` : null);
   const nb = perf.netBridge(month);
-  const flagText = (r: (typeof rows)[number], f: string) => {
-    if (f === "high" && r.index) return `${P.flags.high} (${f0.format(r.index)})`;
-    if (f === "price" && r.price) return `${P.flags.price} (${f2.format(r.price)} SAR)`;
-    return P.flags[f];
-  };
 
   return (
     <Panel action={isAdmin && <Button size="sm" variant="outline" render={<Link href={`/diesel/months?m=${month}`} />} nativeButton={false}>{P.enter}</Button>}>
@@ -86,39 +80,20 @@ export function PerfSection({ t, locale, perf, month, today, names, isAdmin }: {
 
       {nb && <div className="mt-4"><WhyChanged t={t} b={nb} /></div>}
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        <section aria-labelledby="rev-h" className="flex flex-col gap-2 rounded-[14px] bg-canvas p-3.5">
-          <h3 id="rev-h" className="m-0 flex items-center gap-2 text-sm font-semibold"><AlertTriangleIcon className="size-4 text-danger" aria-hidden />{P.review}</h3>
-          {review.some((r) => r.flags.includes("high")) && <p className="m-0 text-[12.5px] text-ink-muted">{P.flags.high} ({P.table.index})</p>}
-          {review.length === 0 ? <p className="m-0 text-sm text-ink-muted">{P.reviewEmpty}</p> : (
-            <ul className="m-0 grid list-none gap-1.5 p-0 sm:grid-cols-2">
-              {review.map((r) => (
-                <li key={r.branchId}>
-                  <Link href={`/diesel/${r.branchId}?m=${month}#perf`} className="flex items-start gap-3 rounded-xl bg-danger-soft px-3 py-2 text-sm hover:underline">
-                    <span className="min-w-0 flex-1">
-                      <b className="font-semibold text-danger">{names.get(r.branchId)}</b>
-                      {r.flags.filter((f) => ["rising", "price"].includes(f)).map((f) => <span key={f} className="block text-[12.5px] text-danger">{flagText(r, f)}</span>)}
-                    </span>
-                    {r.index !== null && r.flags.includes("high") && <b className="num shrink-0 text-danger" title={P.flags.high}>{f0.format(r.index)}</b>}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <section aria-labelledby="gap-h" className="flex flex-col gap-2 rounded-[14px] bg-canvas p-3.5">
-          <h3 id="gap-h" className="m-0 flex items-center gap-2 text-sm font-semibold"><InfoIcon className="size-4 text-warning" aria-hidden />{P.dataGaps}</h3>
-          {gaps.length === 0 ? <p className="m-0 text-sm text-ink-muted">—</p> : (
-            <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[13px]">
-              {gaps.map((r) => <li key={r.branchId}><b className="font-semibold">{names.get(r.branchId)}</b>: <span className="text-ink-muted">{r.flags.filter((f) => ["noPieces", "partial", "noLiters"].includes(f)).map((f) => P.flags[f]).join(" · ")}</span></li>)}
-            </ul>
-          )}
-        </section>
+      <div className="mt-4 flex flex-wrap items-center gap-2" aria-label={t.diesel.tabs.review}>
+        {(["risk", "watch", "normal", "good", "none"] as const).map((k) => {
+          const c = rows.filter((r) => r.status === k).length;
+          return c ? (
+            <Link key={k} href={k === "risk" || k === "watch" ? `/diesel?tab=review&m=${month}` : `/diesel?tab=analysis&m=${month}`} title={t.diesel.statusHelp[k]} className="inline-flex items-center gap-1.5 rounded-full hover:opacity-80">
+              <StatusBadge status={k} label={`${t.diesel.status[k]}: ${c}`} />
+            </Link>
+          ) : null;
+        })}
       </div>
 
       <div className="mt-5">
         <PerfTable storageKey="diesel-perf-cols" firstHeader={P.table.branch}
-          rows={[...ranked, ...unranked].map((r) => ({ key: String(r.branchId), label: names.get(r.branchId) ?? "", href: `/diesel/${r.branchId}?m=${month}`, sub: P.source[r.source], estimated: r.estimated, data: r }))}
+          rows={[...ranked, ...unranked].map((r) => ({ key: String(r.branchId), label: names.get(r.branchId) ?? "", href: `/diesel/${r.branchId}?m=${month}`, sub: P.source[r.source], estimated: r.estimated, status: r.status, data: r }))}
           total={{ key: "total", label: P.cols2.total, sub: P.branchesCounted(String(net.branches)), data: { liters: net.liters, cost: net.cost, price: net.price, pieces: net.pieces, orders: net.orders || null, lp1000: net.lp1000, cp1000: net.cp1000, lp100orders: net.lp100orders, costPerOrder: net.costPerOrder, lph: net.lph, piecesPerOrder: net.orders ? net.pieces / net.orders : null, index: 100, change: prevNet?.lp1000 && net.lp1000 ? ((net.lp1000 / prevNet.lp1000) - 1) * 100 : null, litersChange: prevNet?.liters ? ((net.liters / prevNet.liters) - 1) * 100 : null, costChange: prevNet?.cost ? ((net.cost / prevNet.cost) - 1) * 100 : null, piecesChange: prevNet?.pieces ? ((net.pieces / prevNet.pieces) - 1) * 100 : null } }} />
       </div>
       <details className="mt-3 rounded-[14px] bg-canvas">

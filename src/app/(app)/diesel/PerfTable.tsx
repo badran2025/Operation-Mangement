@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n/client";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { BranchMonth } from "./perf";
+import { StatusBadge } from "./StatusBadge";
 
 const f0 = new Intl.NumberFormat("en", { maximumFractionDigits: 0 });
 const f1 = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
@@ -67,7 +68,7 @@ const GROUPS: { key: string; cols: Col[] }[] = [
 ];
 const DEFAULT_ON = ["diesel", "work", "efficiency", "hours", "compare", "change", "tank", "equipment"];
 
-export type PerfRow = { key: string; label: string; href?: string; sub?: string; estimated?: boolean; highlight?: boolean; data: Partial<BranchMonth> };
+export type PerfRow = { key: string; label: string; href?: string; sub?: string; estimated?: boolean; highlight?: boolean; status?: string; data: Partial<BranchMonth> };
 
 export function PerfTable({ rows, total, firstHeader, storageKey }: { rows: PerfRow[]; total?: PerfRow; firstHeader: string; storageKey: string }) {
   const { t } = useI18n();
@@ -90,7 +91,10 @@ export function PerfTable({ rows, total, firstHeader, storageKey }: { rows: Perf
   const line = (r: PerfRow, isTotal = false) => (
     <tr key={r.key} className={cn("border-t border-hairline", r.highlight && "bg-surface-tint/60", isTotal && "border-t-2 bg-canvas font-semibold")}>
       <th scope="row" className={cn("sticky start-0 z-10 min-w-40 bg-surface py-2.5 ps-4 pe-3 text-start font-normal md:ps-5", isTotal && "bg-canvas", r.highlight && "bg-surface-tint")}>
-        {r.href ? <Link href={r.href} className="font-semibold text-primary hover:underline">{r.label}</Link> : <span className="font-semibold">{r.label}</span>}
+        <span className="flex flex-wrap items-center gap-1.5">
+          {r.href ? <Link href={r.href} className="font-semibold text-primary hover:underline">{r.label}</Link> : <span className="font-semibold">{r.label}</span>}
+          {r.status && r.status !== "normal" && r.status !== "none" && <StatusBadge status={r.status} label={t.diesel.status[r.status]} title={t.diesel.statusHelp[r.status]} />}
+        </span>
         {(r.sub || r.estimated) && <span className="block text-[11.5px] text-ink-muted">{r.sub}{r.estimated && <> · <Badge variant="warning" className="h-5 px-1.5 text-[11px]">{t.diesel.perf.estimated}</Badge></>}</span>}
       </th>
       {groups.map((g) => g.cols.map((c, i) => (
