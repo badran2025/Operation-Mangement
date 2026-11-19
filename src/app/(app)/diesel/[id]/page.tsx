@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ChevronDownIcon, FuelIcon } from "lucide-react";
+import { ChevronDownIcon, FuelIcon, GaugeIcon } from "lucide-react";
 import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import { pick } from "@/lib/i18n/config";
@@ -15,13 +15,16 @@ import { TankShape } from "../TankShape";
 import { TankCalculator } from "../TankCalculator";
 import { defaultMonth, loadPerformance, monthOf } from "../perf";
 import { BranchPerf } from "../BranchPerf";
+import { DieselTabs } from "../DieselTabs";
 
 export const dynamic = "force-dynamic";
 
 /** Everything about one branch's diesel: tanks and their measurements, stock and use, every delivery, every level check. */
-export default async function BranchDieselPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ m?: string }> }) {
+export default async function BranchDieselPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ m?: string; tab?: string }> }) {
   const id = Number((await params).id);
-  const sm = (await searchParams).m;
+  const spx = await searchParams;
+  const sm = spx.m;
+  const tab = spx.tab === "tanks" ? "tanks" : "perf";
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
   const { supabase, profile } = await requireActive();
   if (!["admin", "supervisor"].includes(profile.role)) redirect("/");
@@ -63,8 +66,17 @@ export default async function BranchDieselPage({ params, searchParams }: { param
   return (
     <>
       <PageHeader back={{ href: "/diesel", label: D.title }} title={`${D.title}: ${name}`} sub={<Link href={`/branches/${id}`} className="text-primary hover:underline">{name}</Link>}>
+        {active.length > 0 && <Button variant="outline" render={<Link href={`/diesel/check?branch=${id}`} />} nativeButton={false}><GaugeIcon data-icon="inline-start" />{D.perf.reading}</Button>}
         {active.length > 0 && <Button render={<Link href={`/diesel/refuel?branch=${id}`} />} nativeButton={false}><FuelIcon data-icon="inline-start" />{D.recordRefuel}</Button>}
       </PageHeader>
+
+      <DieselTabs t={t} base={`/diesel/${id}`} tab={tab} query={sm ? `m=${sm}` : ""} />
+
+      {tab === "perf" && (perf.branches.some((b) => b.id === id)
+        ? <BranchPerf t={t} locale={locale} perf={perf} branchId={id} month={month} today={today.slice(0, 7)} isAdmin={isAdmin} />
+        : <EmptyNote>{D.perf.electric}</EmptyNote>)}
+
+      {tab === "tanks" && <>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Kpi label={D.table.stock} value={st.stockNow === null ? "—" : `≈ ${L(st.stockNow)} L`} highlight />
@@ -121,8 +133,6 @@ export default async function BranchDieselPage({ params, searchParams }: { param
         <TankCalculator tanks={active} />
       </Panel>
 
-      {perf.branches.some((b) => b.id === id) && <BranchPerf t={t} locale={locale} perf={perf} branchId={id} month={month} today={today.slice(0, 7)} isAdmin={isAdmin} />}
-
       <Panel title={D.recent}>
         {refuels.length === 0 ? <EmptyNote>{D.noDeliveries}</EmptyNote>
           : <DeliveriesTable t={t} locale={locale} refuels={refuels} photoUrl={(p) => url.get(p) ?? undefined} canDelete={isAdmin} />}
@@ -148,6 +158,7 @@ export default async function BranchDieselPage({ params, searchParams }: { param
           </Panel>
         );
       })}
+      </>}
     </>
   );
 }

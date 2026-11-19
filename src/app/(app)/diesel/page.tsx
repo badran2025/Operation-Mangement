@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CylinderIcon, FuelIcon, GaugeIcon } from "lucide-react";
 import { PerfSection } from "./PerfSection";
+import { DieselTabs } from "./DieselTabs";
 import { defaultMonth, loadPerformance, monthOf } from "./perf";
 import { TankShape } from "./TankShape";
 import { requireActive } from "@/lib/auth";
@@ -17,7 +18,7 @@ import { DeliveriesTable, type Refuel } from "./DeliveriesTable";
 
 export const dynamic = "force-dynamic";
 
-export default async function DieselPage({ searchParams }: { searchParams: Promise<{ saved?: string; m?: string }> }) {
+export default async function DieselPage({ searchParams }: { searchParams: Promise<{ saved?: string; m?: string; tab?: string }> }) {
   const { supabase, profile } = await requireActive();
   if (!["admin", "supervisor"].includes(profile.role)) redirect("/");
   const { t, locale } = await getT();
@@ -45,8 +46,9 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
   const now = Date.now();
   const dayMs = 86400000;
   const today = monthOf(null);
+  const tab = sp.tab === "tanks" ? "tanks" : "perf";
   const perfMonth = sp.m ? monthOf(sp.m) : await defaultMonth(supabase);
-  const perf = await loadPerformance(supabase, perfMonth, 2);
+  const perf = tab === "perf" ? await loadPerformance(supabase, perfMonth, 2) : null;
 
   const rows = (branches ?? []).map((b) => {
     const mine = tanks.filter((x) => x.branch_id === b.id);
@@ -74,10 +76,11 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
       </PageHeader>
       {sp.saved && <p role="status" className="rounded-[14px] bg-success-soft px-4 py-3 text-sm font-semibold text-success">✓ {D.form.saved}</p>}
 
-      <PerfSection t={t} locale={locale} perf={perf} month={perfMonth} today={today} names={bName} isAdmin={profile.role === "admin"} />
+      <DieselTabs t={t} base="/diesel" tab={tab} query={sp.m ? `m=${sp.m}` : ""} />
 
-      <h2 className="mt-2 text-[18px] font-semibold">{D.tanksAndDeliveries}</h2>
+      {perf && <PerfSection t={t} locale={locale} perf={perf} month={perfMonth} today={today} names={bName} isAdmin={profile.role === "admin"} />}
 
+      {tab === "tanks" && <>
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label={D.kpi.received} value={L(month.reduce((s, r) => s + Number(r.received_liters ?? 0), 0))} highlight />
         <Kpi label={D.kpi.cost} value={cost ? L(Math.round(cost)) : "—"} />
@@ -160,6 +163,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
           <DeliveriesTable t={t} locale={locale} refuels={refuels.slice(0, 30)} branchName={(id) => bName.get(id)} photoUrl={(p) => url.get(p) ?? undefined} canDelete={profile.role === "admin"} />
         )}
       </Panel>
+      </>}
     </>
   );
 }

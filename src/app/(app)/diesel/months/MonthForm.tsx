@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { saveMonthFigures, type MonthRow } from "../actions";
 
-type B = { id: number; name: string; pieces: number | null; blankets: number | null; liters: number | null; cost: number | null; estimated: boolean; autoLiters: number | null; autoComplete: boolean; hasTanks: boolean };
+type B = { id: number; name: string; pieces: number | null; orders: number | null; blankets: number | null; liters: number | null; cost: number | null; estimated: boolean; autoLiters: number | null; autoComplete: boolean; hasTanks: boolean };
 const s = (v: number | null) => (v === null || v === undefined ? "" : String(v));
 const shift = (m: string, by: number) => { const [y, mo] = m.split("-").map(Number); const d = new Date(Date.UTC(y, mo - 1 + by, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 
@@ -16,7 +16,7 @@ export function MonthForm({ month, today, branches }: { month: string; today: st
   const { t, locale } = useI18n();
   const P = t.diesel.perf;
   const router = useRouter();
-  const init = () => branches.map((b): MonthRow => ({ branch_id: b.id, pieces: s(b.pieces), blankets: s(b.blankets), liters: s(b.liters), cost: s(b.cost), estimated: b.estimated }));
+  const init = () => branches.map((b): MonthRow => ({ branch_id: b.id, pieces: s(b.pieces), orders: s(b.orders), blankets: s(b.blankets), liters: s(b.liters), cost: s(b.cost), estimated: b.estimated }));
   const [rows, setRows] = useState<MonthRow[]>(init);
   const [busy, start] = useTransition();
   const [msg, setMsg] = useState<{ ok?: string; error?: string } | null>(null);
@@ -38,7 +38,7 @@ export function MonthForm({ month, today, branches }: { month: string; today: st
         <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="text-[12.5px] text-ink-muted">
-              {[P.cols.branch, P.cols.pieces, P.cols.blankets, P.cols.liters, P.cols.cost, P.cols.estimate].map((h, i) => <th key={h} className={i === 0 ? "h-10 ps-4 text-start font-semibold md:ps-5" : "h-10 px-2 text-start font-semibold"}>{h}</th>)}
+              {[P.cols.branch, P.cols.pieces, P.cols.blankets, P.cols.orders, P.cols.liters, P.cols.cost, P.cols.estimate].map((h, i) => <th key={h} className={i === 0 ? "h-10 ps-4 text-start font-semibold md:ps-5" : "h-10 px-2 text-start font-semibold"}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -47,6 +47,7 @@ export function MonthForm({ month, today, branches }: { month: string; today: st
                 <td className="py-2.5 ps-4 pe-2 font-semibold md:ps-5">{b.name}</td>
                 <td className="px-2 py-2"><NumberInput aria-label={`${b.name}: ${P.cols.pieces}`} className="w-28" value={rows[i].pieces} onChange={(e) => set(i, "pieces", e.target.value)} /></td>
                 <td className="px-2 py-2"><NumberInput aria-label={`${b.name}: ${P.cols.blankets}`} className="w-24" value={rows[i].blankets} onChange={(e) => set(i, "blankets", e.target.value)} /></td>
+                <td className="px-2 py-2"><NumberInput aria-label={`${b.name}: ${P.cols.orders}`} className="w-24" value={rows[i].orders} onChange={(e) => set(i, "orders", e.target.value)} /></td>
                 <td className="px-2 py-2">
                   <NumberInput aria-label={`${b.name}: ${P.cols.liters}`} className="w-28" value={rows[i].liters} placeholder={b.autoLiters !== null ? nf.format(b.autoLiters) : ""} onChange={(e) => set(i, "liters", e.target.value)} />
                   <span className="mt-0.5 block text-[11.5px] text-ink-muted">{b.autoLiters !== null ? P.autoLiters(nf.format(b.autoLiters)) + (b.autoComplete ? "" : " *") : P.autoNone}</span>

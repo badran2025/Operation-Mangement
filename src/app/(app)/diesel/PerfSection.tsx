@@ -2,15 +2,14 @@ import Link from "next/link";
 import { AlertTriangleIcon, ChevronLeftIcon, ChevronRightIcon, InfoIcon } from "lucide-react";
 import type { Dict } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Kpi, Panel } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
 import { shiftMonth, type loadPerformance } from "./perf";
+import { PerfTable } from "./PerfTable";
 
 type Perf = Awaited<ReturnType<typeof loadPerformance>>;
 const f0 = new Intl.NumberFormat("en", { maximumFractionDigits: 0 });
-const f1 = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 const f2 = new Intl.NumberFormat("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // isolated left-to-right so the sign stays in front of the number inside Arabic text
 const signed = (v: number, f = f0) => { const t = f.format(Math.abs(v)); return `\u2066${/^[0.,]+$/.test(t) ? "" : v > 0 ? "+" : v < 0 ? "−" : ""}${t}\u2069`; };
@@ -23,7 +22,7 @@ export function MonthNav({ t, locale, month, today, href }: { t: Dict; locale: L
   const P = t.diesel.perf;
   const last = month >= today;
   return (
-    <nav aria-label={P.month} className="flex items-center gap-1 self-start rounded-full bg-canvas p-1">
+    <nav aria-label={P.month} className="flex w-fit items-center gap-1 self-start rounded-full bg-canvas p-1">
       <Button size="icon-sm" variant="ghost" render={<Link href={href(shiftMonth(month, -1))} aria-label={P.prev} />} nativeButton={false}><ChevronRightIcon className="ltr:rotate-180" /></Button>
       <span className="min-w-36 text-center text-sm font-semibold">{monthLabel(locale, month)}</span>
       <Button size="icon-sm" variant="ghost" disabled={last} render={last ? undefined : <Link href={href(shiftMonth(month, 1))} aria-label={P.next} />} nativeButton={last}><ChevronLeftIcon className="ltr:rotate-180" /></Button>
@@ -55,7 +54,6 @@ export function PerfSection({ t, locale, perf, month, today, names, isAdmin }: {
   const rows = perf.branches.map((b) => perf.at(b.id, month));
   const ranked = rows.filter((r) => r.lp1000 !== null).sort((a, b) => a.lp1000! - b.lp1000!);
   const unranked = rows.filter((r) => r.lp1000 === null);
-  const maxLp = Math.max(...ranked.map((r) => r.lp1000!), 1);
   const review = rows.filter((r) => r.flags.some((f) => ["high", "rising", "price"].includes(f))).sort((a, b) => (b.index ?? 0) - (a.index ?? 0));
   const gaps = rows.filter((r) => r.flags.some((f) => ["noPieces", "partial", "noLiters"].includes(f)));
   const pct = (a: number | null | undefined, b: number | null | undefined) => (a && b ? `${signed(((a / b) - 1) * 100)}%` : null);
@@ -67,7 +65,7 @@ export function PerfSection({ t, locale, perf, month, today, names, isAdmin }: {
   };
 
   return (
-    <Panel title={P.title} action={isAdmin && <Button size="sm" variant="outline" render={<Link href={`/diesel/months?m=${month}`} />} nativeButton={false}>{P.enter}</Button>}>
+    <Panel action={isAdmin && <Button size="sm" variant="outline" render={<Link href={`/diesel/months?m=${month}`} />} nativeButton={false}>{P.enter}</Button>}>
       <div className="-mt-1 mb-4 flex flex-col gap-3">
         <p className="m-0 text-sm text-ink-muted">{P.sub}</p>
         <MonthNav t={t} locale={locale} month={month} today={today} href={(m) => `/diesel?m=${m}`} />
@@ -118,42 +116,10 @@ export function PerfSection({ t, locale, perf, month, today, names, isAdmin }: {
         </section>
       </div>
 
-      <div className="-mx-4 mt-4 overflow-x-auto md:-mx-5">
-        <table className="w-full min-w-[980px] text-sm">
-          <thead>
-            <tr className="text-[12.5px] text-ink-muted">
-              {[P.table.branch, P.table.lp1000, P.table.index, P.table.region, P.table.change, P.table.blankets, P.table.gap, P.table.lph, P.table.liters, P.table.pieces].map((h, i) => (
-                <th key={h} className={cn("h-10 px-2.5 font-semibold", i === 0 ? "ps-4 text-start md:ps-5" : i === 1 ? "text-start" : "text-end")}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {[...ranked, ...unranked].map((r) => (
-              <tr key={r.branchId} className={cn("border-t border-hairline", r.flags.includes("high") && "bg-danger-soft/40")}>
-                <td className="py-2.5 ps-4 pe-2.5 md:ps-5">
-                  <Link href={`/diesel/${r.branchId}?m=${month}#perf`} className="font-semibold text-primary hover:underline">{names.get(r.branchId)}</Link>
-                  <span className="block text-[11.5px] text-ink-muted">{P.source[r.source]}{r.estimated && <> · <Badge variant="warning" className="h-5 px-1.5 text-[11px]">{P.estimated}</Badge></>}</span>
-                </td>
-                <td className="min-w-48 px-2.5">
-                  {r.lp1000 !== null ? (
-                    <span className="flex items-center gap-2">
-                      <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-sunken"><span className={cn("block h-full rounded-full", (r.index ?? 0) > 120 ? "bg-danger" : (r.index ?? 100) < 80 ? "bg-success" : "bg-primary")} style={{ width: `${(r.lp1000 / maxLp) * 100}%` }} /></span>
-                      <b className="num w-12 text-end font-semibold">{f0.format(r.lp1000)}</b>
-                    </span>
-                  ) : <span className="text-ink-muted">—</span>}
-                </td>
-                <td className={cn("num px-2.5 text-end font-semibold", indexTone(r.index))}>{r.index === null ? "—" : f0.format(r.index)}</td>
-                <td className={cn("num px-2.5 text-end", indexTone(r.regionIndex))}>{r.regionIndex === null ? "—" : f0.format(r.regionIndex)}</td>
-                <td dir="ltr" className={cn("num px-2.5 text-end rtl:text-start", r.change === null ? "text-ink-muted" : r.change > 0 ? "text-danger" : "text-success")}>{r.change === null ? "—" : `${signed(r.change)}%`}</td>
-                <td className="num px-2.5 text-end">{r.blanketShare === null ? "—" : `${f1.format(r.blanketShare)}%`}</td>
-                <td dir="ltr" className={cn("num px-2.5 text-end rtl:text-start", r.shareGap !== null && r.shareGap > 0.5 && "text-danger")}>{r.shareGap === null ? "—" : signed(r.shareGap, f1)}</td>
-                <td className="num px-2.5 text-end">{r.lph === null ? "—" : f1.format(r.lph)}</td>
-                <td className="num px-2.5 text-end">{r.liters === null ? "—" : f0.format(r.liters)}</td>
-                <td className="num px-2.5 text-end">{r.pieces ? f0.format(r.pieces) : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mt-5">
+        <PerfTable storageKey="diesel-perf-cols" firstHeader={P.table.branch}
+          rows={[...ranked, ...unranked].map((r) => ({ key: String(r.branchId), label: names.get(r.branchId) ?? "", href: `/diesel/${r.branchId}?m=${month}`, sub: P.source[r.source], estimated: r.estimated, data: r }))}
+          total={{ key: "total", label: P.cols2.total, sub: P.branchesCounted(String(net.branches)), data: { liters: net.liters, cost: net.cost, price: net.price, pieces: net.pieces, orders: net.orders || null, lp1000: net.lp1000, cp1000: net.cp1000, lp100orders: net.lp100orders, costPerOrder: net.costPerOrder, lph: net.lph, piecesPerOrder: net.orders ? net.pieces / net.orders : null, index: 100, change: prevNet?.lp1000 && net.lp1000 ? ((net.lp1000 / prevNet.lp1000) - 1) * 100 : null, litersChange: prevNet?.liters ? ((net.liters / prevNet.liters) - 1) * 100 : null, costChange: prevNet?.cost ? ((net.cost / prevNet.cost) - 1) * 100 : null, piecesChange: prevNet?.pieces ? ((net.pieces / prevNet.pieces) - 1) * 100 : null } }} />
       </div>
       <details className="mt-3 rounded-[14px] bg-canvas">
         <summary className="cursor-pointer list-none px-3.5 py-2.5 text-[13px] font-semibold [&::-webkit-details-marker]:hidden">ⓘ {P.table.index} · {P.table.region} · {P.table.gap} · {P.table.blankets} · {P.table.lph}</summary>

@@ -41,13 +41,16 @@ export function hoursOnWeekday(rows: HoursRow[], weekday: number): number {
   return c > o ? c - o : 24 - o + c; // closes after midnight
 }
 
-/** Opening hours in a month (Riyadh calendar days) minus the time the branch was stopped. */
+/**
+ * A month's hours: opening hours (Riyadh calendar days), the time the branch was
+ * stopped by maintenance tickets, and the hours it really worked (the difference).
+ */
 export function operatingHours(rows: HoursRow[], month: string, stops: { started_at: string; ended_at: string | null }[], now = Date.now()) {
+  if (!rows.length) return null;
   const [y, m] = month.split("-").map(Number);
   const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
   let scheduled = 0;
   for (let d = 1; d <= days; d++) scheduled += hoursOnWeekday(rows, new Date(Date.UTC(y, m - 1, d)).getUTCDay());
-  if (!rows.length) return null;
   const from = Date.parse(`${month}-01T00:00:00+03:00`), to = Date.parse(`${y}-${String(m).padStart(2, "0")}-${days}T23:59:59+03:00`) + 1000;
   // overlapping stops are counted once
   const spans = stops.map((s) => [Math.max(Date.parse(s.started_at), from), Math.min(s.ended_at ? Date.parse(s.ended_at) : now, to)] as [number, number])
@@ -58,11 +61,12 @@ export function operatingHours(rows: HoursRow[], month: string, stops: { started
     else { if (cur) stopped += cur[1] - cur[0]; cur = [...s] as [number, number]; }
   }
   if (cur) stopped += cur[1] - cur[0];
-  return Math.max(scheduled - stopped / 3600000, 0);
+  const stoppedH = stopped / 3600000;
+  return { scheduled, perDay: scheduled / days, stopped: stoppedH, actual: Math.max(scheduled - stoppedH, 0), days };
 }
 
 export type MonthFigures = {
-  liters: number | null; cost: number | null; pieces: number | null; blankets: number | null; hours: number | null;
+  liters: number | null; cost: number | null; pieces: number | null; blankets: number | null;
 };
 export const per1000 = (v: number | null, pieces: number | null) => (v !== null && pieces ? (v / pieces) * 1000 : null);
 
