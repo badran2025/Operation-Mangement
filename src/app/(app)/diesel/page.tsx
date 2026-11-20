@@ -49,7 +49,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
   const shortage = month.reduce((s, r) => s + Number(r.shortage_liters ?? 0), 0);
   const now = Date.now();
   const dayMs = 86400000;
-  const tab: DieselTab = sp.tab === "tanks" ? "tanks" : "perf";
+  const tab: DieselTab = sp.tab === "tanks" ? "tanks" : sp.tab === "suppliers" && profile.role === "admin" ? "suppliers" : "perf";
   const [fallback, earliest] = await Promise.all([defaultMonth(supabase), earliestMonth(supabase)]);
   const period = parsePeriod(sp, fallback, earliest);
   const perf = await loadPerformance(supabase, period.to, period.months.length * 2 + 1);
@@ -83,7 +83,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
       </PageHeader>
       {sp.saved && <p role="status" className="rounded-[14px] bg-success-soft px-4 py-3 text-sm font-semibold text-success">✓ {D.form.saved}</p>}
 
-      <DieselTabs t={t} base="/diesel" tab={tab} query={periodQuery} reviewCount={reviewCount} />
+      <DieselTabs t={t} base="/diesel" tab={tab} query={periodQuery} reviewCount={reviewCount} suppliers={profile.role === "admin"} />
 
       {tab === "perf" && <Overview t={t} locale={locale} agg={agg} period={period} names={bName} isAdmin={profile.role === "admin"} query={periodQuery} />}
 
@@ -171,13 +171,13 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
         )}
       </Panel>
 
-      {profile.role === "admin" && (
+      </>}
+      {tab === "suppliers" && (
         <Panel title={D.sup.title}>
           <p className="-mt-1 mb-3 text-sm text-ink-muted">{D.sup.sub}</p>
           <Suppliers list={(sups ?? []).map((x) => ({ id: x.id, name: x.name, price_per_liter: x.price_per_liter === null ? null : Number(x.price_per_liter), active: x.active, deliveries: refuels.filter((r) => r.supplier_id === x.id).length }))} />
         </Panel>
       )}
-      </>}
     </>
   );
 }

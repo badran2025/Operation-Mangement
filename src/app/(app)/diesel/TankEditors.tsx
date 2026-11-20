@@ -38,7 +38,7 @@ export function TankForm({ branchId, tank, onDone }: { branchId: number; tank?: 
       </div>
       <Field className="sm:col-span-3">
         <FieldLabel htmlFor={`${p}-eu`}>{T.entryUnit}</FieldLabel>
-        <NativeSelect id={`${p}-eu`} name="entry_unit" defaultValue={tank?.entry_unit ?? (shape === "box" ? "liters" : "cm")} key={tank ? undefined : `eu-${shape}`} className="w-full">
+        <NativeSelect id={`${p}-eu`} name="entry_unit" defaultValue={tank?.entry_unit ?? "cm"} className="w-full">
           {["cm", "liters"].map((m) => <NativeSelectOption key={m} value={m}>{T.entryUnits[m]}</NativeSelectOption>)}
         </NativeSelect>
       </Field>

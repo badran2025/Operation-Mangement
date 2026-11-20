@@ -54,18 +54,24 @@ function TankReading({ tk, points, value, onChange, single = false }: { tk: Tank
         <span className="text-center text-[12px] text-ink-muted">{t.diesel.tanks.shapes[tk.shape]}{tk.liters_known && tk.capacity_l ? ` · ${fmt(tk.capacity_l, 0)} L` : ""}</span>
       </div>
       <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-2 text-[13px]">
-          <span className="text-ink-muted">{F.unit}</span>
-          <span className="inline-flex rounded-full bg-surface p-0.5" role="radiogroup" aria-label={`${tk.label}: ${F.unit}`}>
-            {(["cm", "liters"] as const).map((u) => (
-              <button key={u} type="button" role="radio" aria-checked={value.unit === u} disabled={u === "liters" && !tk.liters_known}
-                onClick={() => onChange({ unit: u, b: "", a: "" })}
-                className={cn("h-8 rounded-full px-3 font-semibold transition-colors duration-150 disabled:opacity-40", value.unit === u ? "bg-primary text-primary-foreground" : "text-ink-muted hover:text-ink")}>
-                {u === "cm" ? F.unitCm : F.unitL}
-              </button>
-            ))}
-          </span>
-        </div>
+        <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
+          <legend className="mb-1 text-[13px] font-semibold">{F.unit}</legend>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={`${tk.label}: ${F.unit}`}>
+            {(["cm", "liters"] as const).map((u) => {
+              const usual = (tk.entry_unit ?? "cm") === u;
+              return (
+                <button key={u} type="button" role="radio" aria-checked={value.unit === u} disabled={u === "liters" && !tk.liters_known}
+                  onClick={() => onChange({ unit: u, b: "", a: "" })}
+                  className={cn("flex min-h-12 flex-col items-start justify-center rounded-xl border-2 px-3 py-1.5 text-start transition-colors duration-150 disabled:opacity-40",
+                    value.unit === u ? "border-primary bg-surface-tint" : "border-hairline bg-surface hover:border-primary/50")}>
+                  <span className={cn("text-sm font-semibold", value.unit === u && "text-primary")}>{value.unit === u ? "● " : "○ "}{u === "cm" ? F.unitCmLong : F.unitLLong}</span>
+                  {usual && <span className="text-[11.5px] text-ink-muted">{F.usual}</span>}
+                </button>
+              );
+            })}
+          </div>
+          {value.unit !== (tk.entry_unit ?? "cm") && <p className="m-0 rounded-lg bg-warning-soft px-3 py-1.5 text-[12.5px] font-semibold text-warning">{F.notUsual((tk.entry_unit ?? "cm") === "cm" ? F.unitCmLong : F.unitLLong)}</p>}
+        </fieldset>
         {!tk.liters_known && <p className="m-0 text-[13px] text-warning">{F.cmTank}</p>}
         <div className={cn("grid gap-3", single ? "grid-cols-1" : "grid-cols-2")}>
           <Field>
@@ -189,12 +195,23 @@ export function RefuelForm({ branches, tanks, points, last, suppliers = [], defa
           <div><dt className="text-[12.5px] text-ink-muted">{F.afterL}</dt><dd className="num m-0 text-[20px] font-semibold">{fmt(after)} L</dd></div>
         </dl>
       )}
+      <Field>
+        <FieldLabel htmlFor="dz-sup">{F.supplier}</FieldLabel>
+        {suppliers.length > 0 && (
+          <NativeSelect id="dz-sup" value={other || (!known && supplier) ? "__other" : supplier} onChange={(e) => pickSupplier(e.target.value)} className="w-full">
+            <NativeSelectOption value="">{t.diesel.sup.choose}</NativeSelectOption>
+            {suppliers.map((x) => <NativeSelectOption key={x.id} value={x.name}>{x.name}</NativeSelectOption>)}
+            <NativeSelectOption value="__other">{t.diesel.sup.other}</NativeSelectOption>
+          </NativeSelect>
+        )}
+        {(suppliers.length === 0 || other || (!known && supplier)) && <Input id={suppliers.length ? "dz-sup-name" : "dz-sup"} aria-label={t.diesel.sup.otherName} placeholder={t.diesel.sup.otherName} value={supplier} onChange={(e) => setSupplier(e.target.value)} dir="auto" />}
+      </Field>
       <Field><FieldLabel htmlFor="dz-ord">{F.ordered} *</FieldLabel><NumberInput id="dz-ord" required value={ordered} onChange={(e) => setOrdered(e.target.value)} /></Field>
       <Field>
         <FieldLabel htmlFor="dz-price">{F.perLiter}</FieldLabel>
         <NumberInput id="dz-price" value={price} onChange={(e) => setPrice(e.target.value)} disabled={tot !== null} />
         <span className="num text-[13px] font-semibold text-primary">
-          {tot === null && effectiveTotal !== null ? F.totalCalc(fmt(effectiveTotal, 2)) : tot !== null && ord ? F.priceCalc(fmt(tot / ord, 3)) : last[Number(branch)]?.price && !initial ? F.perLiterHint : " "}
+          {tot === null && effectiveTotal !== null ? F.totalCalc(fmt(effectiveTotal, 2)) : tot !== null && ord ? F.priceCalc(fmt(tot / ord, 3)) : known && suppliers.find((x) => x.name === supplier)?.price ? t.diesel.sup.priceFromSupplier : last[Number(branch)]?.price && !initial ? F.perLiterHint : " "}
         </span>
       </Field>
       {diff !== null && (
@@ -202,19 +219,7 @@ export function RefuelForm({ branches, tanks, points, last, suppliers = [], defa
           {F.difference}: {diff < 0 ? F.short(fmt(-diff)) : diff > 0 ? F.extra(fmt(diff)) : F.exact}
         </p>
       )}
-      <Field className="sm:col-span-2"><FieldLabel htmlFor="dz-total">{F.totalIfWritten}</FieldLabel><NumberInput id="dz-total" value={total} onChange={(e) => setTotal(e.target.value)} /></Field>
-      <Field>
-        <FieldLabel htmlFor="dz-sup">{F.supplier}</FieldLabel>
-        {suppliers.length > 0 && (
-          <NativeSelect id="dz-sup" value={other || (!known && supplier) ? "__other" : supplier} onChange={(e) => pickSupplier(e.target.value)} className="w-full">
-            <NativeSelectOption value="">{t.diesel.sup.choose}</NativeSelectOption>
-            {suppliers.map((x) => <NativeSelectOption key={x.id} value={x.name}>{x.name}{x.price ? ` · ${x.price}` : ""}</NativeSelectOption>)}
-            <NativeSelectOption value="__other">{t.diesel.sup.other}</NativeSelectOption>
-          </NativeSelect>
-        )}
-        {(suppliers.length === 0 || other || (!known && supplier)) && <Input id={suppliers.length ? "dz-sup-name" : "dz-sup"} aria-label={t.diesel.sup.otherName} placeholder={t.diesel.sup.otherName} value={supplier} onChange={(e) => setSupplier(e.target.value)} dir="auto" />}
-        {known && suppliers.find((x) => x.name === supplier)?.price ? <span className="text-[12.5px] text-ink-muted">{t.diesel.sup.priceFromSupplier}</span> : null}
-      </Field>
+      <Field><FieldLabel htmlFor="dz-total">{F.totalIfWritten}</FieldLabel><NumberInput id="dz-total" value={total} onChange={(e) => setTotal(e.target.value)} /></Field>
       <Field><FieldLabel htmlFor="dz-inv">{F.invoice}</FieldLabel><Input id="dz-inv" name="invoice" dir="ltr" defaultValue={initial?.invoice ?? ""} /></Field>
       <Field className="sm:col-span-2"><FieldLabel htmlFor="dz-notes">{F.notes}</FieldLabel><Textarea id="dz-notes" name="notes" rows={2} dir="auto" defaultValue={initial?.notes ?? ""} /></Field>
       <div className="flex flex-col gap-1.5 sm:col-span-2"><span className="text-sm font-medium">{F.photos}</span><FilePicker files={files} onChange={setFiles} /></div>
