@@ -214,3 +214,29 @@ export async function recordReading(branchId: number, readings: { tank_id: numbe
   refreshAll();
   return {};
 }
+
+// ---------- suppliers (admin) ----------
+export async function saveSupplier(id: number | null, input: { name: string; price: string; active: boolean }): Promise<{ error?: string }> {
+  const { supabase } = await requireAdmin();
+  const { t } = await getT();
+  const name = input.name.trim();
+  const price = parseNum(input.price);
+  if (!name || (price !== null && price <= 0)) return { error: t.diesel.errors.badTotal };
+  const row = { name, price_per_liter: price, active: input.active };
+  const { error } = id ? await supabase.from("diesel_suppliers").update(row).eq("id", id) : await supabase.from("diesel_suppliers").insert(row);
+  if (error) return { error: error.code === "23505" ? t.diesel.sup.nameTaken : await friendlyError(error.message) };
+  if (id) await supabase.from("diesel_refuels").update({ supplier: name }).eq("supplier_id", id); // a renamed supplier keeps its deliveries
+  refreshAll();
+  return {};
+}
+
+export async function deleteSupplier(id: number): Promise<{ error?: string; notice?: string }> {
+  const { supabase } = await requireAdmin();
+  const { t } = await getT();
+  const { count } = await supabase.from("diesel_refuels").select("id", { count: "exact", head: true }).eq("supplier_id", id);
+  if (count) { await supabase.from("diesel_suppliers").update({ active: false }).eq("id", id); refreshAll(); return { notice: t.diesel.sup.hasDeliveries }; }
+  const { error } = await supabase.from("diesel_suppliers").delete().eq("id", id);
+  if (error) return { error: await friendlyError(error.message) };
+  refreshAll();
+  return {};
+}

@@ -1,54 +1,53 @@
-import Link from "next/link";
 import { AlertTriangleIcon, CheckCircle2Icon } from "lucide-react";
 import type { Dict } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/config";
-import { Button } from "@/components/ui/button";
 import { EmptyNote, Panel } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
 import { Lines } from "./Charts";
-import { monthLabel, MonthNav } from "./MonthNav";
-import { Change, DieselTable, f0, howMuch, Tile } from "./Overview";
+import { monthLabel, PeriodBar } from "./MonthNav";
+import { Change, DieselTable, f0, howMuch, MonthFiguresButton, prevLabel, Tile } from "./Overview";
 import { StatusBadge } from "./StatusBadge";
+import type { aggregate, Period } from "./period";
 import type { loadPerformance } from "./perf";
 
-/** One branch: four numbers, what is wrong (in sentences), month by month. */
-export function BranchPerf({ t, locale, perf, branchId, month, today, isAdmin, names }: {
-  t: Dict; locale: Locale; perf: Awaited<ReturnType<typeof loadPerformance>>; branchId: number; month: string; today: string; isAdmin: boolean; names: Map<number, string>;
+/** One branch over the period: four numbers, what is wrong (in sentences), month by month. */
+export function BranchPerf({ t, locale, perf, agg, period, branchId, isAdmin, names }: {
+  t: Dict; locale: Locale; perf: Awaited<ReturnType<typeof loadPerformance>>; agg: ReturnType<typeof aggregate>; period: Period; branchId: number; isAdmin: boolean; names: Map<number, string>;
 }) {
-  const O = t.diesel.ov, P = t.diesel.perf;
-  const r = perf.at(branchId, month), net = perf.network.get(month)!;
-  const prevNet = perf.network.get(perf.months[perf.months.length - 2]);
-  const netChange = net.lp1000 && prevNet?.lp1000 ? ((net.lp1000 / prevNet.lp1000) - 1) * 100 : null;
+  const O = t.diesel.ov;
+  const r = agg.at(branchId), net = agg.net, prev = prevLabel(t, period);
+  const netChange = net.lp1000 && agg.prevNet.lp1000 ? ((net.lp1000 / agg.prevNet.lp1000) - 1) * 100 : null;
   const lines: { bad: boolean; text: string }[] = [];
   if (r.valid && !r.estimated) {
     if (r.index !== null && r.index > 120 && net.lp1000) lines.push({ bad: true, text: O.bHigh(howMuch(t, r.lp1000! / net.lp1000)) });
-    if (r.change !== null && r.change > 5) lines.push({ bad: true, text: O.bWorse(f0.format(r.change)) });
-    if (r.change !== null && r.change < -5) lines.push({ bad: false, text: O.bBetter(f0.format(-r.change)) });
-    const best = r.peers.map((id) => perf.at(id, month)).sort((a, b) => a.lp1000! - b.lp1000!)[0];
-    if (best && best.lp1000! < r.lp1000! * 0.8) lines.push({ bad: true, text: O.bPeer(names.get(best.branchId) ?? "", f0.format(best.lp1000!), f0.format(best.pieces!)) });
+    if (r.change !== null && r.change > 5) lines.push({ bad: true, text: O.bWorse(f0.format(r.change), prev) });
+    if (r.change !== null && r.change < -5) lines.push({ bad: false, text: O.bBetter(f0.format(-r.change), prev) });
+    const best = r.peers.map((id) => agg.at(id)).sort((a, b) => a.lp1000! - b.lp1000!)[0];
+    if (best && best.lp1000! < r.lp1000! * 0.8) lines.push({ bad: true, text: O.bPeer(names.get(best.branchId) ?? "", f0.format(best.lp1000!), f0.format(best.validPieces)) });
     if (r.priceVsRegion !== null && r.priceVsRegion > 5) lines.push({ bad: true, text: O.bPrice(f0.format(r.priceVsRegion)) });
   }
-  const months = [...perf.months].reverse().filter((m) => m === month || perf.at(branchId, m).liters !== null || perf.at(branchId, m).pieces);
-  const chartMonths = perf.months.filter((m) => perf.at(branchId, m).lp1000 !== null || perf.network.get(m)!.lp1000 !== null);
+  if (r.unpriced) lines.push({ bad: true, text: O.unpriced(String(r.unpriced)) });
+  // month by month: the period's months, or the last 6 for a single month
+  const shown = (period.months.length > 1 ? period.months : perf.months.slice(-6)).filter((m) => perf.grid.has(`${branchId}|${m}`));
+  const tableMonths = [...shown].reverse().filter((m) => m === period.to || perf.at(branchId, m).liters !== null || perf.at(branchId, m).pieces);
+  const chartMonths = shown.filter((m) => perf.at(branchId, m).lp1000 !== null || perf.network.get(m)?.lp1000 !== null);
+  const base = `/diesel/${branchId}`;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <MonthNav t={t} locale={locale} month={month} today={today} href={(m) => `/diesel/${branchId}?m=${m}`} />
-        {r.status !== "none" && <StatusBadge status={r.status} label={t.diesel.status[r.status]} title={t.diesel.statusHelp[r.status]} />}
-        {isAdmin && <Button size="sm" variant="outline" className="ms-auto" render={<Link href={`/diesel/months?m=${month}`} />} nativeButton={false}>{P.enter}</Button>}
-      </div>
+      <PeriodBar t={t} locale={locale} period={period} base={base}
+        action={<span className="flex flex-wrap items-center gap-2">{r.status !== "none" && <StatusBadge status={r.status} label={t.diesel.status[r.status]} title={t.diesel.statusHelp[r.status]} />}{isAdmin && <MonthFiguresButton t={t} month={period.to} />}</span>} />
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label={O.bLp} value={r.lp1000 === null ? "—" : f0.format(r.lp1000)} tone={r.index !== null && r.index > 120 ? "bad" : r.index !== null && r.index < 80 ? "good" : undefined} sub={net.lp1000 ? O.bAvg(f0.format(net.lp1000)) : undefined} />
         <Tile label={O.bChange} value={r.change === null ? "—" : `${r.change > 0 ? "+" : r.change < 0 ? "−" : ""}${f0.format(Math.abs(r.change))}%`} tone={r.change === null ? undefined : r.change > 0 ? "bad" : "good"}
           sub={netChange !== null ? <>{O.avg}: <Change v={netChange} t={t} /></> : undefined} />
-        <Tile label={O.bCost} value={r.cost === null ? "—" : f0.format(r.cost)} sub={r.liters !== null ? `SAR · ${f0.format(r.liters)} L` : undefined} />
+        <Tile label={O.bCost} value={r.cost === null ? "—" : f0.format(r.cost)} sub={r.liters !== null ? `SAR · ${f0.format(r.liters)} L · ${O.cols.deliveries}: ${r.deliveries}` : undefined} />
         <Tile label={O.bSaving} value={r.savingL ? `${f0.format(r.savingL)} L` : "—"} tone={r.savingL ? "good" : undefined} sub={r.savingSAR ? `${f0.format(r.savingSAR)} SAR ${O.bSavingSub}` : O.bSavingSub} />
       </section>
 
       <Panel title={O.alerts}>
-        {!r.valid ? <EmptyNote>{t.diesel.statusHelp.none}</EmptyNote> : lines.length === 0 ? (
+        {!r.valid && !lines.length ? <EmptyNote>{t.diesel.statusHelp.none}</EmptyNote> : lines.length === 0 ? (
           <p className="m-0 flex items-center gap-2 rounded-[14px] bg-success-soft px-4 py-3 text-[15px] text-success"><CheckCircle2Icon className="size-4" aria-hidden />{O.bFine}</p>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -66,13 +65,16 @@ export function BranchPerf({ t, locale, perf, branchId, month, today, isAdmin, n
         <Panel title={`${O.overTime}: ${O.bLp}`}>
           <Lines labels={chartMonths.map((m) => monthLabel(locale, m, false))} series={[
             { name: names.get(branchId) ?? "", values: chartMonths.map((m) => perf.at(branchId, m).lp1000), color: "var(--primary)" },
-            { name: O.avg, values: chartMonths.map((m) => perf.network.get(m)!.lp1000), color: "var(--ink-muted)", dashed: true },
+            { name: O.avg, values: chartMonths.map((m) => perf.network.get(m)?.lp1000 ?? null), color: "var(--ink-muted)", dashed: true },
           ]} />
         </Panel>
       )}
 
       <Panel title={O.table}>
-        <DieselTable t={t} first={O.months} rows={months.map((m) => ({ key: m, label: monthLabel(locale, m), highlight: m === month, data: perf.at(branchId, m) }))} />
+        <DieselTable t={t} first={O.months} rows={[
+          ...tableMonths.map((m) => ({ key: m, label: monthLabel(locale, m), data: perf.at(branchId, m) })),
+          ...(period.months.length > 1 && r.liters !== null ? [{ key: "total", label: O.total, total: true, data: { ...r, status: undefined } }] : []),
+        ]} />
       </Panel>
     </div>
   );

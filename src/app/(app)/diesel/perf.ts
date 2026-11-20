@@ -18,7 +18,7 @@ export type Source = "readings" | "deliveries" | "partial" | "import" | "manual"
 export type Hours = { scheduled: number; perDay: number; stopped: number; actual: number; days: number };
 export type BranchMonth = MonthFigures & {
   branchId: number; month: string; source: Source; estimated: boolean; price: number | null; hasTanks: boolean; valid: boolean;
-  orders: number | null; hours: Hours | null; capacity: number | null; delivered: number | null; deliveredCost: number | null; deliveries: number; dryers: number | null; presses: number | null;
+  orders: number | null; hours: Hours | null; capacity: number | null; delivered: number | null; deliveredCost: number | null; deliveries: number; unpriced: number; dryers: number | null; presses: number | null;
   lp1000: number | null; cp1000: number | null; lp100orders: number | null; costPerOrder: number | null; piecesPerOrder: number | null;
   lph: number | null; cph: number | null; blanketShare: number | null; turnover: number | null; coverDays: number | null;
   index: number | null; regionIndex: number | null; shareGap: number | null; priceVsRegion: number | null;
@@ -42,17 +42,26 @@ const pctChange = (a: number | null | undefined, b: number | null | undefined) =
 export async function loadPerformance(supabase: SupabaseClient, month: string, history = 5) {
   const months = Array.from({ length: history + 1 }, (_, i) => shiftMonth(month, i - history));
   const from = startMs(months[0]), to = startMs(shiftMonth(month, 1));
-  const [{ data: branches }, { data: cities }, { data: bm }, { data: dips }, { data: refs }, { data: hours }, { data: stops }, { data: tanks }, { data: equip }] = await Promise.all([
+  const [{ data: branches }, { data: cities }, { data: bm }, { data: dips }, { data: refs }, { data: hours }, { data: stops }, { data: tanks }, { data: equip }, { data: sups }] = await Promise.all([
     supabase.from("branches").select("id, name_ar, name_en, city_id, status, power_source, sort").neq("status", "closed").order("city_id").order("sort"),
     supabase.from("cities").select("id, name_ar, name_en"),
     supabase.from("branch_months").select("*").gte("month", `${shiftMonth(months[0], -2)}-01`).lte("month", `${month}-01`),
     supabase.from("diesel_dips").select("id, tank_id, branch_id, read_at, liters, kind").gte("read_at", new Date(from - 150 * 86400000).toISOString()).order("read_at"),
-    supabase.from("diesel_refuels").select("branch_id, refuel_date, liters, received_liters, total_amount, price_per_liter").lt("refuel_date", `${shiftMonth(month, 1)}-01`).order("refuel_date", { ascending: false }),
+    supabase.from("diesel_refuels").select("branch_id, refuel_date, liters, received_liters, total_amount, price_per_liter, supplier, supplier_id").lt("refuel_date", `${shiftMonth(month, 1)}-01`).order("refuel_date", { ascending: false }),
     supabase.from("branch_hours").select("branch_id, weekday, open_time, close_time, is_24h, is_closed"),
     supabase.from("branch_downtimes").select("branch_id, started_at, ended_at").lt("started_at", new Date(to).toISOString()),
     supabase.from("v_diesel_tank_info").select("branch_id, capacity_l").eq("active", true),
     supabase.from("equipment").select("branch_id, quantity, status, ticket_categories(code)").neq("status", "retired"),
+    supabase.from("diesel_suppliers").select("id, name, price_per_liter"),
   ]);
+  // a delivery's cost: its invoice total, or its litres at its supplier's fixed price
+  const supPrice = new Map<string, number>();
+  for (const x of sups ?? []) if (x.price_per_liter !== null) { supPrice.set(`id:${x.id}`, Number(x.price_per_liter)); supPrice.set(`name:${String(x.name).trim()}`, Number(x.price_per_liter)); }
+  const totalOf = (r: { total_amount: number | null; liters: number; supplier_id: number | null; supplier: string | null }) => {
+    if (r.total_amount !== null) return Number(r.total_amount);
+    const p = (r.supplier_id ? supPrice.get(`id:${r.supplier_id}`) : undefined) ?? (r.supplier ? supPrice.get(`name:${r.supplier.trim()}`) : undefined);
+    return p ? Number(r.liters) * p : null;
+  };
   const diesel = (branches ?? []).filter((b) => b.power_source !== "electric");
   const capacity = new Map<number, number>();
   for (const x of tanks ?? []) capacity.set(x.branch_id, (capacity.get(x.branch_id) ?? 0) + Number(x.capacity_l ?? 0));
@@ -69,13 +78,14 @@ export async function loadPerformance(supabase: SupabaseClient, month: string, h
     const own = row?.liters !== null && row?.liters !== undefined;
     const bRefs = (refs ?? []).filter((r) => r.branch_id === b.id && r.refuel_date < `${shiftMonth(mo, 1)}-01`);
     const monthRefs = bRefs.filter((r) => r.refuel_date >= `${mo}-01`);
-    const inMonth = monthRefs.filter((r) => r.total_amount !== null);
-    const pl = inMonth.reduce((s, r) => s + Number(r.liters), 0);
-    const invoicePrice = pl > 0 ? inMonth.reduce((s, r) => s + Number(r.total_amount), 0) / pl : bRefs.find((r) => r.price_per_liter !== null)?.price_per_liter ?? null;
-    // what was delivered this month: litres in the tanks (or on the invoice) and what it cost
+    const priced = monthRefs.map((r) => ({ r, total: totalOf(r) })).filter((x) => x.total !== null);
+    const pl = priced.reduce((s, x) => s + Number(x.r.liters), 0);
+    const lastPriced = bRefs.map((r) => ({ r, total: totalOf(r) })).find((x) => x.total !== null);
+    const invoicePrice = pl > 0 ? priced.reduce((s, x) => s + x.total!, 0) / pl : lastPriced ? lastPriced.total! / Number(lastPriced.r.liters) : null;
+    // what was delivered this month: litres in the tanks (or on the invoice) and what it cost (deliveries with no price are not costed)
     const delivered = monthRefs.length ? Math.round(monthRefs.reduce((s, r) => s + Number(r.received_liters ?? r.liters), 0) * 10) / 10 : null;
-    const deliveredCost = monthRefs.length && invoicePrice !== null
-      ? Math.round(monthRefs.reduce((s, r) => s + (r.total_amount !== null ? Number(r.total_amount) : Number(r.liters) * Number(invoicePrice)), 0) * 100) / 100 : null;
+    const deliveredCost = priced.length ? Math.round(priced.reduce((s, x) => s + x.total!, 0) * 100) / 100 : null;
+    const unpriced = monthRefs.length - priced.length;
     // the month's litres: entered by hand > tank readings covering the month > the month's deliveries > readings so far
     const liters = own ? Number(row!.liters) : used?.complete ? used.liters : delivered !== null ? delivered : used && used.liters > 0 ? used.liters : null;
     const source: Source = own ? (row!.source === "import" ? "import" : "manual") : used?.complete ? "readings" : delivered !== null ? "deliveries" : used ? "partial" : "none";
@@ -88,7 +98,7 @@ export async function loadPerformance(supabase: SupabaseClient, month: string, h
     const cap = capacity.get(b.id) ?? null;
     const days = hrs?.days ?? new Date(Date.UTC(Number(mo.slice(0, 4)), Number(mo.slice(5)), 0)).getUTCDate();
     return {
-      branchId: b.id, month: mo, liters, cost, pieces, blankets, orders, hours: hrs, delivered, deliveredCost, deliveries: monthRefs.length, source, estimated: !!row?.estimated, price, hasTanks: capacity.has(b.id), valid,
+      branchId: b.id, month: mo, liters, cost, pieces, blankets, orders, hours: hrs, delivered, deliveredCost, deliveries: monthRefs.length, unpriced, source, estimated: !!row?.estimated, price, hasTanks: capacity.has(b.id), valid,
       capacity: cap, dryers: count(b.id, "DR"), presses: count(b.id, "PM"),
       lp1000: valid ? per1000(liters, pieces) : null, cp1000: valid ? per1000(cost, pieces) : null,
       lp100orders: full && orders ? (liters! / orders) * 100 : null, costPerOrder: full && orders && cost !== null ? cost / orders : null,

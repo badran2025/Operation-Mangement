@@ -91,8 +91,9 @@ export const startReading = (tk: Tank): Reading => ({ unit: tk.liters_known && t
 export const dipPayload = (tk: Tank, r: Reading | undefined) =>
   r?.unit === "liters" ? { tank_id: tk.id, before_l: r.b, after_l: r.a } : { tank_id: tk.id, before_cm: r?.b ?? "", after_cm: r?.a ?? "" };
 
-export function RefuelForm({ branches, tanks, points, last, defaultBranch, initial }: {
-  branches: Opt[]; tanks: Tank[]; points: Point[]; last: Record<number, { price: number | null; supplier: string | null }>; defaultBranch?: number; initial?: RefuelInitial;
+type Sup = { id: number; name: string; price: number | null };
+export function RefuelForm({ branches, tanks, points, last, suppliers = [], defaultBranch, initial }: {
+  branches: Opt[]; tanks: Tank[]; points: Point[]; last: Record<number, { price: number | null; supplier: string | null }>; suppliers?: Sup[]; defaultBranch?: number; initial?: RefuelInitial;
 }) {
   const { t } = useI18n();
   const F = t.diesel.form;
@@ -113,9 +114,18 @@ export function RefuelForm({ branches, tanks, points, last, defaultBranch, initi
     if (initial) return;
     setRead(Object.fromEntries(mine.map((tk) => [tk.id, startReading(tk)])));
     const l = last[Number(branch)];
-    setPrice(l?.price ? String(l.price) : "");
+    const sup = suppliers.find((x) => x.name === l?.supplier);
     setSupplier((s) => s || l?.supplier || "");
-  }, [branch, mine, last, initial]);
+    setPrice(sup?.price ? String(sup.price) : l?.price ? String(l.price) : "");
+  }, [branch, mine, last, initial, suppliers]);
+  const known = suppliers.some((x) => x.name === supplier);
+  const [other, setOther] = useState(false);
+  const pickSupplier = (v: string) => {
+    if (v === "__other") { setOther(true); setSupplier(""); return; }
+    setOther(false); setSupplier(v);
+    const sup = suppliers.find((x) => x.name === v);
+    if (sup?.price) setPrice(String(sup.price));
+  };
   useEffect(() => { if (initial?.price) setPrice(initial.price); }, [initial]);
 
   const get = (tk: Tank) => read[tk.id] ?? startReading(tk);
@@ -193,7 +203,18 @@ export function RefuelForm({ branches, tanks, points, last, defaultBranch, initi
         </p>
       )}
       <Field className="sm:col-span-2"><FieldLabel htmlFor="dz-total">{F.totalIfWritten}</FieldLabel><NumberInput id="dz-total" value={total} onChange={(e) => setTotal(e.target.value)} /></Field>
-      <Field><FieldLabel htmlFor="dz-sup">{F.supplier}</FieldLabel><Input id="dz-sup" value={supplier} onChange={(e) => setSupplier(e.target.value)} dir="auto" /></Field>
+      <Field>
+        <FieldLabel htmlFor="dz-sup">{F.supplier}</FieldLabel>
+        {suppliers.length > 0 && (
+          <NativeSelect id="dz-sup" value={other || (!known && supplier) ? "__other" : supplier} onChange={(e) => pickSupplier(e.target.value)} className="w-full">
+            <NativeSelectOption value="">{t.diesel.sup.choose}</NativeSelectOption>
+            {suppliers.map((x) => <NativeSelectOption key={x.id} value={x.name}>{x.name}{x.price ? ` · ${x.price}` : ""}</NativeSelectOption>)}
+            <NativeSelectOption value="__other">{t.diesel.sup.other}</NativeSelectOption>
+          </NativeSelect>
+        )}
+        {(suppliers.length === 0 || other || (!known && supplier)) && <Input id={suppliers.length ? "dz-sup-name" : "dz-sup"} aria-label={t.diesel.sup.otherName} placeholder={t.diesel.sup.otherName} value={supplier} onChange={(e) => setSupplier(e.target.value)} dir="auto" />}
+        {known && suppliers.find((x) => x.name === supplier)?.price ? <span className="text-[12.5px] text-ink-muted">{t.diesel.sup.priceFromSupplier}</span> : null}
+      </Field>
       <Field><FieldLabel htmlFor="dz-inv">{F.invoice}</FieldLabel><Input id="dz-inv" name="invoice" dir="ltr" defaultValue={initial?.invoice ?? ""} /></Field>
       <Field className="sm:col-span-2"><FieldLabel htmlFor="dz-notes">{F.notes}</FieldLabel><Textarea id="dz-notes" name="notes" rows={2} dir="auto" defaultValue={initial?.notes ?? ""} /></Field>
       <div className="flex flex-col gap-1.5 sm:col-span-2"><span className="text-sm font-medium">{F.photos}</span><FilePicker files={files} onChange={setFiles} /></div>

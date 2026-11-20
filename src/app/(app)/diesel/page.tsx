@@ -2,8 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CylinderIcon, FuelIcon, GaugeIcon } from "lucide-react";
 import { Overview } from "./Overview";
+import { Suppliers } from "./Suppliers";
 import { DieselTabs, type DieselTab } from "./DieselTabs";
-import { defaultMonth, loadPerformance, monthOf } from "./perf";
+import { defaultMonth, loadPerformance } from "./perf";
+import { aggregate, earliestMonth, parsePeriod, periodToQuery } from "./period";
 import { TankShape } from "./TankShape";
 import { requireActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
@@ -18,7 +20,7 @@ import { DeliveriesTable, type Refuel } from "./DeliveriesTable";
 
 export const dynamic = "force-dynamic";
 
-export default async function DieselPage({ searchParams }: { searchParams: Promise<{ saved?: string; m?: string; tab?: string; b?: string }> }) {
+export default async function DieselPage({ searchParams }: { searchParams: Promise<{ saved?: string; m?: string; tab?: string; b?: string; p?: string; from?: string; to?: string }> }) {
   const { supabase, profile } = await requireActive();
   if (!["admin", "supervisor"].includes(profile.role)) redirect("/");
   const { t, locale } = await getT();
@@ -37,6 +39,8 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
     supabase.from("diesel_refuels").select("*, profiles(full_name), diesel_refuel_files(file_path)").order("refuel_date", { ascending: false }).order("id", { ascending: false }).limit(400),
   ]);
   const tanks = (tankData ?? []) as Tank[];
+  const { data: sups } = await supabase.from("diesel_suppliers").select("id, name, price_per_liter, active").order("name");
+  const supplierPrice = Object.fromEntries((sups ?? []).filter((x) => x.price_per_liter !== null).map((x) => [x.id, Number(x.price_per_liter)]));
   const refuels = (refuelData ?? []) as unknown as Refuel[];
   const dips = (dipData ?? []) as Dip[];
   const bName = new Map((branches ?? []).map((b) => [b.id, pick(locale, b.name_ar, b.name_en)]));
@@ -45,11 +49,13 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
   const shortage = month.reduce((s, r) => s + Number(r.shortage_liters ?? 0), 0);
   const now = Date.now();
   const dayMs = 86400000;
-  const today = monthOf(null);
   const tab: DieselTab = sp.tab === "tanks" ? "tanks" : "perf";
-  const perfMonth = sp.m ? monthOf(sp.m) : await defaultMonth(supabase);
-  const perf = await loadPerformance(supabase, perfMonth, 2);
-  const reviewCount = perf.branches.filter((b) => ["risk", "watch"].includes(perf.at(b.id, perfMonth).status)).length;
+  const [fallback, earliest] = await Promise.all([defaultMonth(supabase), earliestMonth(supabase)]);
+  const period = parsePeriod(sp, fallback, earliest);
+  const perf = await loadPerformance(supabase, period.to, period.months.length * 2 + 1);
+  const agg = aggregate(perf, period);
+  const periodQuery = periodToQuery(period);
+  const reviewCount = [...agg.rows.values()].filter((r) => !r.estimated && ["risk", "watch"].includes(r.status)).length;
 
   const rows = (branches ?? []).map((b) => {
     const mine = tanks.filter((x) => x.branch_id === b.id);
@@ -77,9 +83,9 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
       </PageHeader>
       {sp.saved && <p role="status" className="rounded-[14px] bg-success-soft px-4 py-3 text-sm font-semibold text-success">✓ {D.form.saved}</p>}
 
-      <DieselTabs t={t} base="/diesel" tab={tab} query={sp.m ? `m=${sp.m}` : ""} reviewCount={reviewCount} />
+      <DieselTabs t={t} base="/diesel" tab={tab} query={periodQuery} reviewCount={reviewCount} />
 
-      {tab === "perf" && <Overview t={t} locale={locale} perf={perf} month={perfMonth} today={today} names={bName} isAdmin={profile.role === "admin"} />}
+      {tab === "perf" && <Overview t={t} locale={locale} agg={agg} period={period} names={bName} isAdmin={profile.role === "admin"} query={periodQuery} />}
 
       {tab === "tanks" && <>
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -161,9 +167,16 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
 
       <Panel title={D.recent}>
         {refuels.length === 0 ? <EmptyNote>{D.noDeliveries}</EmptyNote> : (
-          <DeliveriesTable t={t} locale={locale} refuels={refuels.slice(0, 30)} branchName={(id) => bName.get(id)} photoUrl={(p) => url.get(p) ?? undefined} canDelete={profile.role === "admin"} />
+          <DeliveriesTable t={t} locale={locale} refuels={refuels.slice(0, 30)} branchName={(id) => bName.get(id)} photoUrl={(p) => url.get(p) ?? undefined} canDelete={profile.role === "admin"} supplierPrice={supplierPrice} />
         )}
       </Panel>
+
+      {profile.role === "admin" && (
+        <Panel title={D.sup.title}>
+          <p className="-mt-1 mb-3 text-sm text-ink-muted">{D.sup.sub}</p>
+          <Suppliers list={(sups ?? []).map((x) => ({ id: x.id, name: x.name, price_per_liter: x.price_per_liter === null ? null : Number(x.price_per_liter), active: x.active, deliveries: refuels.filter((r) => r.supplier_id === x.id).length }))} />
+        </Panel>
+      )}
       </>}
     </>
   );

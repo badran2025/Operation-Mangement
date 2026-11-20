@@ -14,18 +14,18 @@ import { AddTank, BuildCalibration, CalibrationEditor, TankForm } from "../TankE
 import { TankShape } from "../TankShape";
 import { TankCalculator } from "../TankCalculator";
 import { defaultMonth, loadPerformance, monthOf } from "../perf";
+import { aggregate, earliestMonth, parsePeriod, periodToQuery } from "../period";
 import { BranchPerf } from "../BranchPerf";
 import { DieselTabs } from "../DieselTabs";
 
 export const dynamic = "force-dynamic";
 
 /** Everything about one branch's diesel: tanks and their measurements, stock and use, every delivery, every level check. */
-export default async function BranchDieselPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ m?: string; tab?: string }> }) {
+export default async function BranchDieselPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ m?: string; tab?: string; p?: string; from?: string; to?: string }> }) {
   const id = Number((await params).id);
   const spx = await searchParams;
   const sm = spx.m;
   const tab = spx.tab === "tanks" ? "tanks" : "perf";
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
   const { supabase, profile } = await requireActive();
   if (!["admin", "supervisor"].includes(profile.role)) redirect("/");
   const { t, locale } = await getT();
@@ -43,8 +43,12 @@ export default async function BranchDieselPage({ params, searchParams }: { param
     supabase.from("diesel_dips").select("tank_id, refuel_id, kind, level_cm").eq("branch_id", id).not("refuel_id", "is", null),
   ]);
   if (!branch) notFound();
-  const month = sm ? monthOf(sm) : await defaultMonth(supabase);
-  const perf = await loadPerformance(supabase, month, 5);
+  const { data: sups } = await supabase.from("diesel_suppliers").select("id, price_per_liter");
+  const supplierPrice = Object.fromEntries((sups ?? []).filter((x) => x.price_per_liter !== null).map((x) => [x.id, Number(x.price_per_liter)]));
+  const [fallback, earliest] = await Promise.all([sm ? Promise.resolve(monthOf(sm)) : defaultMonth(supabase), earliestMonth(supabase)]);
+  const period = parsePeriod(spx, fallback, earliest);
+  const perf = await loadPerformance(supabase, period.to, Math.max(5, period.months.length * 2 + 1));
+  const agg = aggregate(perf, period);
   const { data: allBranches } = await supabase.from("branches").select("id, name_ar, name_en");
   const names = new Map((allBranches ?? []).map((b) => [b.id, pick(locale, b.name_ar, b.name_en)]));
   const name = pick(locale, branch.name_ar, branch.name_en);
@@ -74,10 +78,10 @@ export default async function BranchDieselPage({ params, searchParams }: { param
         {active.length > 0 && <Button render={<Link href={`/diesel/refuel?branch=${id}`} />} nativeButton={false}><FuelIcon data-icon="inline-start" />{D.recordRefuel}</Button>}
       </PageHeader>
 
-      <DieselTabs t={t} base={`/diesel/${id}`} tab={tab} query={sm ? `m=${sm}` : ""} />
+      <DieselTabs t={t} base={`/diesel/${id}`} tab={tab} query={periodToQuery(period)} branchName={name} />
 
       {tab === "perf" && (perf.branches.some((b) => b.id === id)
-        ? <BranchPerf t={t} locale={locale} perf={perf} branchId={id} month={month} today={today.slice(0, 7)} isAdmin={isAdmin} names={names} />
+        ? <BranchPerf t={t} locale={locale} perf={perf} agg={agg} period={period} branchId={id} isAdmin={isAdmin} names={names} />
         : <EmptyNote>{D.perf.electric}</EmptyNote>)}
 
       {tab === "tanks" && <>
@@ -139,7 +143,7 @@ export default async function BranchDieselPage({ params, searchParams }: { param
 
       <Panel title={D.recent}>
         {refuels.length === 0 ? <EmptyNote>{D.noDeliveries}</EmptyNote>
-          : <DeliveriesTable t={t} locale={locale} refuels={refuels} photoUrl={(p) => url.get(p) ?? undefined} canDelete={isAdmin} />}
+          : <DeliveriesTable t={t} locale={locale} refuels={refuels} photoUrl={(p) => url.get(p) ?? undefined} canDelete={isAdmin} supplierPrice={supplierPrice} />}
       </Panel>
 
       {cmTanks.map((tk) => {

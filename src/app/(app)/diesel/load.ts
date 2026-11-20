@@ -17,6 +17,7 @@ export async function loadDieselForm() {
     supabase.from("diesel_tanks").select("id, entry_unit"),
     supabase.from("diesel_refuels").select("branch_id, price_per_liter, supplier, refuel_date, id").order("refuel_date", { ascending: false }).order("id", { ascending: false }).limit(300),
   ]);
+  const { data: sups } = await supabase.from("diesel_suppliers").select("id, name, price_per_liter").eq("active", true).order("name");
   const withTank = new Set((tanks ?? []).map((x) => x.branch_id));
   const unit = new Map((units ?? []).map((u) => [u.id, u.entry_unit]));
   // the last price per litre and supplier of each branch, to start the form with
@@ -29,5 +30,6 @@ export async function loadDieselForm() {
   return {
     branches: (branches ?? []).filter((b) => withTank.has(b.id)).map((b) => ({ id: b.id, name: pick(locale, b.name_ar, b.name_en) })),
     tanks: (tanks ?? []).map((x) => ({ ...x, entry_unit: unit.get(x.id) ?? "cm" })) as Tank[], points: (points ?? []) as Point[], last,
+    suppliers: (sups ?? []).map((x) => ({ id: x.id, name: x.name, price: x.price_per_liter === null ? null : Number(x.price_per_liter) })),
   };
 }

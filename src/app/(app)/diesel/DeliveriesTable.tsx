@@ -10,14 +10,14 @@ import { DeleteRefuel } from "./DeleteRefuel";
 export type Refuel = {
   id: number; branch_id: number; refuel_date: string; liters: number; received_liters: number | null; shortage_liters: number | null;
   before_liters: number | null; after_liters: number | null; total_amount: number | null;
-  supplier: string | null; price_per_liter: number | null; invoice_no: string | null; notes: string | null;
+  supplier: string | null; supplier_id?: number | null; price_per_liter: number | null; invoice_no: string | null; notes: string | null;
   profiles: { full_name: string } | null; diesel_refuel_files: { file_path: string }[];
 };
 
 /** Every delivery with the full picture: before, filled, after, invoice litres, difference, total, price per litre. */
-export function DeliveriesTable({ t, locale, refuels, branchName, photoUrl, canDelete, canEdit = true }: {
+export function DeliveriesTable({ t, locale, refuels, branchName, photoUrl, canDelete, canEdit = true, supplierPrice = {} }: {
   t: Dict; locale: Locale; refuels: Refuel[]; branchName?: (id: number) => string | undefined;
-  photoUrl: (path: string) => string | undefined; canDelete: boolean; canEdit?: boolean;
+  photoUrl: (path: string) => string | undefined; canDelete: boolean; canEdit?: boolean; supplierPrice?: Record<number, number>;
 }) {
   const D = t.diesel;
   const one = new Intl.NumberFormat(locale === "ar" ? "ar-u-nu-latn" : "en", { maximumFractionDigits: 1 });
@@ -43,8 +43,14 @@ export function DeliveriesTable({ t, locale, refuels, branchName, photoUrl, canD
                 <td className="num px-3 py-3 text-ink-muted">{L(r.after_liters)}</td>
                 <td className="num px-3 py-3 font-semibold">{L(r.liters)}</td>
                 <td className="px-3 py-3">{diff === null ? "—" : diff < 0 ? <Badge variant="danger">{D.shortageL(L(-diff))}</Badge> : <Badge variant="success">{diff > 0 ? `+${L(diff)}` : D.ok}</Badge>}</td>
-                <td className="num px-3 py-3">{r.total_amount !== null ? L(r.total_amount) : "—"}</td>
-                <td className="num px-3 py-3">{r.price_per_liter !== null ? new Intl.NumberFormat("en", { maximumFractionDigits: 3 }).format(Number(r.price_per_liter)) : "—"}</td>
+                {(() => {
+                  // no invoice total: the supplier's agreed price
+                  const sp = r.total_amount === null && r.supplier_id ? supplierPrice[r.supplier_id] : undefined;
+                  return <>
+                    <td className="num px-3 py-3">{r.total_amount !== null ? L(r.total_amount) : sp ? <span title={D.sup.priceFromSupplier}>{L(Number(r.liters) * sp)}<span className="block text-[11px] text-ink-muted">{D.sup.priceFromSupplier}</span></span> : "—"}</td>
+                    <td className="num px-3 py-3">{r.price_per_liter !== null ? new Intl.NumberFormat("en", { maximumFractionDigits: 3 }).format(Number(r.price_per_liter)) : sp ? new Intl.NumberFormat("en", { maximumFractionDigits: 3 }).format(sp) : "—"}</td>
+                  </>;
+                })()}
                 <td className="px-3 py-3" dir="auto">{r.supplier ?? "—"}{r.invoice_no && <span className="num block text-[12px] text-ink-muted" dir="ltr">{r.invoice_no}</span>}</td>
                 <td className="px-3 py-3" dir="auto">{r.profiles?.full_name ?? "—"}</td>
                 <td className="px-3 py-3">
