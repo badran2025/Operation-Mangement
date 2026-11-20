@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { saveMonthFigures, type MonthRow } from "../actions";
 
-type B = { id: number; name: string; pieces: number | null; blankets: number | null; liters: number | null; cost: number | null; estimated: boolean; autoLiters: number | null; autoComplete: boolean; hasTanks: boolean };
+type B = { id: number; name: string; pieces: number | null; blankets: number | null; liters: number | null; cost: number | null; estimated: boolean; autoLiters: number | null; autoComplete: boolean; hasTanks: boolean; delivered: number | null; deliveredCost: number | null; deliveries: number };
 const s = (v: number | null) => (v === null || v === undefined ? "" : String(v));
 const shift = (m: string, by: number) => { const [y, mo] = m.split("-").map(Number); const d = new Date(Date.UTC(y, mo - 1 + by, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 
@@ -35,10 +35,10 @@ export function MonthForm({ month, today, branches }: { month: string; today: st
         <Button type="button" size="icon-sm" variant="ghost" aria-label={P.next} disabled={month >= today} onClick={() => router.push(`/diesel/months?m=${shift(month, 1)}`)}><ChevronLeftIcon className="ltr:rotate-180" /></Button>
       </nav>
       <div className="-mx-4 overflow-x-auto md:-mx-5">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="text-[12.5px] text-ink-muted">
-              {[P.cols.branch, P.cols.pieces, P.cols.blankets, P.cols.liters, P.cols.cost, P.cols.estimate].map((h, i) => <th key={h} className={i === 0 ? "h-10 ps-4 text-start font-semibold md:ps-5" : "h-10 px-2 text-start font-semibold"}>{h}</th>)}
+              {[P.cols.branch, P.cols.pieces, P.cols.blankets, P.cols.delivered, P.cols.liters, P.cols.cost, P.cols.estimate].map((h, i) => <th key={h} className={i === 0 ? "h-10 ps-4 text-start font-semibold md:ps-5" : "h-10 px-2 text-start font-semibold"}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -47,9 +47,17 @@ export function MonthForm({ month, today, branches }: { month: string; today: st
                 <td className="py-2.5 ps-4 pe-2 font-semibold md:ps-5">{b.name}</td>
                 <td className="px-2 py-2"><NumberInput aria-label={`${b.name}: ${P.cols.pieces}`} className="w-28" value={rows[i].pieces} onChange={(e) => set(i, "pieces", e.target.value)} /></td>
                 <td className="px-2 py-2"><NumberInput aria-label={`${b.name}: ${P.cols.blankets}`} className="w-24" value={rows[i].blankets} onChange={(e) => set(i, "blankets", e.target.value)} /></td>
+                <td className="px-2 py-2.5">
+                  {b.delivered !== null ? (
+                    <>
+                      <b className="num block font-semibold">{nf.format(b.delivered)} L</b>
+                      <span className="num block text-[11.5px] text-ink-muted">{b.deliveredCost !== null ? `${nf.format(b.deliveredCost)} SAR · ` : ""}{P.deliveriesN(String(b.deliveries))}</span>
+                    </>
+                  ) : <span className="text-ink-muted">—</span>}
+                </td>
                 <td className="px-2 py-2">
                   <NumberInput aria-label={`${b.name}: ${P.cols.liters}`} className="w-28" value={rows[i].liters} placeholder={b.autoLiters !== null ? nf.format(b.autoLiters) : ""} onChange={(e) => set(i, "liters", e.target.value)} />
-                  <span className="mt-0.5 block text-[11.5px] text-ink-muted">{b.autoLiters !== null ? P.autoLiters(nf.format(b.autoLiters)) + (b.autoComplete ? "" : " *") : P.autoNone}</span>
+                  <span className="mt-0.5 block text-[11.5px] text-ink-muted">{b.autoComplete && b.autoLiters !== null ? P.autoLiters(nf.format(b.autoLiters)) : b.delivered !== null ? P.autoDeliveries : b.autoLiters !== null ? P.autoLiters(nf.format(b.autoLiters)) + " *" : P.autoNone}</span>
                 </td>
                 <td className="px-2 py-2"><NumberInput aria-label={`${b.name}: ${P.cols.cost}`} className="w-28" value={rows[i].cost} onChange={(e) => set(i, "cost", e.target.value)} /></td>
                 <td className="px-2 py-2.5"><input type="checkbox" aria-label={`${b.name}: ${P.cols.estimate}`} className="size-4 accent-primary" checked={rows[i].estimated} onChange={(e) => set(i, "estimated", e.target.checked)} /></td>

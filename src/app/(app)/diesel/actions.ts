@@ -203,12 +203,13 @@ export async function saveMonthFigures(month: string, rows: MonthRow[]): Promise
 }
 
 /** A level reading of every tank of a branch, without a delivery. */
-export async function recordReading(branchId: number, readings: { tank_id: number; cm?: string; liters?: string }[], notes: string): Promise<{ error?: string }> {
+export async function recordReading(branchId: number, readings: { tank_id: number; cm?: string; liters?: string }[], notes: string, at?: string): Promise<{ error?: string }> {
   const { supabase } = await requireActive();
   const { t } = await getT();
   const dips = readings.map((r) => (r.liters !== undefined ? { tank_id: r.tank_id, liters: parseNum(r.liters) } : { tank_id: r.tank_id, cm: parseNum(r.cm) }));
   if (!dips.length || dips.some((d) => ("liters" in d ? d.liters : d.cm) === null)) return { error: t.diesel.errors.readings };
-  const { error } = await supabase.rpc("record_diesel_check", { p_branch_id: branchId, p_dips: dips, p_notes: notes });
+  const when = at && !Number.isNaN(Date.parse(at)) ? new Date(at).toISOString() : null;
+  const { error } = await supabase.rpc("record_diesel_check", { p_branch_id: branchId, p_dips: dips, p_notes: notes, p_at: when });
   if (error) return { error: await dieselError(error.message) };
   refreshAll();
   return {};

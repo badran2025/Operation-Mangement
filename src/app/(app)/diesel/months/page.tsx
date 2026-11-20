@@ -29,6 +29,7 @@ export default async function MonthsPage({ searchParams }: { searchParams: Promi
               id: b.id, name: pick(locale, b.name_ar, b.name_en),
               pieces: r?.pieces ?? null, blankets: r?.blankets ?? null, liters: r?.liters ?? null, cost: r?.cost ?? null, estimated: !!r?.estimated,
               autoLiters: auto.source === "readings" || auto.source === "partial" ? auto.liters : null, autoComplete: auto.source === "readings", hasTanks: auto.hasTanks,
+              delivered: auto.delivered, deliveredCost: auto.deliveredCost, deliveries: auto.deliveries,
             };
           })} />
         <p className="mt-4 text-[12.5px] text-ink-muted">{P.electric}</p>

@@ -14,11 +14,11 @@ export function shiftMonth(m: string, by: number): string {
 }
 const startMs = (m: string) => Date.parse(`${m}-01T00:00:00+03:00`);
 
-export type Source = "readings" | "partial" | "import" | "manual" | "none";
+export type Source = "readings" | "deliveries" | "partial" | "import" | "manual" | "none";
 export type Hours = { scheduled: number; perDay: number; stopped: number; actual: number; days: number };
 export type BranchMonth = MonthFigures & {
   branchId: number; month: string; source: Source; estimated: boolean; price: number | null; hasTanks: boolean; valid: boolean;
-  orders: number | null; hours: Hours | null; capacity: number | null; dryers: number | null; presses: number | null;
+  orders: number | null; hours: Hours | null; capacity: number | null; delivered: number | null; deliveredCost: number | null; deliveries: number; dryers: number | null; presses: number | null;
   lp1000: number | null; cp1000: number | null; lp100orders: number | null; costPerOrder: number | null; piecesPerOrder: number | null;
   lph: number | null; cph: number | null; blanketShare: number | null; turnover: number | null; coverDays: number | null;
   index: number | null; regionIndex: number | null; shareGap: number | null; priceVsRegion: number | null;
@@ -47,7 +47,7 @@ export async function loadPerformance(supabase: SupabaseClient, month: string, h
     supabase.from("cities").select("id, name_ar, name_en"),
     supabase.from("branch_months").select("*").gte("month", `${shiftMonth(months[0], -2)}-01`).lte("month", `${month}-01`),
     supabase.from("diesel_dips").select("id, tank_id, branch_id, read_at, liters, kind").gte("read_at", new Date(from - 150 * 86400000).toISOString()).order("read_at"),
-    supabase.from("diesel_refuels").select("branch_id, refuel_date, liters, total_amount, price_per_liter").lt("refuel_date", `${shiftMonth(month, 1)}-01`).order("refuel_date", { ascending: false }),
+    supabase.from("diesel_refuels").select("branch_id, refuel_date, liters, received_liters, total_amount, price_per_liter").lt("refuel_date", `${shiftMonth(month, 1)}-01`).order("refuel_date", { ascending: false }),
     supabase.from("branch_hours").select("branch_id, weekday, open_time, close_time, is_24h, is_closed"),
     supabase.from("branch_downtimes").select("branch_id, started_at, ended_at").lt("started_at", new Date(to).toISOString()),
     supabase.from("v_diesel_tank_info").select("branch_id, capacity_l").eq("active", true),
@@ -67,13 +67,19 @@ export async function loadPerformance(supabase: SupabaseClient, month: string, h
     const mine = (dips ?? []).filter((d) => d.branch_id === b.id);
     const used = mine.length ? usedBetween(mine, f, t) : null;
     const own = row?.liters !== null && row?.liters !== undefined;
-    const liters = own ? Number(row!.liters) : used && (used.liters > 0 || used.complete) ? used.liters : null;
-    const source: Source = own ? (row!.source === "import" ? "import" : "manual") : used ? (used.complete ? "readings" : "partial") : "none";
     const bRefs = (refs ?? []).filter((r) => r.branch_id === b.id && r.refuel_date < `${shiftMonth(mo, 1)}-01`);
-    const inMonth = bRefs.filter((r) => r.refuel_date >= `${mo}-01` && r.total_amount !== null);
+    const monthRefs = bRefs.filter((r) => r.refuel_date >= `${mo}-01`);
+    const inMonth = monthRefs.filter((r) => r.total_amount !== null);
     const pl = inMonth.reduce((s, r) => s + Number(r.liters), 0);
     const invoicePrice = pl > 0 ? inMonth.reduce((s, r) => s + Number(r.total_amount), 0) / pl : bRefs.find((r) => r.price_per_liter !== null)?.price_per_liter ?? null;
-    const cost = row?.cost !== null && row?.cost !== undefined ? Number(row.cost) : liters !== null && invoicePrice !== null ? liters * Number(invoicePrice) : null;
+    // what was delivered this month: litres in the tanks (or on the invoice) and what it cost
+    const delivered = monthRefs.length ? Math.round(monthRefs.reduce((s, r) => s + Number(r.received_liters ?? r.liters), 0) * 10) / 10 : null;
+    const deliveredCost = monthRefs.length && invoicePrice !== null
+      ? Math.round(monthRefs.reduce((s, r) => s + (r.total_amount !== null ? Number(r.total_amount) : Number(r.liters) * Number(invoicePrice)), 0) * 100) / 100 : null;
+    // the month's litres: entered by hand > tank readings covering the month > the month's deliveries > readings so far
+    const liters = own ? Number(row!.liters) : used?.complete ? used.liters : delivered !== null ? delivered : used && used.liters > 0 ? used.liters : null;
+    const source: Source = own ? (row!.source === "import" ? "import" : "manual") : used?.complete ? "readings" : delivered !== null ? "deliveries" : used ? "partial" : "none";
+    const cost = row?.cost !== null && row?.cost !== undefined ? Number(row.cost) : source === "deliveries" ? deliveredCost : liters !== null && invoicePrice !== null ? liters * Number(invoicePrice) : null;
     const price = liters && cost !== null ? cost / liters : invoicePrice === null ? null : Number(invoicePrice);
     const hrs = operatingHours((hours ?? []).filter((h) => h.branch_id === b.id) as HoursRow[], mo, (stops ?? []).filter((s) => s.branch_id === b.id));
     const pieces = row?.pieces ?? null, blankets = row?.blankets ?? null, orders = row?.orders ?? null;
@@ -82,7 +88,7 @@ export async function loadPerformance(supabase: SupabaseClient, month: string, h
     const cap = capacity.get(b.id) ?? null;
     const days = hrs?.days ?? new Date(Date.UTC(Number(mo.slice(0, 4)), Number(mo.slice(5)), 0)).getUTCDate();
     return {
-      branchId: b.id, month: mo, liters, cost, pieces, blankets, orders, hours: hrs, source, estimated: !!row?.estimated, price, hasTanks: capacity.has(b.id), valid,
+      branchId: b.id, month: mo, liters, cost, pieces, blankets, orders, hours: hrs, delivered, deliveredCost, deliveries: monthRefs.length, source, estimated: !!row?.estimated, price, hasTanks: capacity.has(b.id), valid,
       capacity: cap, dryers: count(b.id, "DR"), presses: count(b.id, "PM"),
       lp1000: valid ? per1000(liters, pieces) : null, cp1000: valid ? per1000(cost, pieces) : null,
       lp100orders: full && orders ? (liters! / orders) * 100 : null, costPerOrder: full && orders && cost !== null ? cost / orders : null,

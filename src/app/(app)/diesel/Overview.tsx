@@ -143,7 +143,11 @@ export function Overview({ t, locale, perf, month, today, names, isAdmin }: { t:
   const alerts = alertsFor(t, perf, month, nm);
   const ranked = rows.filter((r) => r.lp1000 !== null).sort((a, b) => b.lp1000! - a.lp1000!);
   const missing = rows.filter((r) => r.flags.some((f) => ["noPieces", "partial", "noLiters"].includes(f)));
-  const lpChange = pctOf(net.lp1000, prev?.lp1000), costChange = pctOf(net.cost, prev?.cost);
+  const lpChange = pctOf(net.lp1000, prev?.lp1000);
+  // the month's diesel cost counts every branch with figures, even before its pieces are entered
+  const costOf = (m: string) => perf.branches.reduce((s, b) => { const x = perf.at(b.id, m); return s + (x.source !== "partial" && x.cost !== null ? x.cost : 0); }, 0);
+  const allCost = costOf(month), prevCost = perf.months.includes(shiftMonth(month, -1)) ? costOf(shiftMonth(month, -1)) : 0;
+  const allCostChange = pctOf(allCost, prevCost);
 
   return (
     <div className="flex flex-col gap-4">
@@ -151,7 +155,7 @@ export function Overview({ t, locale, perf, month, today, names, isAdmin }: { t:
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label={O.kLp} value={net.lp1000 === null ? "—" : f0.format(net.lp1000)} sub={<Change v={lpChange} t={t} />} />
-        <Tile label={O.kCost} value={net.cost ? `${f0.format(net.cost)}` : "—"} sub={costChange === null ? O.noLast : <>SAR · <Change v={costChange} t={t} /></>} />
+        <Tile label={O.kCost} value={allCost ? `${f0.format(allCost)}` : "—"} sub={allCostChange === null ? O.noLast : <>SAR · <Change v={allCostChange} t={t} /></>} />
         <Tile label={O.kProblems} value={ok.length ? f0.format(risk + watch) : "—"} tone={risk ? "bad" : undefined} sub={O.problemsSub(String(risk), String(watch))} />
         <Tile label={O.kSaving} value={saveL ? `${f0.format(saveL)} L` : "—"} tone={saveL ? "good" : undefined} sub={saveSAR ? O.savingSub(f0.format(saveSAR)) : undefined} />
       </section>
