@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CylinderIcon, FuelIcon, GaugeIcon } from "lucide-react";
-import { Overview } from "./Overview";
+import { MonthFiguresButton, Overview } from "./Overview";
+import { PeriodBar } from "./MonthNav";
 import { BranchPerf } from "./BranchPerf";
 import { BranchTanks } from "./BranchTanks";
 import { ScopePicker } from "./ScopePicker";
@@ -96,17 +97,21 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
       </PageHeader>
       {sp.saved && <p role="status" className="rounded-[14px] bg-success-soft px-4 py-3 text-sm font-semibold text-success">✓ {D.form.saved}</p>}
 
-      <ScopePicker cities={cities} value={selBranch ? `b:${selBranch.id}` : selCity ? `c:${selCity}` : ""} />
-
       <DieselTabs t={t} base="/diesel" tab={tab} query={[scopeQuery, periodQuery].filter(Boolean).join("&")} reviewCount={scopeIds ? [...agg.rows.values()].filter((r) => inScope(r.branchId) && !r.estimated && ["risk", "watch"].includes(r.status)).length : reviewCount}
         suppliers={profile.role === "admin"} branchName={selBranch ? bName.get(selBranch.id) : undefined} cityName={selCity ? cityName.get(selCity) : undefined} />
 
+      {tab !== "suppliers" && (
+        <PeriodBar t={t} locale={locale} period={tab === "perf" ? period : undefined} base={scopeQuery ? `/diesel?${scopeQuery}` : "/diesel"}
+          scope={<ScopePicker cities={cities} value={selBranch ? `b:${selBranch.id}` : selCity ? `c:${selCity}` : ""} />}
+          action={tab === "perf" && profile.role === "admin" && <MonthFiguresButton t={t} month={period.to} />} />
+      )}
+
       {tab === "perf" && (selBranch
         ? (agg.rows.has(selBranch.id)
-          ? <BranchPerf t={t} locale={locale} perf={perf} agg={agg} period={period} branchId={selBranch.id} isAdmin={profile.role === "admin"} names={bName} />
+          ? <BranchPerf t={t} locale={locale} perf={perf} agg={agg} period={period} branchId={selBranch.id} names={bName} />
           : <EmptyNote>{D.perf.electric}</EmptyNote>)
-        : <Overview t={t} locale={locale} agg={agg} period={period} names={bName} isAdmin={profile.role === "admin"} query={periodQuery}
-            scope={scopeIds ?? undefined} scopeName={selCity ? cityName.get(selCity) : undefined} scopeQuery={scopeQuery} />)}
+        : <Overview t={t} locale={locale} agg={agg} period={period} names={bName} query={periodQuery}
+            scope={scopeIds ?? undefined} scopeName={selCity ? cityName.get(selCity) : undefined} />)}
 
       {tab === "tanks" && selBranch && <BranchTanks supabase={supabase} t={t} locale={locale} id={selBranch.id} isAdmin={profile.role === "admin"} />}
 

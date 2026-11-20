@@ -21,7 +21,8 @@ export function MonthNav({ t, locale, month, today, href }: { t: Dict; locale: L
 }
 
 /** The period of the performance pages: one month, 3 or 6 months, all months, or from – to. */
-export function PeriodBar({ t, locale, period, base, action }: { t: Dict; locale: Locale; period: { kind: string; from: string; to: string }; base: string; action?: React.ReactNode }) {
+export function PeriodBar({ t, locale, period, base, action, scope }: { t: Dict; locale: Locale; period?: { kind: string; from: string; to: string }; base: string; action?: React.ReactNode; scope?: React.ReactNode }) {
+  if (!period) return <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-hairline bg-surface p-3">{scope}{action && <div className="ms-auto">{action}</div>}</div>;
   const P = t.diesel.period;
   const now = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date()).slice(0, 7);
   const href = (q: string) => `${base}${base.includes("?") ? "&" : "?"}${q}`;
@@ -29,7 +30,10 @@ export function PeriodBar({ t, locale, period, base, action }: { t: Dict; locale
   const step = period.kind === "1" ? 1 : Number(period.kind) || 0;
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-hairline bg-surface p-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+        {scope}
+        {scope && <span className="hidden h-7 w-px bg-hairline sm:block" aria-hidden />}
+        <div className="flex flex-wrap items-center gap-2">
         <span className="text-[13px] font-semibold text-ink-muted">{P.label}</span>
         <div className="flex flex-wrap gap-1" role="group" aria-label={P.label}>
           {(["1", "3", "6", "all", "range"] as const).map((k) => (
@@ -38,6 +42,7 @@ export function PeriodBar({ t, locale, period, base, action }: { t: Dict; locale
               {P[{ "1": "one", "3": "three", "6": "six", all: "all", range: "range" }[k]]}
             </Link>
           ))}
+        </div>
         </div>
         {action && <div className="ms-auto">{action}</div>}
       </div>

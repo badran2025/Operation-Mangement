@@ -111,7 +111,7 @@ const en = {
     } as Record<string, string>,
     trend: { improving: "Improving", worsening: "Getting worse", stable: "Stable" } as Record<string, string>,
     ov: {
-      kLp: "Litres per 1,000 pieces", kCost: "Diesel cost", kProblems: "Branches with a problem", kSaving: "Could be saved",
+      kLp: "Litres per 1,000 pieces", kLiters: "Total litres", kPieces: "Total pieces", kCost: "Diesel cost", kProblems: "Branches with a problem", kSaving: "Could be saved",
       vsLast: (p: string) => `${p} vs last month`, noLast: "no figures for the period before", prevMonth: "last month", prevMonths: (n: string) => `the ${n} months before`, problemsSub: (r: string, w: string) => `${r} risk · ${w} watch`, savingSub: (sar: string) => `${sar} SAR in this period, if the high branches came down to the average`,
       alerts: "Alerts", noAlerts: "Nothing unusual this month.",
       high: (b: string, x: string, lp: string) => `${b} uses ${x} the network average (${lp} litres per 1,000 pieces).`,
@@ -483,7 +483,7 @@ const ar: Dict = {
     },
     trend: { improving: "بيتحسن", worsening: "بيسوء", stable: "ثابت" },
     ov: {
-      kLp: "لتر لكل 1,000 قطعة", kCost: "تكلفة الديزل", kProblems: "فروع فيها مشكلة", kSaving: "ممكن يتوفر",
+      kLp: "لتر لكل 1,000 قطعة", kLiters: "إجمالي اللترات", kPieces: "إجمالي القطع", kCost: "تكلفة الديزل", kProblems: "فروع فيها مشكلة", kSaving: "ممكن يتوفر",
       vsLast: (p: string) => `${p} عن الشهر اللي فات`, noLast: "مفيش أرقام للفترة اللي قبلها", prevMonth: "الشهر اللي فات", prevMonths: (n: string) => `الـ ${n} شهور اللي قبلها`, problemsSub: (r: string, w: string) => `${r} خطر · ${w} متابعة`, savingSub: (sar: string) => `${sar} ريال في الفترة دي، لو الفروع العالية نزلت للمتوسط`,
       alerts: "التنبيهات", noAlerts: "مفيش حاجة غريبة الشهر ده.",
       high: (b: string, x: string, lp: string) => `${b} بيصرف ${x} متوسط الشبكة (${lp} لتر لكل 1,000 قطعة).`,

@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { EmptyNote, Panel } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
 import { STATUS_COLOR } from "./Charts";
-import { PeriodBar } from "./MonthNav";
 import { StatusBadge } from "./StatusBadge";
 import type { Agg, aggregate, Period } from "./period";
 
@@ -135,7 +134,7 @@ export function DieselTable({ t, rows, first }: { t: Dict; rows: Row[]; first: s
 }
 
 /** Diesel performance of all branches over the period: four numbers, the alerts, one chart, the table, what is missing. */
-export function Overview({ t, locale, agg, period, names, isAdmin, query, scope, scopeName, scopeQuery = "" }: { t: Dict; locale: Locale; agg: A; period: Period; names: Map<number, string>; isAdmin: boolean; query: string; scope?: number[]; scopeName?: string; scopeQuery?: string }) {
+export function Overview({ t, agg, period, names, query, scope, scopeName }: { t: Dict; locale: Locale; agg: A; period: Period; names: Map<number, string>; query: string; scope?: number[]; scopeName?: string }) {
   const O = t.diesel.ov;
   const nm = (id: number) => names.get(id) ?? "";
   const href = (id: number) => `/diesel?b=${id}&${query}`;
@@ -155,10 +154,10 @@ export function Overview({ t, locale, agg, period, names, isAdmin, query, scope,
 
   return (
     <div className="flex flex-col gap-4">
-      <PeriodBar t={t} locale={locale} period={period} base={scopeQuery ? `/diesel?${scopeQuery}` : "/diesel"} action={isAdmin && <MonthFiguresButton t={t} month={period.to} />} />
-
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Tile label={O.kLp} value={net.lp1000 === null ? "—" : f0.format(net.lp1000)} sub={<Change v={lpChange} t={t} />} />
+        <Tile label={O.kLiters} value={net.liters ? `${f0.format(net.liters)} L` : "—"} sub={<Change v={pctOf(net.liters, prev.liters)} t={t} />} />
+        <Tile label={O.kPieces} value={net.pieces ? f0.format(net.pieces) : "—"} sub={<Change v={pctOf(net.pieces, prev.pieces)} t={t} />} />
         <Tile label={O.kCost} value={net.cost ? f0.format(net.cost) : "—"} sub={<>SAR · <Change v={costChange} t={t} /></>} />
         <Tile label={O.kProblems} value={ok.length ? f0.format(risk + watch) : "—"} tone={risk ? "bad" : undefined} sub={O.problemsSub(String(risk), String(watch))} />
         <Tile label={O.kSaving} value={saveL ? `${f0.format(saveL)} L` : "—"} tone={saveL ? "good" : undefined} sub={saveSAR ? O.savingSub(f0.format(saveSAR)) : undefined} />

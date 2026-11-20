@@ -4,15 +4,15 @@ import type { Locale } from "@/lib/i18n/config";
 import { EmptyNote, Panel } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
 import { Lines } from "./Charts";
-import { monthLabel, PeriodBar } from "./MonthNav";
-import { Change, DieselTable, f0, howMuch, MonthFiguresButton, prevLabel, Tile } from "./Overview";
+import { monthLabel } from "./MonthNav";
+import { Change, DieselTable, f0, howMuch, prevLabel, Tile } from "./Overview";
 import { StatusBadge } from "./StatusBadge";
 import type { aggregate, Period } from "./period";
 import type { loadPerformance } from "./perf";
 
 /** One branch over the period: four numbers, what is wrong (in sentences), month by month. */
-export function BranchPerf({ t, locale, perf, agg, period, branchId, isAdmin, names }: {
-  t: Dict; locale: Locale; perf: Awaited<ReturnType<typeof loadPerformance>>; agg: ReturnType<typeof aggregate>; period: Period; branchId: number; isAdmin: boolean; names: Map<number, string>;
+export function BranchPerf({ t, locale, perf, agg, period, branchId, names }: {
+  t: Dict; locale: Locale; perf: Awaited<ReturnType<typeof loadPerformance>>; agg: ReturnType<typeof aggregate>; period: Period; branchId: number; names: Map<number, string>;
 }) {
   const O = t.diesel.ov;
   const r = agg.at(branchId), net = agg.net, prev = prevLabel(t, period);
@@ -31,18 +31,17 @@ export function BranchPerf({ t, locale, perf, agg, period, branchId, isAdmin, na
   const shown = (period.months.length > 1 ? period.months : perf.months.slice(-6)).filter((m) => perf.grid.has(`${branchId}|${m}`));
   const tableMonths = [...shown].reverse().filter((m) => m === period.to || perf.at(branchId, m).liters !== null || perf.at(branchId, m).pieces);
   const chartMonths = shown.filter((m) => perf.at(branchId, m).lp1000 !== null || perf.network.get(m)?.lp1000 !== null);
-  const base = `/diesel?b=${branchId}`;
 
   return (
     <div className="flex flex-col gap-4">
-      <PeriodBar t={t} locale={locale} period={period} base={base}
-        action={<span className="flex flex-wrap items-center gap-2">{r.status !== "none" && <StatusBadge status={r.status} label={t.diesel.status[r.status]} title={t.diesel.statusHelp[r.status]} />}{isAdmin && <MonthFiguresButton t={t} month={period.to} />}</span>} />
-
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Tile label={O.bLp} value={r.lp1000 === null ? "—" : f0.format(r.lp1000)} tone={r.index !== null && r.index > 120 ? "bad" : r.index !== null && r.index < 80 ? "good" : undefined} sub={net.lp1000 ? O.bAvg(f0.format(net.lp1000)) : undefined} />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <Tile label={O.bLp} value={r.lp1000 === null ? "—" : f0.format(r.lp1000)} tone={r.index !== null && r.index > 120 ? "bad" : r.index !== null && r.index < 80 ? "good" : undefined}
+          sub={<span className="flex flex-wrap items-center gap-2">{r.status !== "none" && <StatusBadge status={r.status} label={t.diesel.status[r.status]} title={t.diesel.statusHelp[r.status]} />}{net.lp1000 ? O.bAvg(f0.format(net.lp1000)) : null}</span>} />
+        <Tile label={O.kLiters} value={r.liters === null ? "—" : `${f0.format(r.liters)} L`} sub={`${O.cols.deliveries}: ${r.deliveries}`} />
+        <Tile label={O.kPieces} value={r.pieces ? f0.format(r.pieces) : "—"} />
         <Tile label={O.bChange} value={r.change === null ? "—" : `${r.change > 0 ? "+" : r.change < 0 ? "−" : ""}${f0.format(Math.abs(r.change))}%`} tone={r.change === null ? undefined : r.change > 0 ? "bad" : "good"}
           sub={netChange !== null ? <>{O.avg}: <Change v={netChange} t={t} /></> : undefined} />
-        <Tile label={O.bCost} value={r.cost === null ? "—" : f0.format(r.cost)} sub={r.liters !== null ? `SAR · ${f0.format(r.liters)} L · ${O.cols.deliveries}: ${r.deliveries}` : undefined} />
+        <Tile label={O.bCost} value={r.cost === null ? "—" : f0.format(r.cost)} sub={r.cost !== null ? "SAR" : undefined} />
         <Tile label={O.bSaving} value={r.savingL ? `${f0.format(r.savingL)} L` : "—"} tone={r.savingL ? "good" : undefined} sub={r.savingSAR ? `${f0.format(r.savingSAR)} SAR ${O.bSavingSub}` : O.bSavingSub} />
       </section>
 

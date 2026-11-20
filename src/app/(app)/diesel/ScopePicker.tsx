@@ -20,9 +20,9 @@ export function ScopePicker({ cities, value }: { cities: City[]; value: string }
     router.push(`/diesel${q.toString() ? `?${q}` : ""}`);
   };
   return (
-    <label className="flex flex-wrap items-center gap-2 rounded-2xl border border-hairline bg-surface p-3">
+    <label className="flex flex-wrap items-center gap-2">
       <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-muted"><MapPinIcon className="size-4" aria-hidden />{S.label}</span>
-      <NativeSelect value={value} onChange={(e) => go(e.target.value)} className="min-w-64 flex-1 sm:flex-none" aria-label={S.label}>
+      <NativeSelect value={value} onChange={(e) => go(e.target.value)} className="min-w-56 flex-1 sm:flex-none" aria-label={S.label}>
         <NativeSelectOption value="">{S.all}</NativeSelectOption>
         <NativeSelectOptGroup label={S.cities}>
           {cities.map((c) => <NativeSelectOption key={c.id} value={`c:${c.id}`}>{S.city(c.name)}</NativeSelectOption>)}
