@@ -27,7 +27,7 @@ export default async function EditRefuelPage({ params }: { params: Promise<{ rid
   const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <PageHeader back={{ href: `/diesel/${r.branch_id}?tab=tanks`, label: t.diesel.title }} title={t.diesel.form.editTitle} />
+      <PageHeader back={{ href: `/diesel?b=${r.branch_id}&tab=tanks`, label: t.diesel.title }} title={t.diesel.form.editTitle} />
       <Panel className="mt-6">
         <RefuelForm {...data} initial={{ id: rid, branchId: r.branch_id, date: r.refuel_date, ordered: s(r.liters), total: "", price: s(r.price_per_liter), supplier: s(r.supplier), invoice: s(r.invoice_no), notes: s(r.notes), readings }} />
       </Panel>

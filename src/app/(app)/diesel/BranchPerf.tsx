@@ -31,7 +31,7 @@ export function BranchPerf({ t, locale, perf, agg, period, branchId, isAdmin, na
   const shown = (period.months.length > 1 ? period.months : perf.months.slice(-6)).filter((m) => perf.grid.has(`${branchId}|${m}`));
   const tableMonths = [...shown].reverse().filter((m) => m === period.to || perf.at(branchId, m).liters !== null || perf.at(branchId, m).pieces);
   const chartMonths = shown.filter((m) => perf.at(branchId, m).lp1000 !== null || perf.network.get(m)?.lp1000 !== null);
-  const base = `/diesel/${branchId}`;
+  const base = `/diesel?b=${branchId}`;
 
   return (
     <div className="flex flex-col gap-4">

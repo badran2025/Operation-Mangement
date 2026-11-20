@@ -135,16 +135,19 @@ export function DieselTable({ t, rows, first }: { t: Dict; rows: Row[]; first: s
 }
 
 /** Diesel performance of all branches over the period: four numbers, the alerts, one chart, the table, what is missing. */
-export function Overview({ t, locale, agg, period, names, isAdmin, query }: { t: Dict; locale: Locale; agg: A; period: Period; names: Map<number, string>; isAdmin: boolean; query: string }) {
+export function Overview({ t, locale, agg, period, names, isAdmin, query, scope, scopeName, scopeQuery = "" }: { t: Dict; locale: Locale; agg: A; period: Period; names: Map<number, string>; isAdmin: boolean; query: string; scope?: number[]; scopeName?: string; scopeQuery?: string }) {
   const O = t.diesel.ov;
   const nm = (id: number) => names.get(id) ?? "";
-  const href = (id: number) => `/diesel/${id}?${query}`;
-  const net = agg.net, prev = agg.prevNet;
-  const rows = [...agg.rows.values()];
+  const href = (id: number) => `/diesel?b=${id}&${query}`;
+  // a city: its branches only, its own totals; comparisons stay against the whole network
+  const inScope = (id: number) => !scope || scope.includes(id);
+  const sub = scope ? agg.netFor(scope.filter((id) => agg.rows.has(id))) : null;
+  const net = sub ? sub.cur : agg.net, prev = sub ? sub.prev : agg.prevNet;
+  const rows = [...agg.rows.values()].filter((r) => inScope(r.branchId));
   const ok = rows.filter((r) => r.valid && !r.estimated);
   const risk = ok.filter((r) => r.status === "risk").length, watch = ok.filter((r) => r.status === "watch").length;
   const saveL = ok.reduce((s, r) => s + (r.savingL ?? 0), 0), saveSAR = ok.reduce((s, r) => s + (r.savingSAR ?? 0), 0);
-  const alerts = alertsFor(t, agg, period, nm);
+  const alerts = alertsFor(t, agg, period, nm).filter((a) => inScope(a.id));
   const ranked = rows.filter((r) => r.lp1000 !== null).sort((a, b) => b.lp1000! - a.lp1000!);
   const missing = rows.filter((r) => r.missing.length);
   const unpriced = rows.reduce((s, r) => s + r.unpriced, 0);
@@ -152,7 +155,7 @@ export function Overview({ t, locale, agg, period, names, isAdmin, query }: { t:
 
   return (
     <div className="flex flex-col gap-4">
-      <PeriodBar t={t} locale={locale} period={period} base="/diesel" action={isAdmin && <MonthFiguresButton t={t} month={period.to} />} />
+      <PeriodBar t={t} locale={locale} period={period} base={scopeQuery ? `/diesel?${scopeQuery}` : "/diesel"} action={isAdmin && <MonthFiguresButton t={t} month={period.to} />} />
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label={O.kLp} value={net.lp1000 === null ? "—" : f0.format(net.lp1000)} sub={<Change v={lpChange} t={t} />} />
@@ -178,14 +181,14 @@ export function Overview({ t, locale, agg, period, names, isAdmin, query }: { t:
 
       <Panel title={O.chart}>
         <p className="-mt-1 mb-3 text-sm text-ink-muted">{O.chartSub}</p>
-        {ranked.length === 0 ? <EmptyNote>{t.diesel.perf.noData}</EmptyNote> : <StatusBars t={t} rows={ranked} avg={net.lp1000} nm={nm} href={href} />}
+        {ranked.length === 0 ? <EmptyNote>{t.diesel.perf.noData}</EmptyNote> : <StatusBars t={t} rows={ranked} avg={agg.net.lp1000} nm={nm} href={href} />}
       </Panel>
 
       <Panel title={O.table}>
         <DieselTable t={t} first={O.cols.branch}
           rows={[
             ...[...ranked, ...rows.filter((r) => r.lp1000 === null)].map((r) => ({ key: String(r.branchId), label: nm(r.branchId), href: href(r.branchId), data: r })),
-            ...(net.liters ? [{ key: "total", label: O.total, total: true, data: { liters: net.liters, cost: net.cost, price: net.price, pieces: net.pieces || null, lp1000: net.lp1000, lph: net.lph, change: lpChange, deliveries: net.deliveries } }] : []),
+            ...(net.liters ? [{ key: "total", label: scopeName ? t.diesel.scope.city(scopeName) : O.total, total: true, data: { liters: net.liters, cost: net.cost, price: net.price, pieces: net.pieces || null, lp1000: net.lp1000, lph: net.lph, change: lpChange, deliveries: net.deliveries } }] : []),
           ]} />
         {unpriced > 0 && <p className="mt-3 mb-0 rounded-[14px] bg-warning-soft px-4 py-2.5 text-[13px] text-warning">{O.unpriced(String(unpriced))}</p>}
         {missing.length > 0 && (

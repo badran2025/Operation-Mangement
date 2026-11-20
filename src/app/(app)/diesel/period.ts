@@ -121,5 +121,5 @@ export function aggregate(perf: Perf, period: Period) {
     r.peers = ps.map((o) => o.branchId);
     r.peerLp = per1000(ps.reduce((s, o) => s + o.validLiters, 0), ps.reduce((s, o) => s + o.validPieces, 0));
   }
-  return { rows, net, prevNet, at: (id: number) => rows.get(id)! };
+  return { rows, net, prevNet, at: (id: number) => rows.get(id)!, netFor: (sub: number[]) => ({ cur: netOf(cur, sub), prev: netOf(before, sub) }) };
 }

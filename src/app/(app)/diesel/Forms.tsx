@@ -166,7 +166,7 @@ export function RefuelForm({ branches, tanks, points, last, suppliers = [], defa
     if (reg.error) { for (const u of uploaded) await removeUploaded("diesel-files", u.path); photoError = reg.error; }
     setBusy(false);
     if (photoError) { setError(F.photoFailed(photoError)); return; }
-    router.push(initial ? `/diesel/${branch}?tab=tanks` : `/diesel?tab=tanks&saved=${res.id}`);
+    router.push(initial ? `/diesel?b=${branch}&tab=tanks` : `/diesel?b=${branch}&tab=tanks&saved=${res.id}`);
   }
 
   return (

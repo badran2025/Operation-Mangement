@@ -98,6 +98,8 @@ const en = {
     tabs: { perf: "Diesel performance", review: "Needs review", analysis: "Analysis", tanks: "Tanks and deliveries" } as Record<string, string>,
     tabsAll: { perf: "Diesel performance, all branches", tanks: "Tanks and deliveries, all branches", suppliers: "Suppliers" } as Record<string, string>,
     tabsBranch: { perf: (b: string) => `${b}: diesel performance`, tanks: (b: string) => `${b}: tanks and deliveries` },
+    scope: { label: "Show", all: "All branches", cities: "Cities", city: (c: string) => `All branches in ${c}` } as { label: string; all: string; cities: string; city: (c: string) => string },
+    tabsCity: { perf: (c: string) => `Diesel performance, ${c} branches`, tanks: (c: string) => `Tanks and deliveries, ${c} branches` },
     period: { label: "Period", one: "Month", three: "3 months", six: "6 months", all: "All months", range: "From – to", from: "From", to: "To", show: "Show" } as Record<string, string>,
     status: { risk: "Risk", watch: "Watch", good: "Efficient", normal: "Normal", none: "No data" } as Record<string, string>,
     statusHelp: {
@@ -468,6 +470,8 @@ const ar: Dict = {
     tabs: { perf: "أداء الديزل", review: "محتاج مراجعة", analysis: "التحليلات", tanks: "الخزانات والتعبئات" },
     tabsAll: { perf: "أداء الديزل لكل الفروع", tanks: "الخزانات والتعبئات لكل الفروع", suppliers: "الموردين" },
     tabsBranch: { perf: (b: string) => `أداء ديزل فرع ${b}`, tanks: (b: string) => `خزانات وتعبئات فرع ${b}` },
+    scope: { label: "عرض", all: "كل الفروع", cities: "المدن", city: (c: string) => `كل فروع ${c}` },
+    tabsCity: { perf: (c: string) => `أداء الديزل لفروع ${c}`, tanks: (c: string) => `الخزانات والتعبئات لفروع ${c}` },
     period: { label: "الفترة", one: "شهر", three: "3 شهور", six: "6 شهور", all: "كل الشهور", range: "من – لحد", from: "من", to: "لحد", show: "اعرض" },
     status: { risk: "خطر", watch: "متابعة", good: "كفء", normal: "طبيعي", none: "مفيش بيانات" },
     statusHelp: {
