@@ -5,18 +5,17 @@ import { EmptyNote, Panel } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
 import { Lines } from "./Charts";
 import { monthLabel } from "./MonthNav";
-import { Change, DieselTable, f0, howMuch, prevLabel, Tile } from "./Overview";
+import { Change, DieselTable, f0, howMuch, leftNote, prevLabel, Tile } from "./Overview";
 import { StatusBadge } from "./StatusBadge";
 import type { aggregate, Period } from "./period";
-import type { loadPerformance } from "./perf";
+import type { Perf } from "./perf";
 
 /** One branch over the period: four numbers, what is wrong (in sentences), month by month. */
 export function BranchPerf({ t, locale, perf, agg, period, branchId, names }: {
-  t: Dict; locale: Locale; perf: Awaited<ReturnType<typeof loadPerformance>>; agg: ReturnType<typeof aggregate>; period: Period; branchId: number; names: Map<number, string>;
+  t: Dict; locale: Locale; perf: Perf; agg: ReturnType<typeof aggregate>; period: Period; branchId: number; names: Map<number, string>;
 }) {
   const O = t.diesel.ov;
   const r = agg.at(branchId), net = agg.net, prev = prevLabel(t, period);
-  const netChange = net.lp1000 && agg.prevNet.lp1000 ? ((net.lp1000 / agg.prevNet.lp1000) - 1) * 100 : null;
   const lines: { bad: boolean; text: string }[] = [];
   if (r.valid && !r.estimated) {
     if (r.index !== null && r.index > 120 && net.lp1000) lines.push({ bad: true, text: O.bHigh(howMuch(t, r.lp1000! / net.lp1000)) });
@@ -28,7 +27,7 @@ export function BranchPerf({ t, locale, perf, agg, period, branchId, names }: {
   }
   if (r.unpriced) lines.push({ bad: true, text: O.unpriced(String(r.unpriced)) });
   // month by month: the period's months, or the last 6 for a single month
-  const shown = (period.months.length > 1 ? period.months : perf.months.slice(-6)).filter((m) => perf.grid.has(`${branchId}|${m}`));
+  const shown = (period.months.length > 1 ? period.months : perf.months.slice(-6)).filter((m) => perf.has(branchId, m));
   const tableMonths = [...shown].reverse().filter((m) => m === period.to || perf.at(branchId, m).liters !== null || perf.at(branchId, m).pieces);
   const chartMonths = shown.filter((m) => perf.at(branchId, m).lp1000 !== null || perf.network.get(m)?.lp1000 !== null);
 
@@ -36,11 +35,10 @@ export function BranchPerf({ t, locale, perf, agg, period, branchId, names }: {
     <div className="flex flex-col gap-4">
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Tile label={O.bLp} value={r.lp1000 === null ? "—" : f0.format(r.lp1000)} tone={r.index !== null && r.index > 120 ? "bad" : r.index !== null && r.index < 80 ? "good" : undefined}
-          sub={<span className="flex flex-wrap items-center gap-2">{r.status !== "none" && <StatusBadge status={r.status} label={t.diesel.status[r.status]} title={t.diesel.statusHelp[r.status]} />}{net.lp1000 ? O.bAvg(f0.format(net.lp1000)) : null}</span>} />
+          sub={<span className="flex flex-wrap items-center gap-x-2 gap-y-1">{r.status !== "none" && <StatusBadge status={r.status} label={t.diesel.status[r.status]} title={t.diesel.statusHelp[r.status]} />}{net.lp1000 ? O.bAvg(f0.format(net.lp1000)) : null}{r.lp1000 !== null && <span>· <Change v={r.change} t={t} /></span>}</span>} />
         <Tile label={O.kLiters} value={r.liters === null ? "—" : `${f0.format(r.liters)} L`} sub={`${O.cols.deliveries}: ${r.deliveries}`} />
         <Tile label={O.kPieces} value={r.pieces ? f0.format(r.pieces) : "—"} />
-        <Tile label={O.bChange} value={r.change === null ? "—" : `${r.change > 0 ? "+" : r.change < 0 ? "−" : ""}${f0.format(Math.abs(r.change))}%`} tone={r.change === null ? undefined : r.change > 0 ? "bad" : "good"}
-          sub={netChange !== null ? <>{O.avg}: <Change v={netChange} t={t} /></> : undefined} />
+        <Tile label={O.kPrice} value={r.price === null ? "—" : r.price.toFixed(2)} sub={r.price !== null ? "SAR / L" : undefined} />
         <Tile label={O.bCost} value={r.cost === null ? "—" : f0.format(r.cost)} sub={r.cost !== null ? "SAR" : undefined} />
         <Tile label={O.bSaving} value={r.savingL ? `${f0.format(r.savingL)} L` : "—"} tone={r.savingL ? "good" : undefined} sub={r.savingSAR ? `${f0.format(r.savingSAR)} SAR ${O.bSavingSub}` : O.bSavingSub} />
       </section>
@@ -72,8 +70,9 @@ export function BranchPerf({ t, locale, perf, agg, period, branchId, names }: {
       <Panel title={O.table}>
         <DieselTable t={t} first={O.months} rows={[
           ...tableMonths.map((m) => ({ key: m, label: monthLabel(locale, m), data: perf.at(branchId, m) })),
-          ...(period.months.length > 1 && r.liters !== null ? [{ key: "total", label: O.total, total: true, data: { ...r, status: undefined } }] : []),
+          ...(period.months.length > 1 && r.liters !== null ? [{ key: "total", label: O.branchTotal(names.get(branchId) ?? ""), total: true, data: { ...r, status: undefined } }] : []),
         ]} />
+        {leftNote(t, locale, [r])}
       </Panel>
     </div>
   );

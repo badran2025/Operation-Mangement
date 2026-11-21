@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-col pb-20 md:pb-0">
+      <div className="flex min-w-0 flex-col pb-[calc(5rem+var(--badge-h,0px))] md:pb-0">
         <header className="sticky top-0 z-20 flex h-16 print:hidden items-center gap-2 bg-canvas/85 px-4 backdrop-blur-md md:px-7">
           <div className="md:hidden"><BrandMark label={t.brand} /></div>
           <div className="ms-auto flex items-center gap-2">

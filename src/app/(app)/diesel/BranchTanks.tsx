@@ -47,7 +47,8 @@ export async function BranchTanks({ supabase, t, locale, id, isAdmin }: { supaba
   return (
     <>
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <Kpi label={D.table.stock} value={st.stockNow === null ? "—" : `≈ ${L(st.stockNow)} L`} highlight />
+        {st.stale ? <Kpi label={D.staleLine(L(st.stockAt), D.days(String(st.staleDays)))} value={<span className="text-ink-muted">{D.needsReading}</span>} />
+          : <Kpi label={D.table.stock} value={st.stockNow === null ? "—" : `≈ ${L(st.stockNow)} L`} highlight />}
         <Kpi label={D.tanks.capacity} value={st.cap ? `${L(st.cap)} L` : "—"} />
         <Kpi label={D.table.weekly} value={st.weekly ? `${L(st.weekly)} L` : "—"} />
         <Kpi label={D.table.monthly} value={st.monthly ? `${L(st.monthly)} L` : "—"} />

@@ -138,6 +138,7 @@ export type RefuelLite = { id?: number; refuel_date: string; liters: number; bef
  * and when the next delivery is expected (when stock falls to the usual
  * level at which it gets refilled, or else the usual gap between deliveries).
  */
+export const STALE_DAYS = 14;
 export function branchDiesel(tanks: Tank[], dips: Dip[], refuels: RefuelLite[], branchId: number, now = Date.now()) {
   const active = tanks.filter((x) => x.active);
   const known = active.filter((x) => x.liters_known);
@@ -147,7 +148,10 @@ export function branchDiesel(tanks: Tank[], dips: Dip[], refuels: RefuelLite[], 
   const stockAt = complete ? lastKnown.reduce((s, d) => s + Number(d!.liters), 0) : null;
   const lastAt = complete ? Math.max(...lastKnown.map((d) => new Date(d!.read_at).getTime())) : null;
   const rate = dailyUse(dips.filter((d) => d.branch_id === branchId), 90, now).get(branchId) ?? null;
-  const stockNow = stockAt !== null && lastAt !== null ? Math.max(0, stockAt - (rate ?? 0) * ((now - lastAt) / 86400000)) : null;
+  // past 14 days without a reading the guess is no longer worth showing: the tank needs reading
+  const stale = lastAt !== null && now - lastAt > STALE_DAYS * 86400000;
+  const staleDays = lastAt !== null ? Math.floor((now - lastAt) / 86400000) : null;
+  const stockNow = stockAt !== null && lastAt !== null && !stale ? Math.max(0, stockAt - (rate ?? 0) * ((now - lastAt) / 86400000)) : null;
   const cap = active.reduce((s, x) => s + Number(x.capacity_l ?? 0), 0);
 
   const sorted = [...refuels].sort((a, b) => a.refuel_date.localeCompare(b.refuel_date) || (a.id ?? 0) - (b.id ?? 0));
@@ -158,7 +162,8 @@ export function branchDiesel(tanks: Tank[], dips: Dip[], refuels: RefuelLite[], 
   const last = sorted.at(-1) ?? null;
 
   let next: number | null = null;
-  if (rate && stockNow !== null && refillAt !== null) next = now + Math.max(0, (stockNow - refillAt) / rate) * 86400000;
+  if (stale) next = null;
+  else if (rate && stockNow !== null && refillAt !== null) next = now + Math.max(0, (stockNow - refillAt) / rate) * 86400000;
   else if (last && avgGap) next = new Date(last.refuel_date).getTime() + avgGap * 86400000;
 
   // tanks whose stock can only be shown in cm: not calibrated yet, or calibrated after their last reading
@@ -166,7 +171,7 @@ export function branchDiesel(tanks: Tank[], dips: Dip[], refuels: RefuelLite[], 
   const cmOnly = active.filter((x) => !x.liters_known || (latestOf(x.id) && latestOf(x.id).liters === null)).map((x) => ({ tank: x, lastCm: dips.filter((d) => d.tank_id === x.id && d.level_cm !== undefined)
     .sort((a, b) => new Date(b.read_at).getTime() - new Date(a.read_at).getTime() || b.id - a.id)[0]?.level_cm ?? null }));
 
-  return { active, cap, stockAt, stockNow, lastAt, rate, weekly: rate ? rate * 7 : null, monthly: rate ? rate * 30 : null, refillAt, avgGap, last, next, cmOnly };
+  return { active, cap, stockAt, stockNow, lastAt, stale, staleDays, rate, weekly: rate ? rate * 7 : null, monthly: rate ? rate * 30 : null, refillAt, avgGap, last, next, cmOnly };
 }
 
 /**

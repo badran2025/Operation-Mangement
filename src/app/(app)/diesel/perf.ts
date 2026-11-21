@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { bridge, operatingHours, per1000, usedBetween, type HoursRow, type MonthFigures } from "@/lib/dieselPerf";
+import { hoursBetween, per1000, segmentsOf, burntIn, type HoursRow, type ReadingLite } from "@/lib/dieselPerf";
 
 /** "2026-11" for now in Riyadh, or the given month if it is valid. */
 export function monthOf(m?: string | null): string {
@@ -13,198 +13,154 @@ export function shiftMonth(m: string, by: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 const startMs = (m: string) => Date.parse(`${m}-01T00:00:00+03:00`);
+const DAY = 86400000;
 
-export type Source = "readings" | "deliveries" | "partial" | "import" | "manual" | "none";
-export type Hours = { scheduled: number; perDay: number; stopped: number; actual: number; days: number };
-export type BranchMonth = MonthFigures & {
-  branchId: number; month: string; source: Source; estimated: boolean; price: number | null; hasTanks: boolean; valid: boolean;
-  orders: number | null; hours: Hours | null; capacity: number | null; delivered: number | null; deliveredCost: number | null; deliveries: number; unpriced: number; dryers: number | null; presses: number | null;
-  lp1000: number | null; cp1000: number | null; lp100orders: number | null; costPerOrder: number | null; piecesPerOrder: number | null;
-  lph: number | null; cph: number | null; blanketShare: number | null; turnover: number | null; coverDays: number | null;
-  index: number | null; regionIndex: number | null; shareGap: number | null; priceVsRegion: number | null;
-  change: number | null; litersChange: number | null; costChange: number | null; piecesChange: number | null;
-  bridge: ReturnType<typeof bridge> | null; flags: string[];
-  /** risk: well above the network and getting worse; watch: above the network or getting worse; good: well below */
-  status: "risk" | "watch" | "good" | "normal" | "none"; trend: "improving" | "worsening" | "stable" | null;
-  vsOwnAvg: number | null; peers: number[]; peerLp: number | null; peerGap: number | null; savingL: number | null; savingSAR: number | null;
+/**
+ * Where a month's litres come from:
+ * manual / import = written in the monthly figures; readings = the tank readings cover the whole month;
+ * partial = the readings cover part of it (still being worked out); none = nothing yet.
+ */
+export type Source = "readings" | "partial" | "import" | "manual" | "none";
+export type Status = "risk" | "watch" | "good" | "normal" | "none";
+export type BranchMonth = {
+  branchId: number; month: string; source: Source; estimated: boolean;
+  liters: number | null; cost: number | null; price: number | null; pieces: number | null; blankets: number | null;
+  /** the days the litres are known for, and the hours worked on those days */
+  days: number | null; hours: number | null; lph: number | null;
+  /** deliveries made this month: litres in the tanks, what they cost, how many, how many with no price */
+  delivered: number | null; deliveredCost: number | null; deliveries: number; unpriced: number;
+  /** complete litres and pieces: counts in totals and comparisons */
+  valid: boolean; lp1000: number | null; blanketShare: number | null;
+  index: number | null; priceVsRegion: number | null; change: number | null; status: Status;
+  savingL: number | null; savingSAR: number | null; hasTanks: boolean;
 };
-export type Network = {
-  liters: number; cost: number; pieces: number; orders: number; hours: number; price: number | null;
-  lp1000: number | null; cp1000: number | null; lp100orders: number | null; costPerOrder: number | null; lph: number | null; branches: number;
-};
+export type Network = { liters: number; cost: number; pieces: number; price: number | null; lp1000: number | null; branches: number };
+export type PerfBranch = { id: number; name_ar: string; name_en: string; city_id: number; status: string; power_source: string; sort: number; closed: boolean };
 const pctChange = (a: number | null | undefined, b: number | null | undefined) => (a !== null && a !== undefined && b ? ((a / b) - 1) * 100 : null);
+
+type Raw = {
+  branches: Omit<PerfBranch, "closed">[]; cities: { id: number; name_ar: string; name_en: string }[];
+  months: { branch_id: number; month: string; pieces: number | null; blankets: number | null; liters: number | null; cost: number | null; estimated: boolean; source: string | null }[];
+  dips: (ReadingLite & { branch_id: number; refuel_id: number | null })[];
+  refuels: { id: number; branch_id: number; refuel_date: string; liters: number; received_liters: number | null; total_amount: number | null; supplier: string | null; supplier_id: number | null }[];
+  hours: (HoursRow & { branch_id: number })[]; stops: { branch_id: number; started_at: string; ended_at: string | null }[];
+  suppliers: { id: number; name: string; price_per_liter: number | null }[];
+};
 
 /**
  * Diesel performance for `month` and the `history` months before it, for every
- * diesel branch: litres (from the tank readings, split between months by days,
- * or the month's own figures), cost, pieces, orders, hours, tanks, and the comparisons.
+ * diesel branch of the network (whoever looks: the comparison is always against
+ * the whole network). Litres come from the tank readings, split between months
+ * by days and priced at the delivery they came from, unless written by hand.
  */
 export async function loadPerformance(supabase: SupabaseClient, month: string, history = 5) {
   const months = Array.from({ length: history + 1 }, (_, i) => shiftMonth(month, i - history));
-  const from = startMs(months[0]), to = startMs(shiftMonth(month, 1));
-  const [{ data: branches }, { data: cities }, { data: bm }, { data: dips }, { data: refs }, { data: hours }, { data: stops }, { data: tanks }, { data: equip }, { data: sups }] = await Promise.all([
-    supabase.from("branches").select("id, name_ar, name_en, city_id, status, power_source, sort").neq("status", "closed").order("city_id").order("sort"),
-    supabase.from("cities").select("id, name_ar, name_en"),
-    supabase.from("branch_months").select("*").gte("month", `${shiftMonth(months[0], -2)}-01`).lte("month", `${month}-01`),
-    supabase.from("diesel_dips").select("id, tank_id, branch_id, read_at, liters, kind").gte("read_at", new Date(from - 150 * 86400000).toISOString()).order("read_at"),
-    supabase.from("diesel_refuels").select("branch_id, refuel_date, liters, received_liters, total_amount, price_per_liter, supplier, supplier_id").lt("refuel_date", `${shiftMonth(month, 1)}-01`).order("refuel_date", { ascending: false }),
-    supabase.from("branch_hours").select("branch_id, weekday, open_time, close_time, is_24h, is_closed"),
-    supabase.from("branch_downtimes").select("branch_id, started_at, ended_at").lt("started_at", new Date(to).toISOString()),
-    supabase.from("v_diesel_tank_info").select("branch_id, capacity_l").eq("active", true),
-    supabase.from("equipment").select("branch_id, quantity, status, ticket_categories(code)").neq("status", "retired"),
-    supabase.from("diesel_suppliers").select("id, name, price_per_liter"),
-  ]);
+  const allMonths = [shiftMonth(months[0], -1), ...months]; // one before, for the change
+  const { data, error } = await supabase.rpc("diesel_perf_data", { p_from: `${allMonths[0]}-01`, p_to: `${month}-01` });
+  if (error) throw new Error(error.message);
+  const raw = data as Raw;
+  const now = Date.now();
+
   // a delivery's cost: its invoice total, or its litres at its supplier's fixed price
   const supPrice = new Map<string, number>();
-  for (const x of sups ?? []) if (x.price_per_liter !== null) { supPrice.set(`id:${x.id}`, Number(x.price_per_liter)); supPrice.set(`name:${String(x.name).trim()}`, Number(x.price_per_liter)); }
-  const totalOf = (r: { total_amount: number | null; liters: number; supplier_id: number | null; supplier: string | null }) => {
+  for (const x of raw.suppliers) if (x.price_per_liter !== null) { supPrice.set(`id:${x.id}`, Number(x.price_per_liter)); supPrice.set(`name:${String(x.name).trim()}`, Number(x.price_per_liter)); }
+  const totalOf = (r: Raw["refuels"][number]) => {
     if (r.total_amount !== null) return Number(r.total_amount);
     const p = (r.supplier_id ? supPrice.get(`id:${r.supplier_id}`) : undefined) ?? (r.supplier ? supPrice.get(`name:${r.supplier.trim()}`) : undefined);
     return p ? Number(r.liters) * p : null;
   };
-  const diesel = (branches ?? []).filter((b) => b.power_source !== "electric");
-  const capacity = new Map<number, number>();
-  for (const x of tanks ?? []) capacity.set(x.branch_id, (capacity.get(x.branch_id) ?? 0) + Number(x.capacity_l ?? 0));
-  const count = (b: number, code: string) => {
-    const list = (equip ?? []).filter((e) => e.branch_id === b && (e.ticket_categories as unknown as { code: string } | null)?.code === code);
-    return list.length ? list.reduce((s, e) => s + Number(e.quantity ?? 1), 0) : null;
-  };
+  const priced = raw.refuels.map((r) => ({ ...r, total: totalOf(r) })).sort((a, b) => a.refuel_date.localeCompare(b.refuel_date) || a.id - b.id);
 
-  const figures = (b: (typeof diesel)[number], mo: string): BranchMonth => {
-    const f = startMs(mo), t = startMs(shiftMonth(mo, 1));
-    const row = (bm ?? []).find((x) => x.branch_id === b.id && String(x.month).slice(0, 7) === mo);
-    const mine = (dips ?? []).filter((d) => d.branch_id === b.id);
-    const used = mine.length ? usedBetween(mine, f, t) : null;
-    const own = row?.liters !== null && row?.liters !== undefined;
-    const bRefs = (refs ?? []).filter((r) => r.branch_id === b.id && r.refuel_date < `${shiftMonth(mo, 1)}-01`);
-    const monthRefs = bRefs.filter((r) => r.refuel_date >= `${mo}-01`);
-    const priced = monthRefs.map((r) => ({ r, total: totalOf(r) })).filter((x) => x.total !== null);
-    const pl = priced.reduce((s, x) => s + Number(x.r.liters), 0);
-    const lastPriced = bRefs.map((r) => ({ r, total: totalOf(r) })).find((x) => x.total !== null);
-    const invoicePrice = pl > 0 ? priced.reduce((s, x) => s + x.total!, 0) / pl : lastPriced ? lastPriced.total! / Number(lastPriced.r.liters) : null;
-    // what was delivered this month: litres in the tanks (or on the invoice) and what it cost (deliveries with no price are not costed)
-    const delivered = monthRefs.length ? Math.round(monthRefs.reduce((s, r) => s + Number(r.received_liters ?? r.liters), 0) * 10) / 10 : null;
-    const deliveredCost = priced.length ? Math.round(priced.reduce((s, x) => s + x.total!, 0) * 100) / 100 : null;
-    const unpriced = monthRefs.length - priced.length;
-    // the month's litres: entered by hand > tank readings covering the month > the month's deliveries > readings so far
-    const liters = own ? Number(row!.liters) : used?.complete ? used.liters : delivered !== null ? delivered : used && used.liters > 0 ? used.liters : null;
-    const source: Source = own ? (row!.source === "import" ? "import" : "manual") : used?.complete ? "readings" : delivered !== null ? "deliveries" : used ? "partial" : "none";
-    const cost = row?.cost !== null && row?.cost !== undefined ? Number(row.cost) : source === "deliveries" ? deliveredCost : liters !== null && invoicePrice !== null ? liters * Number(invoicePrice) : null;
-    const price = liters && cost !== null ? cost / liters : invoicePrice === null ? null : Number(invoicePrice);
-    const hrs = operatingHours((hours ?? []).filter((h) => h.branch_id === b.id) as HoursRow[], mo, (stops ?? []).filter((s) => s.branch_id === b.id));
-    const pieces = row?.pieces ?? null, blankets = row?.blankets ?? null, orders = row?.orders ?? null;
-    const full = liters !== null && source !== "partial";
-    const valid = full && !!pieces;
-    const cap = capacity.get(b.id) ?? null;
-    const days = hrs?.days ?? new Date(Date.UTC(Number(mo.slice(0, 4)), Number(mo.slice(5)), 0)).getUTCDate();
-    return {
-      branchId: b.id, month: mo, liters, cost, pieces, blankets, orders, hours: hrs, delivered, deliveredCost, deliveries: monthRefs.length, unpriced, source, estimated: !!row?.estimated, price, hasTanks: capacity.has(b.id), valid,
-      capacity: cap, dryers: count(b.id, "DR"), presses: count(b.id, "PM"),
-      lp1000: valid ? per1000(liters, pieces) : null, cp1000: valid ? per1000(cost, pieces) : null,
-      lp100orders: full && orders ? (liters! / orders) * 100 : null, costPerOrder: full && orders && cost !== null ? cost / orders : null,
-      piecesPerOrder: pieces && orders ? pieces / orders : null,
-      lph: full && hrs?.actual ? liters! / hrs.actual : null, cph: full && hrs?.actual && cost !== null ? cost / hrs.actual : null,
-      blanketShare: pieces && blankets !== null ? (blankets / pieces) * 100 : null,
-      turnover: full && cap ? liters! / cap : null, coverDays: full && cap && liters ? cap / (liters / days) : null,
-      index: null, regionIndex: null, shareGap: null, priceVsRegion: null, change: null, litersChange: null, costChange: null, piecesChange: null, bridge: null, flags: [],
-      status: "none", trend: null, vsOwnAvg: null, peers: [], peerLp: null, peerGap: null, savingL: null, savingSAR: null,
+  // a branch that closed stays in the months it worked; it only leaves the current lists
+  const hasData = new Set([...raw.months.filter((m) => m.liters !== null || m.pieces !== null).map((m) => m.branch_id), ...raw.dips.map((d) => d.branch_id)]);
+  const diesel: PerfBranch[] = raw.branches.filter((b) => b.power_source !== "electric" && (b.status !== "closed" || hasData.has(b.id))).map((b) => ({ ...b, closed: b.status === "closed" }));
+  const tanksOf = new Set(raw.dips.map((d) => d.branch_id));
+
+  const figures = new Map<string, BranchMonth>();
+  for (const b of diesel) {
+    const refs = priced.filter((r) => r.branch_id === b.id);
+    // the price of the fuel in the tank at a moment: the last priced delivery made by then (else the first one after)
+    const priceAt = (ms: number) => {
+      const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date(ms));
+      const before = refs.filter((r) => r.total !== null && r.refuel_date <= day).at(-1) ?? refs.find((r) => r.total !== null);
+      return before ? before.total! / Number(before.liters) : null;
     };
-  };
+    const { segs, start, end } = segmentsOf(raw.dips.filter((d) => d.branch_id === b.id), priceAt);
+    const hours = raw.hours.filter((h) => h.branch_id === b.id), stops = raw.stops.filter((s) => s.branch_id === b.id);
 
-  const grid = new Map<string, BranchMonth>(); // `${branch}|${month}`
-  const allMonths = [shiftMonth(months[0], -2), shiftMonth(months[0], -1), ...months]; // two before, for "rising two months in a row"
-  for (const b of diesel) for (const mo of allMonths) grid.set(`${b.id}|${mo}`, figures(b, mo));
+    const one = (mo: string): BranchMonth => {
+      const f = startMs(mo), t = Math.min(startMs(shiftMonth(mo, 1)), now);
+      const row = raw.months.find((x) => x.branch_id === b.id && String(x.month).slice(0, 7) === mo);
+      const monthRefs = refs.filter((r) => r.refuel_date.slice(0, 7) === mo);
+      const withPrice = monthRefs.filter((r) => r.total !== null);
+      const delivered = monthRefs.length ? Math.round(monthRefs.reduce((s, r) => s + Number(r.received_liters ?? r.liters), 0) * 10) / 10 : null;
+      const deliveredCost = withPrice.length ? Math.round(withPrice.reduce((s, r) => s + r.total!, 0) * 100) / 100 : null;
 
+      // the part of the month the readings reach
+      const a = start === null ? null : Math.max(f, start), z = end === null ? null : Math.min(t, end);
+      const known = a !== null && z !== null && z > a;
+      const use = known ? burntIn(segs, a!, z!) : null;
+      const full = known && a === f && z === t && startMs(shiftMonth(mo, 1)) <= now;
+      const own = row?.liters !== null && row?.liters !== undefined;
+      const source: Source = own ? (row!.source === "import" ? "import" : "manual") : full ? "readings" : known ? "partial" : "none";
+      const liters = own ? Number(row!.liters) : use ? use.liters : null;
+      // cost: written by hand, else each litre at the price of the delivery it came from
+      const fallbackPrice = use && use.liters - use.unpricedL > 0 ? use.cost / (use.liters - use.unpricedL) : priceAt(Math.min(t, now));
+      const cost = own ? (row!.cost !== null ? Number(row!.cost) : fallbackPrice !== null ? liters! * fallbackPrice : null)
+        : use && liters ? (use.unpricedL === 0 ? use.cost : fallbackPrice !== null ? use.cost + use.unpricedL * fallbackPrice : null) : null;
+      // hours on the same days as the litres
+      const span = own ? [f, t] as const : known ? [a!, z!] as const : null;
+      const hrs = span ? hoursBetween(hours, span[0], span[1], stops, now)?.actual ?? null : null;
+      const pieces = row?.pieces ?? null, blankets = row?.blankets ?? null;
+      const complete = own || full;
+      const valid = complete && liters !== null && !!pieces;
+      return {
+        branchId: b.id, month: mo, source, estimated: !!row?.estimated,
+        liters, cost, price: liters && cost !== null ? cost / liters : null, pieces, blankets,
+        days: span ? (span[1] - span[0]) / DAY : null, hours: hrs, lph: liters && hrs ? liters / hrs : null,
+        delivered, deliveredCost, deliveries: monthRefs.length, unpriced: monthRefs.length - withPrice.length,
+        valid, lp1000: valid ? per1000(liters, pieces) : null, blanketShare: pieces && blankets !== null ? (blankets / pieces) * 100 : null,
+        index: null, priceVsRegion: null, change: null, status: "none", savingL: null, savingSAR: null, hasTanks: tanksOf.has(b.id),
+      };
+    };
+    for (const mo of allMonths) figures.set(`${b.id}|${mo}`, one(mo));
+  }
+
+  // the network and each city, month by month: complete months only, estimates left out
   const avg = (rows: BranchMonth[]): Network => {
     const ok = rows.filter((r) => r.valid && !r.estimated);
-    const sum = (f: (r: BranchMonth) => number | null | undefined) => ok.reduce((s, r) => s + Number(f(r) ?? 0), 0);
-    const liters = sum((r) => r.liters), cost = sum((r) => r.cost), pieces = sum((r) => r.pieces);
-    const withOrders = ok.filter((r) => r.orders), withHours = ok.filter((r) => r.hours?.actual);
-    const oL = withOrders.reduce((s, r) => s + r.liters!, 0), oC = withOrders.reduce((s, r) => s + (r.cost ?? 0), 0), orders = withOrders.reduce((s, r) => s + r.orders!, 0);
-    const hL = withHours.reduce((s, r) => s + r.liters!, 0), hrs = withHours.reduce((s, r) => s + r.hours!.actual, 0);
-    return {
-      liters, cost, pieces, orders, hours: hrs, price: liters ? cost / liters : null, lp1000: per1000(liters, pieces), cp1000: per1000(cost, pieces),
-      lp100orders: orders ? (oL / orders) * 100 : null, costPerOrder: orders ? oC / orders : null, lph: hrs ? hL / hrs : null, branches: ok.length,
-    };
+    const liters = ok.reduce((s, r) => s + r.liters!, 0), pieces = ok.reduce((s, r) => s + r.pieces!, 0);
+    const pricedRows = ok.filter((r) => r.cost !== null), pl = pricedRows.reduce((s, r) => s + r.liters!, 0), cost = pricedRows.reduce((s, r) => s + r.cost!, 0);
+    return { liters, cost, pieces, price: pl ? cost / pl : null, lp1000: per1000(liters, pieces), branches: ok.length };
   };
   const network = new Map<string, Network>(), region = new Map<string, Network>();
   for (const mo of allMonths) {
-    const rows = diesel.map((b) => grid.get(`${b.id}|${mo}`)!);
+    const rows = diesel.map((b) => figures.get(`${b.id}|${mo}`)!);
     const net = avg(rows);
     network.set(mo, net);
-    for (const c of cities ?? []) region.set(`${c.id}|${mo}`, avg(diesel.filter((b) => b.city_id === c.id).map((b) => grid.get(`${b.id}|${mo}`)!)));
-    for (const b of diesel) {
-      const r = grid.get(`${b.id}|${mo}`)!, reg = region.get(`${b.city_id}|${mo}`)!;
-      if (r.lp1000 !== null) {
-        r.index = net.lp1000 ? (r.lp1000 / net.lp1000) * 100 : null;
-        r.regionIndex = reg.lp1000 && reg.branches > 1 ? (r.lp1000 / reg.lp1000) * 100 : null;
-        r.shareGap = !r.estimated && net.liters && net.pieces ? ((r.liters! / net.liters) - (r.pieces! / net.pieces)) * 100 : null;
-      }
+    for (const c of raw.cities) region.set(`${c.id}|${mo}`, avg(diesel.filter((b) => b.city_id === c.id).map((b) => figures.get(`${b.id}|${mo}`)!)));
+    for (const b of diesel) compare(figures.get(`${b.id}|${mo}`)!, net, region.get(`${b.city_id}|${mo}`)!, figures.get(`${b.id}|${shiftMonth(mo, -1)}`));
+  }
+  function compare(r: BranchMonth, net: Network, reg: Network, prev: BranchMonth | undefined) {
+    {
+      r.index = r.lp1000 !== null && net.lp1000 ? (r.lp1000 / net.lp1000) * 100 : null;
       r.priceVsRegion = r.price !== null && reg.price ? pctChange(r.price, reg.price) : null;
-      const prev = grid.get(`${b.id}|${shiftMonth(mo, -1)}`);
-      if (prev) {
-        r.litersChange = r.source !== "partial" ? pctChange(r.liters, prev.liters) : null;
-        r.costChange = r.source !== "partial" ? pctChange(r.cost, prev.cost) : null;
-        r.piecesChange = pctChange(r.pieces, prev.pieces);
-      }
-      if (prev && prev.valid && r.valid) {
-        r.change = pctChange(r.lp1000, prev.lp1000);
-        r.bridge = bridge(r, prev);
-      }
-      // what needs a look
+      if (prev?.valid && r.valid) r.change = pctChange(r.lp1000, prev.lp1000);
       if (r.valid && !r.estimated) {
-        if (r.index !== null && r.index > 120) r.flags.push("high");
-        const p2 = grid.get(`${b.id}|${shiftMonth(mo, -2)}`);
-        if (prev?.valid && p2?.valid && r.lp1000! > prev.lp1000! && prev.lp1000! > p2.lp1000!) r.flags.push("rising");
-        if (r.priceVsRegion !== null && Math.abs(r.priceVsRegion) > 5) r.flags.push("price");
-      }
-      // direction: this month against the branch's own average of the up-to-3 months before
-      const before = [1, 2, 3].map((k) => grid.get(`${b.id}|${shiftMonth(mo, -k)}`)).filter((x): x is BranchMonth => !!x?.valid && !x.estimated);
-      if (r.valid && before.length) {
-        const own = before.reduce((s2, x) => s2 + x.liters!, 0) / before.reduce((s2, x) => s2 + x.pieces!, 0) * 1000;
-        r.vsOwnAvg = pctChange(r.lp1000, own);
-        r.trend = r.vsOwnAvg! > 5 ? "worsening" : r.vsOwnAvg! < -5 ? "improving" : "stable";
-      }
-      // what it would save at the network average
-      if (r.valid && !r.estimated && net.lp1000) {
-        r.savingL = Math.max(r.liters! - (r.pieces! * net.lp1000) / 1000, 0);
-        r.savingSAR = r.price !== null ? r.savingL * r.price : null;
-      }
-      if (r.valid && !r.estimated) {
-        const worse = r.trend === "worsening" || r.flags.includes("rising");
+        const worse = r.change !== null && r.change > 5;
         r.status = (r.index ?? 0) > 150 || ((r.index ?? 0) > 120 && worse) ? "risk"
-          : (r.index ?? 0) > 120 || worse || r.flags.includes("price") ? "watch"
-          : (r.index ?? 100) < 80 ? "good" : "normal";
+          : (r.index ?? 0) > 120 || worse || (r.priceVsRegion ?? 0) > 5 ? "watch" : (r.index ?? 100) < 80 ? "good" : "normal";
+        if (net.lp1000) {
+          r.savingL = Math.max(r.liters! - (r.pieces! * net.lp1000) / 1000, 0);
+          r.savingSAR = r.price !== null ? r.savingL * r.price : null;
+        }
       }
-      if (!r.pieces) r.flags.push("noPieces");
-      if (r.source === "partial") r.flags.push("partial");
-      if (r.source === "none") r.flags.push("noLiters");
     }
   }
-  // peers: branches that did a similar amount of work the same month (pieces within ±25%)
-  for (const mo of allMonths) {
-    const ok = diesel.map((b) => grid.get(`${b.id}|${mo}`)!).filter((r) => r.valid && !r.estimated);
-    for (const r of ok) {
-      const ps = ok.filter((x) => x.branchId !== r.branchId && Math.abs(x.pieces! / r.pieces! - 1) <= 0.25);
-      if (!ps.length) continue;
-      r.peers = ps.map((x) => x.branchId);
-      r.peerLp = (ps.reduce((s2, x) => s2 + x.liters!, 0) / ps.reduce((s2, x) => s2 + x.pieces!, 0)) * 1000;
-      r.peerGap = pctChange(r.lp1000, r.peerLp);
-    }
-  }
-  // the network's change = the branches' changes added up (branches with figures in both months)
-  const netBridge = (mo: string) => {
-    const rs = diesel.map((b) => grid.get(`${b.id}|${mo}`)!).filter((r) => r.bridge?.liters && r.bridge.cost && !r.estimated);
-    if (!rs.length) return null;
-    const sum = (f: (r: BranchMonth) => number) => rs.reduce((s, r) => s + f(r), 0);
-    return {
-      branches: rs.length,
-      liters: { change: sum((r) => r.bridge!.liters!.change), volume: sum((r) => r.bridge!.liters!.volume), efficiency: sum((r) => r.bridge!.liters!.efficiency) },
-      cost: { change: sum((r) => r.bridge!.cost!.change), price: sum((r) => r.bridge!.cost!.price), quantity: sum((r) => r.bridge!.cost!.quantity) },
-    };
-  };
-  return { months, branches: diesel, cities: cities ?? [], grid, network, region, netBridge, at: (b: number, mo: string) => grid.get(`${b}|${mo}`)! };
+  const names = new Map(raw.branches.map((b) => [b.id, b]));
+  return { months, branches: diesel, names, cities: raw.cities, network, region, at: (b: number, mo: string) => figures.get(`${b}|${mo}`)!, has: (b: number, mo: string) => figures.has(`${b}|${mo}`) };
 }
+export type Perf = Awaited<ReturnType<typeof loadPerformance>>;
 
 /** The latest month (not after now) that has pieces entered, else last month. */
 export async function defaultMonth(supabase: SupabaseClient) {

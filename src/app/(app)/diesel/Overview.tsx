@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { STATUS_COLOR } from "./Charts";
 import { StatusBadge } from "./StatusBadge";
 import type { Agg, aggregate, Period } from "./period";
+import { monthLabel } from "./MonthNav";
 
 export const f0 = new Intl.NumberFormat("en", { maximumFractionDigits: 0 });
 const f1 = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
@@ -65,6 +66,19 @@ function alertsFor(t: Dict, agg: A, period: Period, nm: (id: number) => string) 
   return [...bad, ...(best ? [{ id: best.branchId, bad: false, weight: 0, text: O.better(nm(best.branchId), abs(best.change!), prev) }] : [])];
 }
 
+/** Which months of the period are not in the totals, and why (no pieces yet, still being worked out, an estimate). */
+export function leftNote(t: Dict, locale: Locale, rows: Agg[]) {
+  const by = new Map<string, Map<string, number>>();
+  for (const r of rows) for (const x of r.left) { const m = by.get(x.month) ?? new Map(); m.set(x.why, (m.get(x.why) ?? 0) + 1); by.set(x.month, m); }
+  if (!by.size) return null;
+  const parts = [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([m, w]) => `${monthLabel(locale, m)} (${[...w.keys()].map((k) => t.diesel.ov.why[k]).join("، ")})`);
+  return (
+    <p className="mt-3 mb-0 rounded-[14px] bg-warning-soft px-4 py-2.5 text-[13px] leading-6 text-warning">
+      <b className="font-semibold">{t.diesel.ov.left}:</b> {parts.join(" · ")}
+    </p>
+  );
+}
+
 /** Bars of litres per 1,000 pieces, worst first, coloured by status, with the network average. */
 function StatusBars({ t, rows, avg, nm, href }: { t: Dict; rows: Agg[]; avg: number | null; nm: (id: number) => string; href: (id: number) => string }) {
   const max = Math.max(...rows.map((r) => r.lp1000!), avg ?? 0) * 1.05;
@@ -89,8 +103,8 @@ function StatusBars({ t, rows, avg, nm, href }: { t: Dict; rows: Agg[]; avg: num
   );
 }
 
-type RowData = { lp1000?: number | null; change?: number | null; liters?: number | null; cost?: number | null; price?: number | null; pieces?: number | null; blanketShare?: number | null; lph?: number | null; deliveries?: number; status?: string; estimated?: boolean };
-export type Row = { key: string; label: string; href?: string; data: RowData; total?: boolean; highlight?: boolean };
+type RowData = { lp1000?: number | null; change?: number | null; liters?: number | null; cost?: number | null; price?: number | null; pieces?: number | null; blanketShare?: number | null; lph?: number | null; deliveries?: number; status?: string; estimated?: boolean; source?: string; days?: number | null };
+export type Row = { key: string; label: string; href?: string; data: RowData; total?: boolean; highlight?: boolean; closed?: boolean };
 /** The diesel columns. */
 export function DieselTable({ t, rows, first }: { t: Dict; rows: Row[]; first: string }) {
   const C = t.diesel.ov.cols;
@@ -113,6 +127,8 @@ export function DieselTable({ t, rows, first }: { t: Dict; rows: Row[]; first: s
                 <td className="py-2.5 ps-4 pe-2.5 md:ps-5">
                   {r.href ? <Link href={r.href} className="font-semibold text-primary hover:underline">{r.label}</Link> : <span className="font-semibold">{r.label}</span>}
                   {d.estimated && <Badge variant="warning" className="ms-2 h-5 px-1.5 text-[11px]">{t.diesel.perf.estimated}</Badge>}
+                  {d.source === "partial" && <Badge variant="secondary" className="ms-2 h-5 px-1.5 text-[11px]" title={t.diesel.ov.partialHelp(f0.format(d.days ?? 0))}>{t.diesel.ov.partial}</Badge>}
+                  {r.closed && <Badge variant="secondary" className="ms-2 h-5 px-1.5 text-[11px]">{t.diesel.ov.closed}</Badge>}
                 </td>
                 <td className="px-2.5">{!r.total && !d.estimated && d.status && d.status !== "none" && <StatusBadge status={d.status} label={t.diesel.status[d.status]} title={t.diesel.statusHelp[d.status]} />}</td>
                 <td className="num px-2.5 text-end text-[15px] font-semibold">{n(d.lp1000)}</td>
@@ -134,7 +150,7 @@ export function DieselTable({ t, rows, first }: { t: Dict; rows: Row[]; first: s
 }
 
 /** Diesel performance of all branches over the period: four numbers, the alerts, one chart, the table, what is missing. */
-export function Overview({ t, agg, period, names, query, scope, scopeName }: { t: Dict; locale: Locale; agg: A; period: Period; names: Map<number, string>; query: string; scope?: number[]; scopeName?: string }) {
+export function Overview({ t, locale, agg, period, names, query, scope, scopeName, closed }: { t: Dict; locale: Locale; agg: A; period: Period; names: Map<number, string>; query: string; scope?: number[]; scopeName?: string; closed?: Set<number> }) {
   const O = t.diesel.ov;
   const nm = (id: number) => names.get(id) ?? "";
   const href = (id: number) => `/diesel?b=${id}&${query}`;
@@ -148,7 +164,7 @@ export function Overview({ t, agg, period, names, query, scope, scopeName }: { t
   const saveL = ok.reduce((s, r) => s + (r.savingL ?? 0), 0), saveSAR = ok.reduce((s, r) => s + (r.savingSAR ?? 0), 0);
   const alerts = alertsFor(t, agg, period, nm).filter((a) => inScope(a.id));
   const ranked = rows.filter((r) => r.lp1000 !== null).sort((a, b) => b.lp1000! - a.lp1000!);
-  const missing = rows.filter((r) => r.missing.length);
+  const left = leftNote(t, locale, rows);
   const unpriced = rows.reduce((s, r) => s + r.unpriced, 0);
   const lpChange = pctOf(net.lp1000, prev.lp1000), costChange = pctOf(net.cost, prev.cost);
 
@@ -186,16 +202,11 @@ export function Overview({ t, agg, period, names, query, scope, scopeName }: { t
       <Panel title={O.table}>
         <DieselTable t={t} first={O.cols.branch}
           rows={[
-            ...[...ranked, ...rows.filter((r) => r.lp1000 === null)].map((r) => ({ key: String(r.branchId), label: nm(r.branchId), href: href(r.branchId), data: r })),
+            ...[...ranked, ...rows.filter((r) => r.lp1000 === null)].map((r) => ({ key: String(r.branchId), label: nm(r.branchId), href: href(r.branchId), data: r, closed: closed?.has(r.branchId) })),
             ...(net.liters ? [{ key: "total", label: scopeName ? t.diesel.scope.city(scopeName) : O.total, total: true, data: { liters: net.liters, cost: net.cost, price: net.price, pieces: net.pieces || null, lp1000: net.lp1000, lph: net.lph, change: lpChange, deliveries: net.deliveries } }] : []),
           ]} />
         {unpriced > 0 && <p className="mt-3 mb-0 rounded-[14px] bg-warning-soft px-4 py-2.5 text-[13px] text-warning">{O.unpriced(String(unpriced))}</p>}
-        {missing.length > 0 && (
-          <p className="mt-3 mb-0 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[14px] bg-warning-soft px-4 py-2.5 text-[13px] text-warning">
-            <b className="font-semibold">{O.missing}:</b>
-            {missing.map((r) => nm(r.branchId)).join("، ")}
-          </p>
-        )}
+        {left}
       </Panel>
     </div>
   );

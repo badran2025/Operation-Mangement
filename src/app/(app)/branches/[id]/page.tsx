@@ -15,6 +15,7 @@ import { WorkersTable } from "@/components/app/WorkersTable";
 import { EmptyNote, Kpi, PageHeader, Panel, RowChevron, SoftRow } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
 import { AddEquipment, EquipmentEditor, FileEditor, InfoEditor, type EquipmentRow } from "./Editors";
+import { DieselStrip } from "../../diesel/DieselCard";
 import { AddBranchMaterial, BranchMaterialEditor } from "../materials/Editors";
 
 export const dynamic = "force-dynamic";
@@ -114,6 +115,8 @@ export default async function BranchPage({ params, searchParams }: { params: Pro
         <Kpi label={D.kpiMonth} value={dt?.minutes_month ? duration(t, dt.minutes_month) : n(0)} tone={dt?.open_since ? "danger" : dt?.minutes_month ? "warning" : undefined} href={`/branches/${id}?s=maintenance`} />
         <Kpi label={B.card.filesKpi} value={n(fileAlerts)} tone={fileAlerts ? "warning" : undefined} href={`/branches/${id}?s=files`} />
       </section>
+
+      {(isAdmin || role === "supervisor") && <DieselStrip supabase={supabase} t={t} locale={locale} branchId={id} />}
 
       <nav aria-label={name} className="flex max-w-full gap-1 self-start overflow-x-auto rounded-full bg-surface p-1">
         {SECTIONS.map((k) => (

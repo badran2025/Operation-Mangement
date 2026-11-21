@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyNote, Kpi, PageHeader, Panel, RowChevron, SoftRow } from "@/components/app/blocks";
 import { cn } from "@/lib/utils";
+import { DieselHome } from "./diesel/DieselCard";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +137,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               })}
             </ul>
           </Panel>
+
+          {(isAdmin || profile.role === "supervisor") && <DieselHome supabase={supabase} t={t} locale={locale} names={new Map(branches.map((b) => [b.id, pick(locale, b.name_ar, b.name_en)]))} />}
 
           {isAdmin && (
             <Panel title={t.dashboard.docsTitle} action={<Link href="/documents" className="text-sm font-medium text-primary hover:underline">{t.common.viewAll}</Link>}>

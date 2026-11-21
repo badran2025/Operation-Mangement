@@ -37,7 +37,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
   const monthStart = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date()).slice(0, 8) + "01";
 
   const [{ data: branches }, { data: tankData }, { data: dipData }, { data: refuelData }] = await Promise.all([
-    supabase.from("branches").select("id, name_ar, name_en, city_id, power_source").neq("status", "closed").order("city_id").order("sort"),
+    supabase.from("branches").select("id, name_ar, name_en, city_id, power_source, status").order("city_id").order("sort"),
     supabase.from("v_diesel_tank_info").select("*").eq("active", true).order("sort"),
     supabase.from("diesel_dips").select("id, tank_id, branch_id, read_at, liters, level_cm, kind").gte("read_at", since),
     supabase.from("diesel_refuels").select("*, profiles(full_name), diesel_refuel_files(file_path)").order("refuel_date", { ascending: false }).order("id", { ascending: false }).limit(400),
@@ -47,30 +47,37 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
   const supplierPrice = Object.fromEntries((sups ?? []).filter((x) => x.price_per_liter !== null).map((x) => [x.id, Number(x.price_per_liter)]));
   const refuels = (refuelData ?? []) as unknown as Refuel[];
   const dips = (dipData ?? []) as Dip[];
-  const bName = new Map((branches ?? []).map((b) => [b.id, pick(locale, b.name_ar, b.name_en)]));
+  const allVisible = branches ?? [];
+  const open = allVisible.filter((b) => b.status !== "closed");
   // what is shown: all branches, one city, or one branch
   const { data: cityRows } = await supabase.from("cities").select("id, name_ar, name_en").order("sort");
   const cityName = new Map((cityRows ?? []).map((c) => [c.id, pick(locale, c.name_ar, c.name_en)]));
-  const selBranch = (branches ?? []).find((b) => String(b.id) === sp.b) ?? null;
+  const tab: DieselTab = sp.tab === "tanks" ? "tanks" : sp.tab === "suppliers" && profile.role === "admin" ? "suppliers" : "perf";
+  const [fallback, earliest] = await Promise.all([defaultMonth(supabase), earliestMonth(supabase)]);
+  const period = parsePeriod(sp, fallback, earliest);
+  const perf = await loadPerformance(supabase, period.to, period.months.length * 2);
+  const agg = aggregate(perf, period);
+  const periodQuery = periodToQuery(period);
+  // names of every branch (a comparison may name a branch the viewer does not run); details only for the viewer's own
+  const bName = new Map([...perf.names.values()].map((b) => [b.id, pick(locale, b.name_ar, b.name_en)]));
+  const closed = new Set(perf.branches.filter((b) => b.closed).map((b) => b.id));
+  // a closed branch is offered only for a period it worked in
+  const workedIn = (id: number) => { const r = agg.rows.get(id); return !!r && (r.validPieces > 0 || r.deliveries > 0 || r.left.length > 0); };
+  const pickable = allVisible.filter((b) => b.status !== "closed" || (closed.has(b.id) && workedIn(b.id)));
+  const selBranch = pickable.find((b) => String(b.id) === sp.b) ?? null;
   const selCity = !selBranch && sp.c && cityName.has(Number(sp.c)) ? Number(sp.c) : null;
-  const scopeIds = selBranch ? [selBranch.id] : selCity ? (branches ?? []).filter((b) => b.city_id === selCity).map((b) => b.id) : null;
+  const scopeIds = selBranch ? [selBranch.id] : selCity ? pickable.filter((b) => b.city_id === selCity).map((b) => b.id) : profile.role === "admin" ? null : pickable.map((b) => b.id);
   const inScope = (id: number) => !scopeIds || scopeIds.includes(id);
   const scopeQuery = selBranch ? `b=${selBranch.id}` : selCity ? `c=${selCity}` : "";
-  const cities = (cityRows ?? []).map((c) => ({ id: c.id, name: cityName.get(c.id)!, branches: (branches ?? []).filter((b) => b.city_id === c.id).map((b) => ({ id: b.id, name: pick(locale, b.name_ar, b.name_en) })) })).filter((c) => c.branches.length);
+  const cities = (cityRows ?? []).map((c) => ({ id: c.id, name: cityName.get(c.id)!, branches: pickable.filter((b) => b.city_id === c.id).map((b) => ({ id: b.id, name: pick(locale, b.name_ar, b.name_en) + (closed.has(b.id) ? ` (${D.ov.closed})` : "") })) })).filter((c) => c.branches.length);
   const month = refuels.filter((r) => r.refuel_date >= monthStart && inScope(r.branch_id));
   const cost = month.reduce((s, r) => s + Number(r.total_amount ?? 0), 0);
   const shortage = month.reduce((s, r) => s + Number(r.shortage_liters ?? 0), 0);
   const now = Date.now();
   const dayMs = 86400000;
-  const tab: DieselTab = sp.tab === "tanks" ? "tanks" : sp.tab === "suppliers" && profile.role === "admin" ? "suppliers" : "perf";
-  const [fallback, earliest] = await Promise.all([defaultMonth(supabase), earliestMonth(supabase)]);
-  const period = parsePeriod(sp, fallback, earliest);
-  const perf = await loadPerformance(supabase, period.to, period.months.length * 2 + 1);
-  const agg = aggregate(perf, period);
-  const periodQuery = periodToQuery(period);
-  const reviewCount = [...agg.rows.values()].filter((r) => !r.estimated && ["risk", "watch"].includes(r.status)).length;
+  const reviewCount = [...agg.rows.values()].filter((r) => inScope(r.branchId) && !r.estimated && ["risk", "watch"].includes(r.status)).length;
 
-  const rows = (branches ?? []).filter((b) => inScope(b.id)).map((b) => {
+  const rows = open.filter((b) => inScope(b.id)).map((b) => {
     const mine = tanks.filter((x) => x.branch_id === b.id);
     const mineRefuels = refuels.filter((r) => r.branch_id === b.id);
     const st = branchDiesel(mine, dips, mineRefuels, b.id, now);
@@ -97,8 +104,8 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
       </PageHeader>
       {sp.saved && <p role="status" className="rounded-[14px] bg-success-soft px-4 py-3 text-sm font-semibold text-success">✓ {D.form.saved}</p>}
 
-      <DieselTabs t={t} base="/diesel" tab={tab} query={[scopeQuery, periodQuery].filter(Boolean).join("&")} reviewCount={scopeIds ? [...agg.rows.values()].filter((r) => inScope(r.branchId) && !r.estimated && ["risk", "watch"].includes(r.status)).length : reviewCount}
-        suppliers={profile.role === "admin"} branchName={selBranch ? bName.get(selBranch.id) : undefined} cityName={selCity ? cityName.get(selCity) : undefined} />
+      <DieselTabs t={t} base="/diesel" tab={tab} query={[scopeQuery, periodQuery].filter(Boolean).join("&")} reviewCount={reviewCount}
+        suppliers={profile.role === "admin"} branchName={selBranch ? pick(locale, selBranch.name_ar, selBranch.name_en) : undefined} cityName={selCity ? cityName.get(selCity) : undefined} />
 
       {tab !== "suppliers" && (
         <PeriodBar t={t} locale={locale} period={tab === "perf" ? period : undefined} base={scopeQuery ? `/diesel?${scopeQuery}` : "/diesel"}
@@ -111,7 +118,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
           ? <BranchPerf t={t} locale={locale} perf={perf} agg={agg} period={period} branchId={selBranch.id} names={bName} />
           : <EmptyNote>{D.perf.electric}</EmptyNote>)
         : <Overview t={t} locale={locale} agg={agg} period={period} names={bName} query={periodQuery}
-            scope={scopeIds ?? undefined} scopeName={selCity ? cityName.get(selCity) : undefined} />)}
+            scope={scopeIds ?? undefined} scopeName={selCity ? cityName.get(selCity) : undefined} closed={closed} />)}
 
       {tab === "tanks" && selBranch && <BranchTanks supabase={supabase} t={t} locale={locale} id={selBranch.id} isAdmin={profile.role === "admin"} />}
 
@@ -148,11 +155,16 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
                     </span>
                   </span>
                 </Link>
+                {st.stale && <Badge variant="secondary">{D.needsReading}</Badge>}
                 {nextIn !== null && nextIn <= 2 && <Badge variant={nextIn < 0 ? "danger" : "warning"}>{nextIn < 0 ? D.overdueBy(n(-nextIn)) : nextIn === 0 ? D.today : D.inDays(n(nextIn))}</Badge>}
               </header>
 
               <div title={D.estimate}>
-                {st.stockNow !== null ? (
+                {st.stale ? (
+                  <p className="m-0 rounded-xl bg-surface-sunken px-3 py-2 text-[13px] text-ink-muted">
+                    <b className="font-semibold">{D.needsReading}</b> – {D.staleLine(L(st.stockAt), timeAgo(t, new Date(st.lastAt!).toISOString()))}
+                  </p>
+                ) : st.stockNow !== null ? (
                   <>
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="text-[12.5px] text-ink-muted">{D.table.stock}</span>

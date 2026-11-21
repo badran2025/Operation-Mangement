@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BuildingIcon, FileTextIcon, HomeIcon, FuelIcon, LayoutGridIcon, MenuIcon, NetworkIcon, ShieldCheckIcon, UsersIcon, WrenchIcon, UserIcon, LogOutIcon } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useI18n } from "@/lib/i18n/client";
@@ -53,11 +53,21 @@ export function BottomNav({ items, overdue, userName, signOut }: { items: NavKey
   const { t } = useI18n();
   const isActive = useActive();
   const [open, setOpen] = useState(false);
+  // the host's "Powered by" badge sits fixed at the bottom corner: keep the menu above it so every item can be tapped
+  const [lift, setLift] = useState(0);
+  useEffect(() => {
+    const check = () => { const f = document.getElementById("nl-badge-frame"); setLift(f && getComputedStyle(f).display !== "none" ? f.getBoundingClientRect().height : 0); };
+    check();
+    const o = new MutationObserver(check);
+    o.observe(document.body, { childList: true });
+    return () => o.disconnect();
+  }, []);
+  useEffect(() => { document.documentElement.style.setProperty("--badge-h", `${lift}px`); }, [lift]);
   const main = items.slice(0, 3);
   const rest = items.slice(3);
   const cell = "relative flex flex-col items-center justify-center gap-0.5 py-2 text-[11.5px] font-medium min-h-14";
   return (
-    <nav style={{ gridTemplateColumns: `repeat(${main.length + 1}, minmax(0, 1fr))` }} className="fixed inset-x-0 bottom-0 z-30 grid print:hidden border-t border-hairline bg-canvas/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden" aria-label={t.shell.menu}>
+    <nav style={{ gridTemplateColumns: `repeat(${main.length + 1}, minmax(0, 1fr))`, bottom: lift }} className="fixed inset-x-0 bottom-0 z-30 grid print:hidden border-t border-hairline bg-canvas/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden" aria-label={t.shell.menu}>
       {main.map((k) => {
         const { href, icon: Icon } = ITEMS[k];
         const active = isActive(href);

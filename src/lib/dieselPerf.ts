@@ -1,33 +1,51 @@
 /**
  * Diesel performance: diesel used by a branch compared with the work it did.
- * Main measure: litres per 1,000 pieces. Everything here is plain arithmetic on
- * the month's litres, cost, pieces and hours; nothing is assumed about the machines.
+ * Main measure: litres per 1,000 pieces. Plain arithmetic on the tank readings,
+ * the deliveries, the pieces and the opening hours; nothing is assumed about the machines.
  */
 
-export type ReadingLite = { tank_id: number; read_at: string; id: number; liters: number | null; kind: string };
+const DAY = 86400000;
+
+export type ReadingLite = { id: number; tank_id: number; read_at: string; liters: number | null; kind: string };
 
 /**
- * Litres burnt in [from, to). Between two readings of a tank the drop is spread
- * evenly over the days between them (a delivery's jump up is not use), so a
- * period between two deliveries that crosses a month end is split between the
- * months by days. complete = the readings reach from the start to the end of the period.
+ * What the tanks lost between readings. A delivery is never use: its "before"
+ * and "after" readings mark the jump up. Between any two other consecutive
+ * readings of a tank, the drop is the diesel burnt, spread evenly over the time
+ * between them, and priced at the price of the fuel that was in the tank
+ * (the delivery made at or before the first of the two readings).
  */
-export function usedBetween(readings: ReadingLite[], from: number, to: number) {
+export type Segment = { from: number; to: number; liters: number; price: number | null };
+export function segmentsOf(readings: ReadingLite[], priceAt: (ms: number) => number | null) {
   const byTank = new Map<number, ReadingLite[]>();
   for (const r of readings) if (r.liters !== null) byTank.set(r.tank_id, [...(byTank.get(r.tank_id) ?? []), r]);
-  let liters = 0, complete = byTank.size > 0;
+  const segs: Segment[] = [];
+  let start = -Infinity, end = Infinity; // the time every tank has readings for
   for (const list of byTank.values()) {
     list.sort((a, b) => Date.parse(a.read_at) - Date.parse(b.read_at) || a.id - b.id);
-    if (Date.parse(list[0].read_at) > from || Date.parse(list[list.length - 1].read_at) < to) complete = false;
+    start = Math.max(start, Date.parse(list[0].read_at));
+    end = Math.min(end, Date.parse(list[list.length - 1].read_at));
     for (let i = 1; i < list.length; i++) {
-      if (list[i].kind === "after") continue;
-      const drop = Math.max(Number(list[i - 1].liters) - Number(list[i].liters), 0);
+      if (list[i].kind === "after") continue; // the jump of a delivery
       const a = Date.parse(list[i - 1].read_at), b = Date.parse(list[i].read_at);
-      if (drop === 0 || b <= from || a >= to) continue;
-      liters += b > a ? (drop * (Math.min(b, to) - Math.max(a, from))) / (b - a) : drop;
+      const drop = Math.max(Number(list[i - 1].liters) - Number(list[i].liters), 0);
+      if (b > a && drop > 0) segs.push({ from: a, to: b, liters: drop, price: priceAt(a) });
     }
   }
-  return { liters: Math.round(liters * 10) / 10, complete };
+  return { segs, start: byTank.size ? start : null, end: byTank.size ? end : null };
+}
+
+/** Litres and their cost inside [from, to), each segment counted for the part of its time inside. */
+export function burntIn(segs: Segment[], from: number, to: number) {
+  let liters = 0, cost = 0, unpricedL = 0;
+  for (const s of segs) {
+    const part = Math.min(s.to, to) - Math.max(s.from, from);
+    if (part <= 0) continue;
+    const l = (s.liters * part) / (s.to - s.from);
+    liters += l;
+    if (s.price === null) unpricedL += l; else cost += l * s.price;
+  }
+  return { liters: Math.round(liters * 10) / 10, cost: Math.round(cost * 100) / 100, unpricedL: Math.round(unpricedL * 10) / 10 };
 }
 
 export type HoursRow = { weekday: number; open_time: string | null; close_time: string | null; is_24h: boolean; is_closed: boolean };
@@ -42,16 +60,19 @@ export function hoursOnWeekday(rows: HoursRow[], weekday: number): number {
 }
 
 /**
- * A month's hours: opening hours (Riyadh calendar days), the time the branch was
- * stopped by maintenance tickets, and the hours it really worked (the difference).
+ * The hours a branch worked inside [from, to): its opening hours (Riyadh days,
+ * a day cut by the edge counted for its share) less the time it was stopped by
+ * maintenance tickets. The same days as the litres, so litres per hour stays true
+ * for a month that is only partly known.
  */
-export function operatingHours(rows: HoursRow[], month: string, stops: { started_at: string; ended_at: string | null }[], now = Date.now()) {
-  if (!rows.length) return null;
-  const [y, m] = month.split("-").map(Number);
-  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+export function hoursBetween(rows: HoursRow[], from: number, to: number, stops: { started_at: string; ended_at: string | null }[], now = Date.now()) {
+  if (!rows.length || to <= from) return null;
+  const RIYADH = 3 * 3600000;
   let scheduled = 0;
-  for (let d = 1; d <= days; d++) scheduled += hoursOnWeekday(rows, new Date(Date.UTC(y, m - 1, d)).getUTCDay());
-  const from = Date.parse(`${month}-01T00:00:00+03:00`), to = Date.parse(`${y}-${String(m).padStart(2, "0")}-${days}T23:59:59+03:00`) + 1000;
+  for (let d = Math.floor((from + RIYADH) / DAY) * DAY - RIYADH; d < to; d += DAY) {
+    const share = (Math.min(d + DAY, to) - Math.max(d, from)) / DAY;
+    if (share > 0) scheduled += share * hoursOnWeekday(rows, new Date(d + RIYADH).getUTCDay());
+  }
   // overlapping stops are counted once
   const spans = stops.map((s) => [Math.max(Date.parse(s.started_at), from), Math.min(s.ended_at ? Date.parse(s.ended_at) : now, to)] as [number, number])
     .filter(([a, b]) => b > a).sort((p, q) => p[0] - q[0]);
@@ -62,28 +83,7 @@ export function operatingHours(rows: HoursRow[], month: string, stops: { started
   }
   if (cur) stopped += cur[1] - cur[0];
   const stoppedH = stopped / 3600000;
-  return { scheduled, perDay: scheduled / days, stopped: stoppedH, actual: Math.max(scheduled - stoppedH, 0), days };
+  return { scheduled, stopped: stoppedH, actual: Math.max(scheduled - stoppedH, 0) };
 }
 
-export type MonthFigures = {
-  liters: number | null; cost: number | null; pieces: number | null; blankets: number | null;
-};
 export const per1000 = (v: number | null, pieces: number | null) => (v !== null && pieces ? (v / pieces) * 1000 : null);
-
-/**
- * Why the cost and the litres changed from one month to the next.
- * cost:   price effect = (price now − price before) × litres now; quantity effect = (litres now − before) × price before
- * litres: volume effect = (pieces now − before) × litres-per-piece before; efficiency effect = pieces now × (lpp now − lpp before)
- * Each pair adds up exactly to the change.
- */
-export function bridge(now: MonthFigures, before: MonthFigures) {
-  const p1 = now.liters && now.cost !== null ? now.cost / now.liters : null;
-  const p0 = before.liters && before.cost !== null ? before.cost / before.liters : null;
-  const cost = now.cost !== null && before.cost !== null && p1 !== null && p0 !== null && now.liters !== null && before.liters !== null
-    ? { change: now.cost - before.cost, price: (p1 - p0) * now.liters, quantity: (now.liters - before.liters) * p0 } : null;
-  const lpp1 = now.liters !== null && now.pieces ? now.liters / now.pieces : null;
-  const lpp0 = before.liters !== null && before.pieces ? before.liters / before.pieces : null;
-  const liters = lpp1 !== null && lpp0 !== null && now.pieces && before.pieces
-    ? { change: now.liters! - before.liters!, volume: (now.pieces - before.pieces) * lpp0, efficiency: now.pieces * (lpp1 - lpp0) } : null;
-  return { cost, liters };
-}

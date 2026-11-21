@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { per1000 } from "@/lib/dieselPerf";
-import { monthOf, shiftMonth, type loadPerformance } from "./perf";
+import { monthOf, shiftMonth, type Perf, type Status } from "./perf";
 
 export type PeriodKind = "1" | "3" | "6" | "all" | "range";
 export type Period = { kind: PeriodKind; from: string; to: string; months: string[]; prev: string[] };
@@ -40,39 +40,42 @@ export function parsePeriod(sp: { p?: string; m?: string; from?: string; to?: st
 /** The address part that keeps the period when moving between pages. */
 export const periodToQuery = (p: Period) => (p.kind === "all" ? "p=all" : p.kind === "range" ? `p=range&from=${p.from}&to=${p.to}` : `p=${p.kind}&m=${p.to}`);
 
-type Perf = Awaited<ReturnType<typeof loadPerformance>>;
 export type Agg = {
   branchId: number; liters: number | null; cost: number | null; price: number | null; pieces: number | null; blanketShare: number | null;
-  lp1000: number | null; cp1000: number | null; lph: number | null; hours: number | null; index: number | null; change: number | null;
-  status: "risk" | "watch" | "good" | "normal" | "none"; savingL: number | null; savingSAR: number | null; priceVsRegion: number | null;
+  lp1000: number | null; lph: number | null; hours: number | null; index: number | null; change: number | null;
+  status: Status; savingL: number | null; savingSAR: number | null; priceVsRegion: number | null;
   deliveries: number; delivered: number | null; deliveredCost: number | null; unpriced: number; estimated: boolean; valid: boolean;
-  peers: number[]; peerLp: number | null; missing: string[]; validLiters: number; validPieces: number;
+  peers: number[]; peerLp: number | null; validLiters: number; validPieces: number;
+  /** months of the period left out of the totals, and why */
+  left: { month: string; why: "noPieces" | "partial" | "noLiters" | "estimated" }[];
 };
 export type NetAgg = { liters: number; cost: number; pieces: number; lp1000: number | null; lph: number | null; price: number | null; branches: number; deliveries: number };
 
-/** One branch's figures added up over a set of months. */
+/**
+ * One branch added up over a set of months. Only complete months count in the
+ * totals (litres and pieces both known, not an estimate), so litres ÷ pieces
+ * always gives the litres per 1,000 pieces shown. Deliveries count every month.
+ */
 function sumBranch(perf: Perf, id: number, months: string[]) {
-  let liters = 0, cost = 0, lit = false, cst = false, vL = 0, vC = 0, vP = 0, bl = 0, blP = 0, hrs = 0, hL = 0, est = 0, fig = 0, deliveries = 0, delivered = 0, dCost = 0, unpriced = 0, hasDel = false, hasDCost = false;
-  const missing = new Set<string>();
+  let vL = 0, vC = 0, cL = 0, vP = 0, bl = 0, blP = 0, hrs = 0, hL = 0, est = 0, deliveries = 0, delivered = 0, dCost = 0, unpriced = 0, hasDel = false, hasDCost = false;
+  const left: Agg["left"] = [];
   for (const m of months) {
+    if (!perf.has(id, m)) continue;
     const x = perf.at(id, m);
-    if (!x) continue;
     deliveries += x.deliveries; unpriced += x.unpriced;
     if (x.delivered !== null) { delivered += x.delivered; hasDel = true; }
     if (x.deliveredCost !== null) { dCost += x.deliveredCost; hasDCost = true; }
-    if (x.liters !== null && x.source !== "partial") {
-      liters += x.liters; lit = true; fig++;
-      if (x.estimated) est++;
-      if (x.cost !== null) { cost += x.cost; cst = true; }
-      if (x.hours?.actual) { hrs += x.hours.actual; hL += x.liters; }
-    }
     if (x.valid && !x.estimated) {
-      vL += x.liters!; vC += x.cost ?? 0; vP += x.pieces!;
+      vL += x.liters!; vP += x.pieces!;
+      if (x.cost !== null) { vC += x.cost; cL += x.liters!; }
       if (x.blankets !== null) { bl += x.blankets; blP += x.pieces!; }
+      if (x.hours) { hrs += x.hours; hL += x.liters!; }
+    } else if (x.liters !== null || x.pieces || x.deliveries) {
+      if (x.estimated) est++;
+      left.push({ month: m, why: x.estimated ? "estimated" : x.source === "partial" ? "partial" : x.liters === null ? "noLiters" : "noPieces" });
     }
-    for (const f of x.flags) if (["noPieces", "partial", "noLiters"].includes(f)) missing.add(f);
   }
-  return { liters: lit ? liters : null, cost: cst ? cost : null, vL, vC, vP, bl, blP, hrs, hL, estimated: fig > 0 && est === fig, deliveries, delivered: hasDel ? delivered : null, deliveredCost: hasDCost ? dCost : null, unpriced, missing: [...missing] };
+  return { vL, vC, cL, vP, bl, blP, hrs, hL, estimated: est > 0 && vL === 0, deliveries, delivered: hasDel ? delivered : null, deliveredCost: hasDCost ? dCost : null, unpriced, left };
 }
 
 /** Every diesel branch over the period, compared with the network, its city, similar branches and the period before. */
@@ -80,11 +83,10 @@ export function aggregate(perf: Perf, period: Period) {
   const base = (months: string[]) => new Map(perf.branches.map((b) => [b.id, sumBranch(perf, b.id, months)]));
   const cur = base(period.months), before = base(period.prev);
   const netOf = (m: Map<number, ReturnType<typeof sumBranch>>, ids: number[]): NetAgg => {
-    const xs = ids.map((id) => m.get(id)!);
-    const vL = xs.reduce((s, x) => s + x.vL, 0), vP = xs.reduce((s, x) => s + x.vP, 0);
-    const liters = xs.reduce((s, x) => s + (x.liters ?? 0), 0), cost = xs.reduce((s, x) => s + (x.cost ?? 0), 0);
-    const hL = xs.reduce((s, x) => s + x.hL, 0), hrs = xs.reduce((s, x) => s + x.hrs, 0);
-    return { liters, cost, pieces: vP, lp1000: per1000(vL, vP), lph: hrs ? hL / hrs : null, price: liters ? cost / liters : null, branches: xs.filter((x) => x.vP > 0).length, deliveries: xs.reduce((s, x) => s + x.deliveries, 0) };
+    const xs = ids.map((id) => m.get(id)!).filter(Boolean);
+    const sum = (f: (x: ReturnType<typeof sumBranch>) => number) => xs.reduce((s, x) => s + f(x), 0);
+    const liters = sum((x) => x.vL), pieces = sum((x) => x.vP), cost = sum((x) => x.vC), cL = sum((x) => x.cL), hrs = sum((x) => x.hrs);
+    return { liters, cost, pieces, lp1000: per1000(liters, pieces), lph: hrs ? sum((x) => x.hL) / hrs : null, price: cL ? cost / cL : null, branches: xs.filter((x) => x.vP > 0).length, deliveries: sum((x) => x.deliveries) };
   };
   const ids = perf.branches.map((b) => b.id);
   const net = netOf(cur, ids), prevNet = netOf(before, ids);
@@ -96,21 +98,21 @@ export function aggregate(perf: Perf, period: Period) {
   for (const id of ids) {
     const x = cur.get(id)!, p = before.get(id)!;
     const lp = per1000(x.vL, x.vP), lpPrev = per1000(p.vL, p.vP);
-    const price = x.liters && x.cost !== null ? x.cost / x.liters : null;
+    const price = x.cL ? x.vC / x.cL : null;
     const reg = region.get(cityOf.get(id)!)!;
     const index = lp !== null && net.lp1000 ? (lp / net.lp1000) * 100 : null;
     const change = lp !== null && lpPrev ? ((lp / lpPrev) - 1) * 100 : null;
     const savingL = lp !== null && net.lp1000 ? Math.max(x.vL - (x.vP * net.lp1000) / 1000, 0) : null;
     const worse = change !== null && change > 5;
     const priceVsRegion = price !== null && reg.price ? ((price / reg.price) - 1) * 100 : null;
-    const status: Agg["status"] = lp === null ? "none" : (index ?? 0) > 150 || ((index ?? 0) > 120 && worse) ? "risk"
+    const status: Status = lp === null ? "none" : (index ?? 0) > 150 || ((index ?? 0) > 120 && worse) ? "risk"
       : (index ?? 0) > 120 || worse || (priceVsRegion !== null && priceVsRegion > 5) ? "watch" : (index ?? 100) < 80 ? "good" : "normal";
     rows.set(id, {
-      branchId: id, liters: x.liters, cost: x.cost, price, pieces: x.vP || null, blanketShare: x.blP ? (x.bl / x.blP) * 100 : null,
-      lp1000: lp, cp1000: per1000(x.vC, x.vP), lph: x.hrs ? x.hL / x.hrs : null, hours: x.hrs || null, index, change, status,
-      savingL, savingSAR: savingL !== null && x.vL ? savingL * (x.vC / x.vL) : null, priceVsRegion,
+      branchId: id, liters: x.vL || null, cost: x.cL ? x.vC : null, price, pieces: x.vP || null, blanketShare: x.blP ? (x.bl / x.blP) * 100 : null,
+      lp1000: lp, lph: x.hrs ? x.hL / x.hrs : null, hours: x.hrs || null, index, change, status,
+      savingL, savingSAR: savingL !== null && price !== null ? savingL * price : null, priceVsRegion,
       deliveries: x.deliveries, delivered: x.delivered, deliveredCost: x.deliveredCost, unpriced: x.unpriced, estimated: x.estimated, valid: lp !== null,
-      peers: [], peerLp: null, missing: x.missing, validLiters: x.vL, validPieces: x.vP,
+      peers: [], peerLp: null, validLiters: x.vL, validPieces: x.vP, left: x.left,
     });
   }
   // similar branches: pieces within 25% over the same period
