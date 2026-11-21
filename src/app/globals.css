@@ -80,7 +80,7 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-work-sans), var(--font-firjar), system-ui, sans-serif;
+  --font-sans: var(--font-firjar), var(--font-work-sans), system-ui, sans-serif;
   --font-heading: var(--font-sans);
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);

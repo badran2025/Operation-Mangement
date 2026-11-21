@@ -12,8 +12,14 @@ import "./globals.css";
 
 // English: Work Sans (OFL). Arabic: Firjar (OFL), subset to Arabic code points only,
 // so Latin text always renders in Work Sans and Arabic always in Firjar.
-const workSans = localFont({ src: "./fonts/WorkSans-VF.woff2", weight: "250 900", variable: "--font-work-sans", display: "swap" });
-const firjar = localFont({ src: "./fonts/Firjar-Arabic-VF.woff2", weight: "100 800", variable: "--font-firjar", display: "swap" });
+const workSans = localFont({ src: "./fonts/WorkSans-VF.woff2", weight: "250 900", variable: "--font-work-sans", display: "swap", adjustFontFallback: false });
+// No metric fallback fonts: Next.js builds them from local Arial, and Arial on Windows has Arabic
+// letters, so Chrome on Windows drew Arabic in Arial before ever reaching Firjar.
+// unicode-range: the browser takes Firjar for every Arabic character, Work Sans for the rest.
+const firjar = localFont({
+  src: "./fonts/Firjar-Arabic-VF.woff2", weight: "100 800", variable: "--font-firjar", display: "swap", adjustFontFallback: false,
+  declarations: [{ prop: "unicode-range", value: "U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF, U+200C-200F" }],
+});
 
 export const metadata: Metadata = { title: "Kleen Ops", description: "Kleen operations: branches, workers and maintenance" };
 

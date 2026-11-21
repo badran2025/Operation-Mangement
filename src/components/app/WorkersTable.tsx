@@ -15,7 +15,7 @@ export function WorkersTable({ t, locale, workers, linkNames, branchName }: {
   const heads = [C.name, ...(branchName ? [t.workersPage.branch] : []), C.job, C.shift, C.dayOff, C.housing, C.status];
   return (
     <div className="-mx-4 overflow-x-auto md:-mx-5">
-      <Table className={branchName ? "min-w-[1000px]" : "min-w-[860px]"}>
+      <Table className="min-w-max">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             {heads.map((h, i) => <TableHead key={h} className={cn("h-10 text-[12.5px] font-semibold text-ink-muted", i === 0 && "ps-4 md:ps-5", i === heads.length - 1 && "pe-4 md:pe-5")}>{h}</TableHead>)}

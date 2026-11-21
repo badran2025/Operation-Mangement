@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { deleteSupplier, saveSupplier } from "./actions";
 
-export type Supplier = { id: number; name: string; price_per_liter: number | null; active: boolean; deliveries: number };
+export type Supplier = { id: number; name: string; price_per_liter: number | null; active: boolean; deliveries: number; period?: { n: number; liters: number; cost: number | null } };
+
+const f0 = new Intl.NumberFormat("en", { maximumFractionDigits: 0 });
 
 function SupplierRow({ s }: { s?: Supplier }) {
   const { t } = useI18n();
@@ -37,6 +39,7 @@ function SupplierRow({ s }: { s?: Supplier }) {
           <Trash2Icon className="size-4" aria-hidden />
         </Button>
       )}
+      {s?.period && <span className="num basis-full text-[12.5px] font-medium text-ink">{S.inPeriod(String(s.period.n), f0.format(s.period.liters), s.period.cost === null ? "—" : f0.format(s.period.cost))}</span>}
       {msg && <span role="status" className="basis-full text-[12.5px] font-semibold text-primary">{msg}</span>}
     </li>
   );

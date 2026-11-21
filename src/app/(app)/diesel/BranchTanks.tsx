@@ -12,7 +12,7 @@ import { TankShape } from "./TankShape";
 import { TankCalculator } from "./TankCalculator";
 
 /** One branch's tanks and deliveries: stock and use, its tanks (edit, calculator, calibration), every delivery. */
-export async function BranchTanks({ supabase, t, locale, id, isAdmin }: { supabase: SupabaseClient; t: Dict; locale: Locale; id: number; isAdmin: boolean }) {
+export async function BranchTanks({ supabase, t, locale, id, isAdmin, from, to }: { supabase: SupabaseClient; t: Dict; locale: Locale; id: number; isAdmin: boolean; from: string; to: string }) {
   const D = t.diesel;
   const one = new Intl.NumberFormat(locale === "ar" ? "ar-u-nu-latn" : "en", { maximumFractionDigits: 1 });
   const L = (v: number | null | undefined) => (v === null || v === undefined ? "—" : one.format(Number(v)));
@@ -40,7 +40,8 @@ export async function BranchTanks({ supabase, t, locale, id, isAdmin }: { supaba
     return b && a ? [{ id: r.id, date: r.refuel_date, from: Number(b.level_cm), to: Number(a.level_cm), liters: Number(r.liters) }] : [];
   });
   const cmTanks = tanks.filter((x) => x.active && (!STRAIGHT_SIDED.includes(x.shape) || !x.liters_known || Number(x.calibration_points) > 0));
-  const paths = refuels.flatMap((r) => r.diesel_refuel_files.map((f) => f.file_path));
+  const shown = refuels.filter((r) => r.refuel_date >= from && r.refuel_date < to); // the period's deliveries
+  const paths = shown.flatMap((r) => r.diesel_refuel_files.map((f) => f.file_path));
   const signed = paths.length ? (await supabase.storage.from("diesel-files").createSignedUrls(paths, 3600)).data ?? [] : [];
   const url = new Map(signed.map((x) => [x.path, x.signedUrl]));
 
@@ -103,8 +104,8 @@ export async function BranchTanks({ supabase, t, locale, id, isAdmin }: { supaba
       </Panel>
 
       <Panel title={D.recent}>
-        {refuels.length === 0 ? <EmptyNote>{D.noDeliveries}</EmptyNote>
-          : <DeliveriesTable t={t} locale={locale} refuels={refuels} photoUrl={(p) => url.get(p) ?? undefined} canDelete={isAdmin} supplierPrice={supplierPrice} />}
+        {shown.length === 0 ? <EmptyNote>{D.noDeliveries}</EmptyNote>
+          : <DeliveriesTable t={t} locale={locale} refuels={shown} photoUrl={(p) => url.get(p) ?? undefined} canDelete={isAdmin} supplierPrice={supplierPrice} />}
       </Panel>
 
       {cmTanks.map((tk) => {

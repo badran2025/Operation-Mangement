@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CylinderIcon, FuelIcon, GaugeIcon } from "lucide-react";
-import { MonthFiguresButton, Overview } from "./Overview";
+import { AlertsList, MonthFiguresButton, Overview } from "./Overview";
 import { PeriodBar } from "./MonthNav";
-import { BranchPerf } from "./BranchPerf";
+import { BranchAlerts, BranchPerf } from "./BranchPerf";
 import { BranchTanks } from "./BranchTanks";
 import { ScopePicker } from "./ScopePicker";
 import { Suppliers } from "./Suppliers";
 import { DieselTabs, type DieselTab } from "./DieselTabs";
-import { defaultMonth, loadPerformance } from "./perf";
+import { defaultMonth, loadPerformance, shiftMonth } from "./perf";
 import { aggregate, earliestMonth, parsePeriod, periodToQuery } from "./period";
 import { TankShape } from "./TankShape";
 import { requireActive } from "@/lib/auth";
@@ -34,7 +34,6 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
   const L = (v: number | null | undefined) => (v === null || v === undefined ? "—" : one.format(Number(v)));
   const sp = await searchParams;
   const since = new Date(Date.now() - 120 * 86400000).toISOString();
-  const monthStart = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date()).slice(0, 8) + "01";
 
   const [{ data: branches }, { data: tankData }, { data: dipData }, { data: refuelData }] = await Promise.all([
     supabase.from("branches").select("id, name_ar, name_en, city_id, power_source, status").order("city_id").order("sort"),
@@ -52,12 +51,14 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
   // what is shown: all branches, one city, or one branch
   const { data: cityRows } = await supabase.from("cities").select("id, name_ar, name_en").order("sort");
   const cityName = new Map((cityRows ?? []).map((c) => [c.id, pick(locale, c.name_ar, c.name_en)]));
-  const tab: DieselTab = sp.tab === "tanks" ? "tanks" : sp.tab === "suppliers" && profile.role === "admin" ? "suppliers" : "perf";
+  const tab: DieselTab = sp.tab === "tanks" ? "tanks" : sp.tab === "alerts" ? "alerts" : sp.tab === "suppliers" && profile.role === "admin" ? "suppliers" : "perf";
   const [fallback, earliest] = await Promise.all([defaultMonth(supabase), earliestMonth(supabase)]);
   const period = parsePeriod(sp, fallback, earliest);
   const perf = await loadPerformance(supabase, period.to, period.months.length * 2);
   const agg = aggregate(perf, period);
   const periodQuery = periodToQuery(period);
+  const lastMonth = shiftMonth(new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date()).slice(0, 7), -1);
+  const nextFigures = [shiftMonth(fallback, 1), lastMonth].sort()[0];
   // names of every branch (a comparison may name a branch the viewer does not run); details only for the viewer's own
   const bName = new Map([...perf.names.values()].map((b) => [b.id, pick(locale, b.name_ar, b.name_en)]));
   const closed = new Set(perf.branches.filter((b) => b.closed).map((b) => b.id));
@@ -70,7 +71,10 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
   const inScope = (id: number) => !scopeIds || scopeIds.includes(id);
   const scopeQuery = selBranch ? `b=${selBranch.id}` : selCity ? `c=${selCity}` : "";
   const cities = (cityRows ?? []).map((c) => ({ id: c.id, name: cityName.get(c.id)!, branches: pickable.filter((b) => b.city_id === c.id).map((b) => ({ id: b.id, name: pick(locale, b.name_ar, b.name_en) + (closed.has(b.id) ? ` (${D.ov.closed})` : "") })) })).filter((c) => c.branches.length);
-  const month = refuels.filter((r) => r.refuel_date >= monthStart && inScope(r.branch_id));
+  // deliveries of the period (the tanks tab and the suppliers follow the period too)
+  const pFrom = `${period.from}-01`, pTo = `${shiftMonth(period.to, 1)}-01`;
+  const inPeriod = (r: { refuel_date: string }) => r.refuel_date >= pFrom && r.refuel_date < pTo;
+  const month = refuels.filter((r) => inPeriod(r) && inScope(r.branch_id));
   const cost = month.reduce((s, r) => s + Number(r.total_amount ?? 0), 0);
   const shortage = month.reduce((s, r) => s + Number(r.shortage_liters ?? 0), 0);
   const now = Date.now();
@@ -91,7 +95,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
   const withoutTanks = rows.filter((r) => !r.mine.some((x) => x.active));
   const price = (v: number | null) => (v === null ? "—" : new Intl.NumberFormat("en", { maximumFractionDigits: 3 }).format(v));
 
-  const shownRefuels = refuels.filter((r) => inScope(r.branch_id)).slice(0, 30);
+  const shownRefuels = month.slice(0, 100);
   const paths = shownRefuels.flatMap((r) => r.diesel_refuel_files.map((f) => f.file_path));
   const signed = paths.length ? (await supabase.storage.from("diesel-files").createSignedUrls(paths, 3600)).data ?? [] : [];
   const url = new Map(signed.map((x) => [x.path, x.signedUrl]));
@@ -101,17 +105,19 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
       <PageHeader title={D.title} sub={D.sub}>
         <Button variant="outline" render={<Link href={selBranch ? `/diesel/check?branch=${selBranch.id}` : "/diesel/check"} />} nativeButton={false}><GaugeIcon data-icon="inline-start" />{D.perf.reading}</Button>
         <Button render={<Link href={selBranch ? `/diesel/refuel?branch=${selBranch.id}` : "/diesel/refuel"} />} nativeButton={false}><FuelIcon data-icon="inline-start" />{D.recordRefuel}</Button>
+        {profile.role === "admin" && <MonthFiguresButton t={t} month={nextFigures} />}
       </PageHeader>
       {sp.saved && <p role="status" className="rounded-[14px] bg-success-soft px-4 py-3 text-sm font-semibold text-success">✓ {D.form.saved}</p>}
 
       <DieselTabs t={t} base="/diesel" tab={tab} query={[scopeQuery, periodQuery].filter(Boolean).join("&")} reviewCount={reviewCount}
         suppliers={profile.role === "admin"} branchName={selBranch ? pick(locale, selBranch.name_ar, selBranch.name_en) : undefined} cityName={selCity ? cityName.get(selCity) : undefined} />
 
-      {tab !== "suppliers" && (
-        <PeriodBar t={t} locale={locale} period={tab === "perf" ? period : undefined} base={scopeQuery ? `/diesel?${scopeQuery}` : "/diesel"}
-          scope={<ScopePicker cities={cities} value={selBranch ? `b:${selBranch.id}` : selCity ? `c:${selCity}` : ""} />}
-          action={tab === "perf" && profile.role === "admin" && <MonthFiguresButton t={t} month={period.to} />} />
-      )}
+      <PeriodBar t={t} locale={locale} period={period} base={`/diesel?${[scopeQuery, `tab=${tab}`].filter(Boolean).join("&")}`}
+        scope={<ScopePicker cities={cities} value={selBranch ? `b:${selBranch.id}` : selCity ? `c:${selCity}` : ""} />} />
+
+      {tab === "alerts" && (selBranch
+        ? (agg.rows.has(selBranch.id) ? <BranchAlerts t={t} agg={agg} period={period} branchId={selBranch.id} names={bName} /> : <EmptyNote>{D.perf.electric}</EmptyNote>)
+        : <AlertsList t={t} agg={agg} period={period} names={bName} query={periodQuery} scope={scopeIds ?? undefined} />)}
 
       {tab === "perf" && (selBranch
         ? (agg.rows.has(selBranch.id)
@@ -120,7 +126,7 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
         : <Overview t={t} locale={locale} agg={agg} period={period} names={bName} query={periodQuery}
             scope={scopeIds ?? undefined} scopeName={selCity ? cityName.get(selCity) : undefined} closed={closed} />)}
 
-      {tab === "tanks" && selBranch && <BranchTanks supabase={supabase} t={t} locale={locale} id={selBranch.id} isAdmin={profile.role === "admin"} />}
+      {tab === "tanks" && selBranch && <BranchTanks supabase={supabase} t={t} locale={locale} id={selBranch.id} isAdmin={profile.role === "admin"} from={pFrom} to={pTo} />}
 
       {tab === "tanks" && !selBranch && <>
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -215,7 +221,8 @@ export default async function DieselPage({ searchParams }: { searchParams: Promi
       {tab === "suppliers" && (
         <Panel title={D.sup.title}>
           <p className="-mt-1 mb-3 text-sm text-ink-muted">{D.sup.sub}</p>
-          <Suppliers list={(sups ?? []).map((x) => ({ id: x.id, name: x.name, price_per_liter: x.price_per_liter === null ? null : Number(x.price_per_liter), active: x.active, deliveries: refuels.filter((r) => r.supplier_id === x.id).length }))} />
+          <Suppliers list={(sups ?? []).map((x) => ({ id: x.id, name: x.name, price_per_liter: x.price_per_liter === null ? null : Number(x.price_per_liter), active: x.active, deliveries: refuels.filter((r) => r.supplier_id === x.id).length,
+            period: (() => { const rs = month.filter((r) => r.supplier_id === x.id); const costed = rs.filter((r) => r.total_amount !== null || supplierPrice[x.id]); return { n: rs.length, liters: rs.reduce((a, r) => a + Number(r.received_liters ?? r.liters), 0), cost: costed.length ? costed.reduce((a, r) => a + Number(r.total_amount ?? Number(r.liters) * supplierPrice[x.id]), 0) : null }; })() }))} />
         </Panel>
       )}
     </>

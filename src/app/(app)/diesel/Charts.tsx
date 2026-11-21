@@ -9,13 +9,14 @@ export const STATUS_COLOR: Record<string, string> = { risk: "var(--danger)", wat
 const niceMax = (v: number) => { if (v <= 0) return 1; const step = 10 ** Math.floor(Math.log10(v)) / 2; return Math.ceil((v * 1.04) / step) * step; };
 
 /** A branch against the network over the months (two series, one axis). */
-export function Lines({ labels, series }: { labels: string[]; series: { name: string; values: (number | null)[]; color: string; dashed?: boolean }[] }) {
+export function Lines({ labels, series, unit }: { labels: string[]; series: { name: string; values: (number | null)[]; color: string; dashed?: boolean }[]; unit?: string }) {
   const W = 680, H = 260, L = 50, R = 16, T = 14, B = 34;
   const all = series.flatMap((s) => s.values).filter((v): v is number => v !== null);
   const ym = niceMax(Math.max(...all, 1));
   const X = (i: number) => L + (labels.length === 1 ? 0.5 : i / (labels.length - 1)) * (W - L - R), Y = (v: number) => H - B - (v / ym) * (H - T - B);
   return (
     <figure className="m-0 flex flex-col gap-2">
+      {unit && <figcaption className="text-[12.5px] font-semibold text-ink-muted">{unit}</figcaption>}
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={series.map((s) => s.name).join(" / ")} style={{ direction: "ltr" }}>
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <g key={t}><line x1={L} x2={W - R} y1={Y(t * ym)} y2={Y(t * ym)} stroke="var(--hairline)" /><text x={L - 8} y={Y(t * ym) + 4} textAnchor="end" fontSize={11} fill="var(--ink-muted)">{f0.format(t * ym)}</text></g>

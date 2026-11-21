@@ -15,17 +15,7 @@ export function BranchPerf({ t, locale, perf, agg, period, branchId, names }: {
   t: Dict; locale: Locale; perf: Perf; agg: ReturnType<typeof aggregate>; period: Period; branchId: number; names: Map<number, string>;
 }) {
   const O = t.diesel.ov;
-  const r = agg.at(branchId), net = agg.net, prev = prevLabel(t, period);
-  const lines: { bad: boolean; text: string }[] = [];
-  if (r.valid && !r.estimated) {
-    if (r.index !== null && r.index > 120 && net.lp1000) lines.push({ bad: true, text: O.bHigh(howMuch(t, r.lp1000! / net.lp1000)) });
-    if (r.change !== null && r.change > 5) lines.push({ bad: true, text: O.bWorse(f0.format(r.change), prev) });
-    if (r.change !== null && r.change < -5) lines.push({ bad: false, text: O.bBetter(f0.format(-r.change), prev) });
-    const best = r.peers.map((id) => agg.at(id)).sort((a, b) => a.lp1000! - b.lp1000!)[0];
-    if (best && best.lp1000! < r.lp1000! * 0.8) lines.push({ bad: true, text: O.bPeer(names.get(best.branchId) ?? "", f0.format(best.lp1000!), f0.format(best.validPieces)) });
-    if (r.priceVsRegion !== null && r.priceVsRegion > 5) lines.push({ bad: true, text: O.bPrice(f0.format(r.priceVsRegion)) });
-  }
-  if (r.unpriced) lines.push({ bad: true, text: O.unpriced(String(r.unpriced)) });
+  const r = agg.at(branchId), net = agg.net;
   // month by month: the period's months, or the last 6 for a single month
   const shown = (period.months.length > 1 ? period.months : perf.months.slice(-6)).filter((m) => perf.has(branchId, m));
   const tableMonths = [...shown].reverse().filter((m) => m === period.to || perf.at(branchId, m).liters !== null || perf.at(branchId, m).pieces);
@@ -43,24 +33,10 @@ export function BranchPerf({ t, locale, perf, agg, period, branchId, names }: {
         <Tile label={O.bSaving} value={r.savingL ? `${f0.format(r.savingL)} L` : "—"} tone={r.savingL ? "good" : undefined} sub={r.savingSAR ? `${f0.format(r.savingSAR)} SAR ${O.bSavingSub}` : O.bSavingSub} />
       </section>
 
-      <Panel title={O.alerts}>
-        {!r.valid && !lines.length ? <EmptyNote>{t.diesel.statusHelp.none}</EmptyNote> : lines.length === 0 ? (
-          <p className="m-0 flex items-center gap-2 rounded-[14px] bg-success-soft px-4 py-3 text-[15px] text-success"><CheckCircle2Icon className="size-4" aria-hidden />{O.bFine}</p>
-        ) : (
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {lines.map((l) => (
-              <li key={l.text} className={cn("flex items-start gap-3 rounded-[14px] px-4 py-3 text-[15px] leading-7", l.bad ? "bg-danger-soft" : "bg-success-soft")}>
-                {l.bad ? <AlertTriangleIcon className="mt-1.5 size-4 shrink-0 text-danger" aria-hidden /> : <CheckCircle2Icon className="mt-1.5 size-4 shrink-0 text-success" aria-hidden />}
-                <span className="num">{l.text}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
 
       {chartMonths.length >= 2 && (
         <Panel title={`${O.overTime}: ${O.bLp}`}>
-          <Lines labels={chartMonths.map((m) => monthLabel(locale, m, false))} series={[
+          <Lines unit={t.diesel.ov.barsUnitLong} labels={chartMonths.map((m) => monthLabel(locale, m, false))} series={[
             { name: names.get(branchId) ?? "", values: chartMonths.map((m) => perf.at(branchId, m).lp1000), color: "var(--primary)" },
             { name: O.avg, values: chartMonths.map((m) => perf.network.get(m)?.lp1000 ?? null), color: "var(--ink-muted)", dashed: true },
           ]} />
@@ -75,5 +51,37 @@ export function BranchPerf({ t, locale, perf, agg, period, branchId, names }: {
         {leftNote(t, locale, [r])}
       </Panel>
     </div>
+  );
+}
+
+/** The alerts tab for one branch: what is wrong, in sentences. */
+export function BranchAlerts({ t, agg, period, branchId, names }: { t: Dict; agg: ReturnType<typeof aggregate>; period: Period; branchId: number; names: Map<number, string> }) {
+  const O = t.diesel.ov;
+  const r = agg.at(branchId), net = agg.net, prev = prevLabel(t, period);
+  const lines: { bad: boolean; text: string }[] = [];
+  if (r.valid && !r.estimated) {
+    if (r.index !== null && r.index > 120 && net.lp1000) lines.push({ bad: true, text: O.bHigh(howMuch(t, r.lp1000! / net.lp1000)) });
+    if (r.change !== null && r.change > 5) lines.push({ bad: true, text: O.bWorse(f0.format(r.change), prev) });
+    if (r.change !== null && r.change < -5) lines.push({ bad: false, text: O.bBetter(f0.format(-r.change), prev) });
+    const best = r.peers.map((id) => agg.at(id)).sort((a, b) => a.lp1000! - b.lp1000!)[0];
+    if (best && best.lp1000! < r.lp1000! * 0.8) lines.push({ bad: true, text: O.bPeer(names.get(best.branchId) ?? "", f0.format(best.lp1000!), f0.format(best.validPieces)) });
+    if (r.priceVsRegion !== null && r.priceVsRegion > 5) lines.push({ bad: true, text: O.bPrice(f0.format(r.priceVsRegion)) });
+  }
+  if (r.unpriced) lines.push({ bad: true, text: O.unpriced(String(r.unpriced)) });
+  return (
+    <Panel title={O.alerts}>
+      {!r.valid && !lines.length ? <EmptyNote>{t.diesel.statusHelp.none}</EmptyNote> : lines.length === 0 ? (
+        <p className="m-0 flex items-center gap-2 rounded-[14px] bg-success-soft px-4 py-3 text-[15px] text-success"><CheckCircle2Icon className="size-4" aria-hidden />{O.bFine}</p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {lines.map((l) => (
+            <li key={l.text} className={cn("flex items-start gap-3 rounded-[14px] px-4 py-3 text-[15px] leading-7", l.bad ? "bg-danger-soft" : "bg-success-soft")}>
+              {l.bad ? <AlertTriangleIcon className="mt-1.5 size-4 shrink-0 text-danger" aria-hidden /> : <CheckCircle2Icon className="mt-1.5 size-4 shrink-0 text-success" aria-hidden />}
+              <span className="num">{l.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }

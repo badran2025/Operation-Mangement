@@ -16,7 +16,6 @@ export function ScopePicker({ cities, value }: { cities: City[]; value: string }
     q.delete("b"); q.delete("c"); q.delete("saved");
     if (v.startsWith("b:")) q.set("b", v.slice(2));
     if (v.startsWith("c:")) q.set("c", v.slice(2));
-    if (q.get("tab") === "suppliers") q.delete("tab");
     router.push(`/diesel${q.toString() ? `?${q}` : ""}`);
   };
   return (

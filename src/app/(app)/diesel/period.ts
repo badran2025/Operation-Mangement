@@ -21,7 +21,7 @@ export async function earliestMonth(supabase: SupabaseClient) {
 /** Period from the address: p = 1 | 3 | 6 | all | range, m = the last month, from / to for a range. */
 export function parsePeriod(sp: { p?: string; m?: string; from?: string; to?: string }, fallback: string, earliest: string): Period {
   const now = monthOf(null);
-  const kind: PeriodKind = (["1", "3", "6", "all", "range"] as const).find((k) => k === sp.p) ?? "1";
+  const kind: PeriodKind = (["1", "3", "6", "all", "range"] as const).find((k) => k === sp.p) ?? (sp.m ? "1" : "all"); // opening the page: all months
   let from: string, to: string;
   if (kind === "all") { from = earliest; to = now; }
   else if (kind === "range") {

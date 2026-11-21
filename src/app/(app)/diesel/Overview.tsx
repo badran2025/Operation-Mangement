@@ -84,6 +84,11 @@ function StatusBars({ t, rows, avg, nm, href }: { t: Dict; rows: Agg[]; avg: num
   const max = Math.max(...rows.map((r) => r.lp1000!), avg ?? 0) * 1.05;
   return (
     <div className="flex flex-col gap-1">
+      <div className="grid grid-cols-[8.5rem_1fr_3rem] items-end gap-3 px-1 pb-1 text-[12px] font-semibold text-ink-muted sm:grid-cols-[10rem_1fr_3.5rem]">
+        <span>{t.diesel.ov.cols.branch}</span>
+        <span>{t.diesel.ov.barsAxis}</span>
+        <span className="text-end leading-4">{t.diesel.ov.barsUnit}</span>
+      </div>
       {rows.map((r) => (
         <Link key={r.branchId} href={href(r.branchId)} className="group grid grid-cols-[8.5rem_1fr_3rem] items-center gap-3 rounded-lg px-1 py-0.5 text-sm hover:bg-surface-tint/60 sm:grid-cols-[10rem_1fr_3.5rem]"
           title={`${nm(r.branchId)}: ${f0.format(r.lp1000!)} · ${t.diesel.status[r.status]}`}>
@@ -111,11 +116,11 @@ export function DieselTable({ t, rows, first }: { t: Dict; rows: Row[]; first: s
   const n = (v: number | null | undefined, f = f0) => (v === null || v === undefined ? <span className="text-ink-muted">—</span> : f.format(v));
   return (
     <div className="-mx-4 overflow-x-auto md:-mx-5">
-      <table className="w-full min-w-[980px] text-sm">
+      <table className="w-full text-sm whitespace-nowrap">
         <thead>
           <tr className="text-[12.5px] text-ink-muted">
             {[first, C.status, C.lp, C.change, C.liters, C.cost, C.price, C.deliveries, C.pieces, C.blankets, C.lph].map((h, i) => (
-              <th key={h} className={cn("h-10 px-2.5 font-semibold", i === 0 ? "ps-4 text-start md:ps-5" : i === 1 ? "text-start" : "text-end")}>{h}</th>
+              <th key={h} className={cn("h-10 px-2 font-semibold", i === 0 ? "w-full ps-4 text-start md:ps-5" : i === 1 ? "text-start" : "text-end")}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -124,22 +129,22 @@ export function DieselTable({ t, rows, first }: { t: Dict; rows: Row[]; first: s
             const d = r.data;
             return (
               <tr key={r.key} className={cn("border-t border-hairline", r.total && "border-t-2 bg-canvas font-semibold", r.highlight && "bg-surface-tint/60")}>
-                <td className="py-2.5 ps-4 pe-2.5 md:ps-5">
+                <td className="py-2 ps-4 pe-2 md:ps-5">
                   {r.href ? <Link href={r.href} className="font-semibold text-primary hover:underline">{r.label}</Link> : <span className="font-semibold">{r.label}</span>}
                   {d.estimated && <Badge variant="warning" className="ms-2 h-5 px-1.5 text-[11px]">{t.diesel.perf.estimated}</Badge>}
                   {d.source === "partial" && <Badge variant="secondary" className="ms-2 h-5 px-1.5 text-[11px]" title={t.diesel.ov.partialHelp(f0.format(d.days ?? 0))}>{t.diesel.ov.partial}</Badge>}
                   {r.closed && <Badge variant="secondary" className="ms-2 h-5 px-1.5 text-[11px]">{t.diesel.ov.closed}</Badge>}
                 </td>
-                <td className="px-2.5">{!r.total && !d.estimated && d.status && d.status !== "none" && <StatusBadge status={d.status} label={t.diesel.status[d.status]} title={t.diesel.statusHelp[d.status]} />}</td>
-                <td className="num px-2.5 text-end text-[15px] font-semibold">{n(d.lp1000)}</td>
-                <td className="px-2.5 text-end">{d.change === null || d.change === undefined ? <span className="text-ink-muted">—</span> : <Change v={d.change} t={t} />}</td>
-                <td className="num px-2.5 text-end">{n(d.liters)}</td>
-                <td className="num px-2.5 text-end">{n(d.cost)}</td>
-                <td className="num px-2.5 text-end">{n(d.price, f2)}</td>
-                <td className="num px-2.5 text-end">{d.deliveries ? f0.format(d.deliveries) : <span className="text-ink-muted">—</span>}</td>
-                <td className="num px-2.5 text-end">{n(d.pieces)}</td>
-                <td className="num px-2.5 text-end">{d.blanketShare === null || d.blanketShare === undefined ? <span className="text-ink-muted">—</span> : `${f1.format(d.blanketShare)}%`}</td>
-                <td className="num px-2.5 text-end">{n(d.lph, f1)}</td>
+                <td className="px-2">{!r.total && !d.estimated && d.status && d.status !== "none" && <StatusBadge status={d.status} label={t.diesel.status[d.status]} title={t.diesel.statusHelp[d.status]} />}</td>
+                <td className="num px-2 text-end text-[15px] font-semibold">{n(d.lp1000)}</td>
+                <td className="px-2 text-end">{d.change === null || d.change === undefined ? <span className="text-ink-muted">—</span> : <Change v={d.change} t={t} />}</td>
+                <td className="num px-2 text-end">{n(d.liters)}</td>
+                <td className="num px-2 text-end">{n(d.cost)}</td>
+                <td className="num px-2 text-end">{n(d.price, f2)}</td>
+                <td className="num px-2 text-end">{d.deliveries ? f0.format(d.deliveries) : <span className="text-ink-muted">—</span>}</td>
+                <td className="num px-2 text-end">{n(d.pieces)}</td>
+                <td className="num px-2 text-end">{d.blanketShare === null || d.blanketShare === undefined ? <span className="text-ink-muted">—</span> : `${f1.format(d.blanketShare)}%`}</td>
+                <td className="num px-2 text-end">{n(d.lph, f1)}</td>
               </tr>
             );
           })}
@@ -150,7 +155,7 @@ export function DieselTable({ t, rows, first }: { t: Dict; rows: Row[]; first: s
 }
 
 /** Diesel performance of all branches over the period: four numbers, the alerts, one chart, the table, what is missing. */
-export function Overview({ t, locale, agg, period, names, query, scope, scopeName, closed }: { t: Dict; locale: Locale; agg: A; period: Period; names: Map<number, string>; query: string; scope?: number[]; scopeName?: string; closed?: Set<number> }) {
+export function Overview({ t, locale, agg, names, query, scope, scopeName, closed }: { t: Dict; locale: Locale; agg: A; period: Period; names: Map<number, string>; query: string; scope?: number[]; scopeName?: string; closed?: Set<number> }) {
   const O = t.diesel.ov;
   const nm = (id: number) => names.get(id) ?? "";
   const href = (id: number) => `/diesel?b=${id}&${query}`;
@@ -162,7 +167,6 @@ export function Overview({ t, locale, agg, period, names, query, scope, scopeNam
   const ok = rows.filter((r) => r.valid && !r.estimated);
   const risk = ok.filter((r) => r.status === "risk").length, watch = ok.filter((r) => r.status === "watch").length;
   const saveL = ok.reduce((s, r) => s + (r.savingL ?? 0), 0), saveSAR = ok.reduce((s, r) => s + (r.savingSAR ?? 0), 0);
-  const alerts = alertsFor(t, agg, period, nm).filter((a) => inScope(a.id));
   const ranked = rows.filter((r) => r.lp1000 !== null).sort((a, b) => b.lp1000! - a.lp1000!);
   const left = leftNote(t, locale, rows);
   const unpriced = rows.reduce((s, r) => s + r.unpriced, 0);
@@ -179,20 +183,6 @@ export function Overview({ t, locale, agg, period, names, query, scope, scopeNam
         <Tile label={O.kSaving} value={saveL ? `${f0.format(saveL)} L` : "—"} tone={saveL ? "good" : undefined} sub={saveSAR ? O.savingSub(f0.format(saveSAR)) : undefined} />
       </section>
 
-      <Panel title={O.alerts}>
-        {alerts.length === 0 ? <EmptyNote>{O.noAlerts}</EmptyNote> : (
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {alerts.map((a, i) => (
-              <li key={i}>
-                <Link href={href(a.id)} className={cn("flex items-start gap-3 rounded-[14px] px-4 py-3 text-[15px] leading-7 hover:underline", a.bad ? "bg-danger-soft" : "bg-success-soft")}>
-                  {a.bad ? <AlertTriangleIcon className="mt-1.5 size-4 shrink-0 text-danger" aria-hidden /> : <CheckCircle2Icon className="mt-1.5 size-4 shrink-0 text-success" aria-hidden />}
-                  <span className="num">{a.text}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
 
       <Panel title={O.chart}>
         <p className="-mt-1 mb-3 text-sm text-ink-muted">{O.chartSub}</p>
@@ -209,5 +199,29 @@ export function Overview({ t, locale, agg, period, names, query, scope, scopeNam
         {left}
       </Panel>
     </div>
+  );
+}
+
+/** The alerts tab: what needs a look in the period, most important first (all branches or a city). */
+export function AlertsList({ t, agg, period, names, query, scope }: { t: Dict; agg: A; period: Period; names: Map<number, string>; query: string; scope?: number[] }) {
+  const O = t.diesel.ov;
+  const nm = (id: number) => names.get(id) ?? "";
+  const href = (id: number) => `/diesel?b=${id}&tab=perf&${query}`;
+  const alerts = alertsFor(t, agg, period, nm).filter((a) => !scope || scope.includes(a.id));
+  return (
+    <Panel title={O.alerts}>
+      {alerts.length === 0 ? <EmptyNote>{O.noAlerts}</EmptyNote> : (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {alerts.map((a, i) => (
+            <li key={i}>
+              <Link href={href(a.id)} className={cn("flex items-start gap-3 rounded-[14px] px-4 py-3 text-[15px] leading-7 hover:underline", a.bad ? "bg-danger-soft" : "bg-success-soft")}>
+                {a.bad ? <AlertTriangleIcon className="mt-1.5 size-4 shrink-0 text-danger" aria-hidden /> : <CheckCircle2Icon className="mt-1.5 size-4 shrink-0 text-success" aria-hidden />}
+                <span className="num">{a.text}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
